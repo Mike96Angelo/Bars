@@ -1,0 +1,36 @@
+{
+  "name": "bars",
+  "version": "0.0.0",
+  "description": "Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mike96Angelo/Bars.git"
+  },
+  "keywords": [
+    "bars",
+    "template",
+    "templating",
+    "html"
+  ],
+  "author": "Michaelangelo Jong",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Mike96Angelo/Bars/issues"
+  },
+  "homepage": "https://github.com/Mike96Angelo/Bars#readme",
+  "dependencies": {
+    "generate-js": "^2.1.1",
+    "generate-js-bindings": "^1.0.5",
+    "generate-js-events": "^2.1.2"
+  },
+  "devDependencies": {
+    "browserify": "^11.0.1",
+    "gulp": "^3.9.0",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0"
+  }
+}
