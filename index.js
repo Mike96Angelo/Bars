@@ -1,1 +1,1 @@
-module.exports = require('./lib/bars');
+module.exports = require('./lib');
