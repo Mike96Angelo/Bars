@@ -4,12 +4,30 @@
         <title></title>
     </head>
     <body>
-        <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
         <script src="bars.js"></script>
-        <style type="text/css">
-            .red {
-                background: red;
-            }
-        </style>
+        <script type="text/javascript">
+            var bars = window.Bars.create();
+
+            var template = '<span>hello, {{#if @name}}<h2>{{@name + 67}}</h2>{{else}}Person{{/if}}.</span>';
+                template = '<p>\
+                                {{#if context("cat") && context("cat/name/length") > 4}}\
+                                    {{cat/name}}\
+                                {{else}}\
+                                    Name is too short.\
+                                {{/if}}\
+                            </p>';
+
+            "cat && cat/name/length"
+            ""
+
+            window.c = bars.compile(template).render({
+                cat: {
+                    name: 'Joey'
+                }
+            });
+
+            window.c.appendTo(document.body);
+            // c.update({name:'test'});
+        </script>
     </body>
 </html>

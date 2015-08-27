@@ -2,171 +2,41 @@
 module.exports = require('./lib');
 
 },{"./lib":5}],2:[function(require,module,exports){
-var struct = {
-  'type': 'GROUP-NODE',
-  'nodes': [
-    {
-      'type': 'TAG-NODE',
-      'name': 'span',
-      'nodes': [
-        {
-          'type': 'TEXT-NODE',
-          'staticMap': {
-            'textContent': 'hello, '
-          }
-        },
-        {
-          'type': 'IF-NODE',
-          'consequent': {
-            'type': 'GROUP-NODE',
-            'nodes': [
-              {
-                'type': 'TAG-NODE',
-                'name': 'h2',
-                'nodes': [
-                  {
-                    'type': 'TEXT-NODE',
-                    'contextMap': {
-                      'textContent': 'name'
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          'alternate': {
-            'type': 'GROUP-NODE',
-            'nodes': [
-              {
-                'type': 'TEXT-NODE',
-                'staticMap': {
-                  'textContent': 'Person'
-                }
-              }
-            ]
-          }
-        },
-        {
-          'type': 'TEXT-NODE',
-          'staticMap': {
-            'textContent': '.'
-          }
-        }
-      ]
-    }
-  ]
-};
-
-
 var Generator = require('generate-js'),
     Fragment = require('./fragment'),
-    Tokenizer = require('./tokenizer');
+    Parser = require('./parser'),
+    Nodes = require('./nodes');
 
 var Bars = Generator.generate(function Bars() {
     var _ = this;
 
     _.defineProperties({
+        blocks: {
+            if: Nodes['IF-NODE']
+        }
     });
 });
 
 Bars.definePrototype({
-    // compile: function compile(template) {
-    //     var _ = this;
+    compile: function compile(template) {
+        var _ = this,
+            parsed = Parser(template);
 
-    //     _.compiled = function() {
-    //         return Fragment.create(_);
-    //     };
+        console.log(parsed);
 
-    //     return _;
-    // },
+        return Fragment.create(_, parsed );
+    },
 
-    parse: function parse(template) {
+    registerBlock: function registerBlock(name, block) {
         var _ = this;
 
-        return _.t.parse(template);
+        _.blocks[name] = block;
     },
 });
 
-module.exports = Bars;
+module.exports = window.Bars = Bars;
 
-var template = '<span>hello, {{if name}}<h2>{{name}}</h2>{{else}}Person{{/if}}.</span>';
-var b = Bars.create();
-var c = b.parse(template);
-
-
-function parse(template) {
-    var tree = {
-            nodes: []
-        },
-        index = 0,
-        length = template.length,
-        ch, token;
-
-    function parseTextNode(tree) {
-        token = {
-            type: 'TEXT-NODE',
-            staticMap: {
-                textContent: ''
-            }
-        };
-
-        for (; index < length; index++) {
-            ch = template[index];
-
-            if (ch === '<') {
-                index--;
-                break;
-            }
-
-            token.staticMap.textContent += ch;
-        }
-
-        tree.nodes.push(token);
-    }
-
-    function parseTagNode(tree) {
-        token = {
-            type: 'TAG-NODE',
-            name: ''
-        };
-
-        for (; index < length; index++) {
-            ch = template[index];
-
-            token.name += ch;
-
-            if (ch === '>') {
-                break;
-            }
-        }
-
-        tree.nodes.push(token);
-    }
-
-    for (; index < length; index++) {
-        ch = template[index];
-
-        switch (ch) {
-        case '<':
-            parseTagNode(tree);
-            break;
-        default:
-            parseTextNode(tree);
-        }
-    }
-
-    return tree;
-}
-
-
-
-console.log(c)
-// window.frag = Fragment.create(c);
-// var aa = window.aa = frag.render();
-// aa.appendTo(document.body);
-// aa.update({name:'test'});
-
-},{"./fragment":4,"./tokenizer":13,"generate-js":14}],3:[function(require,module,exports){
+},{"./fragment":4,"./nodes":8,"./parser":12,"generate-js":13}],3:[function(require,module,exports){
 var Generator = require('generate-js');
 
 function resolve(basepath, path) {
@@ -191,7 +61,7 @@ var Context = Generator.generate(
     function Context(data) {
         var _ = this;
 
-        _.data = data;
+        _.data = data || {};
     }
 );
 
@@ -222,15 +92,16 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":14}],4:[function(require,module,exports){
+},{"generate-js":13}],4:[function(require,module,exports){
 var Generator = require('generate-js'),
     Nodes = window.Nodes = require('./nodes'),
     Context = require('./context');
 
-var Fragment = Generator.generate(function Fragment(struct) {
+var Fragment = Generator.generate(function Fragment(bars, struct) {
     var _ = this;
 
     _.defineProperties({
+        bars: bars,
         struct: struct
     });
 });
@@ -238,22 +109,33 @@ var Fragment = Generator.generate(function Fragment(struct) {
 Fragment.definePrototype({
     render: function render(data) {
         var _ = this,
-            context = Context.create(data);
+            context = Context.create(data),
+            dom = _.build(context);
 
-        return _.build(context);
+        if (data) dom.update(data);
+
+        return dom;
     },
 
     build: function build(context, struct) {
         var _ = this,
-            i;
+            i,
+            node;
 
         struct = struct || _.struct;
 
-        var node = Nodes[struct.type].create(_, context, {
-            contextMap: struct.contextMap,
-            staticMap: struct.staticMap,
-            name: struct.name
-        });
+        if (struct.type === 'BLOCK-NODE') {
+            node = _.bars.blocks[struct.name].create(_, context, {
+                blockString: struct.blockString
+            });
+        } else {
+            node = Nodes[struct.type].create(_, context, {
+                contextMap: struct.contextMap,
+                staticMap: struct.staticMap,
+                name: struct.name
+            });
+        }
+
 
         if (node.type === 'IF-NODE') {
             if (struct.consequent && struct.consequent.nodes) {
@@ -279,10 +161,10 @@ Fragment.definePrototype({
 
 module.exports = Fragment;
 
-},{"./context":3,"./nodes":8,"generate-js":14}],5:[function(require,module,exports){
-require('./compilr');
+},{"./context":3,"./nodes":8,"generate-js":13}],5:[function(require,module,exports){
+require('./bars');
 
-},{"./compilr":2}],6:[function(require,module,exports){
+},{"./bars":2}],6:[function(require,module,exports){
 var Node = require('./node');
 
 /**
@@ -334,7 +216,7 @@ GroupNode.definePrototype({
 
 module.exports = GroupNode;
 
-},{"./node":10}],7:[function(require,module,exports){
+},{"./node":9}],7:[function(require,module,exports){
 var Node  = require('./node'),
     Group = require('./group');
 
@@ -351,7 +233,7 @@ var IfNode = Node.generate(function IfNode(fragment, context, options) {
     _.consequent.parent = _;
     _.alternate.parent = _;
 
-    _.con =true;
+    _.con = true;
 });
 
 IfNode.definePrototype({
@@ -364,22 +246,20 @@ IfNode.definePrototype({
     },
 
     condition: function condition(context) {
-        var _ = this,
-            con = !!window.IF;
+        var _ = this;
 
-        if (con) {
+        _.con = eval(_.blockString);
+
+        if (_.con) {
             _.consequent.update(context);
         } else {
             _.alternate.update(context);
         }
 
-        _.con = con;
-
         _._elementAppendTo(_.$parent);
     },
     _elementAppendTo: function _elementAppendTo(parent) {
         var _ = this;
-        console.log(_.type, _, parent);
 
         if (_.con) {
             _.alternate._elementRemove();
@@ -404,91 +284,22 @@ IfNode.definePrototype({
         _.$parent = null;
 
     },
+
 });
 
 module.exports = IfNode;
 
-},{"./group":6,"./node":10}],8:[function(require,module,exports){
+},{"./group":6,"./node":9}],8:[function(require,module,exports){
 
 exports['GROUP-NODE'] = require('./group');
 exports['IF-NODE']    = require('./if');
-exports['LOOP-NODE']  = require('./loop');
+// exports['LOOP-NODE']  = require('./loop');
 exports['TEXT-NODE']  = require('./text');
 exports['TAG-NODE']   = require('./tag');
+// exports['BLOCK-NODE']   = require('./block');
 
 
-},{"./group":6,"./if":7,"./loop":9,"./tag":11,"./text":12}],9:[function(require,module,exports){
-var Node = require('./node');
-var GroupNode = require('./group');
-
-var LoopNode = Node.generate(function LoopNode(fragment, context) {
-    var _ = this;
-
-    _.supercreate();
-
-    _.defineProperties({
-        alternate: [],
-        consequent: [],
-    });
-});
-
-LoopNode.definePrototype({
-    type: 'LOOP-NODE',
-
-    update: function(data) {
-        var _ = this,
-            i,
-            keys;
-
-        if (data instanceof Array) {
-            for (i = 0; i < data.length; i++) {
-                if (_.consequent[i]) {
-                    _.append(_.consequent[i].update(data[i]));
-                } else {
-                    _.append(_.fragment.render(data[i]));
-                }
-            }
-
-            for (i = data.length; i < _.consequent.length; i++) {
-                _.consequent[i].remove();
-            }
-
-            for (i = 0; i < _.alternate.length; i++) {
-                _.alternate[i].remove();
-            }
-        } else if (data && typeof data === 'object') {
-
-            keys = Object.keys(data);
-
-            for (i = 0; i < keys.length; i++) {
-                if (_.consequent[i]) {
-                    _.append(_.consequent[i].update(data[keys[i]]));
-                } else {
-                    _.append(_.fragment.render(data[keys[i]]));
-                }
-            }
-
-            for (i = keys.length; i < _.consequent.length; i++) {
-                _.consequent[i].remove();
-            }
-
-            for (i = 0; i < _.alternate.length; i++) {
-                _.alternate[i].remove();
-            }
-        } else {
-            for (i = 0; i < _.consequent.length; i++) {
-                _.consequent[i].remove();
-            }
-            for (i = 0; i < _.alternate.length; i++) {
-                _.append(_.alternate[i]);
-            }
-        }
-    }
-});
-
-module.exports = LoopNode;
-
-},{"./group":6,"./node":10}],10:[function(require,module,exports){
+},{"./group":6,"./if":7,"./tag":10,"./text":11}],9:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Node = Generator.generate(function Node(fragment, context, options) {
@@ -624,7 +435,7 @@ Node.definePrototype({
 
 module.exports = Node;
 
-},{"generate-js":14}],11:[function(require,module,exports){
+},{"generate-js":13}],10:[function(require,module,exports){
 var Node = require('./node');
 
 var TagNode = Node.generate(function TagNode(fragment, context, options) {
@@ -655,7 +466,7 @@ TagNode.definePrototype({
 
 module.exports = TagNode;
 
-},{"./node":10}],12:[function(require,module,exports){
+},{"./node":9}],11:[function(require,module,exports){
 var Node = require('./node');
 
 var TextNode = Node.generate(function TextNode(fragment, context, options) {
@@ -674,370 +485,547 @@ TextNode.definePrototype({
 
 module.exports = TextNode;
 
-},{"./node":10}],13:[function(require,module,exports){
-function Tokenizer(tokenDeffs) {
-    if (!(this instanceof Tokenizer)) {
-        return new Tokenizer(tokenDeffs);
+},{"./node":9}],12:[function(require,module,exports){
+var selfClosers = [
+    'area',
+    'base',
+    'br',
+    'col',
+    'command',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'keygen',
+    'link',
+    'meta',
+    'param',
+    'source',
+    'track',
+    'wbr'
+];
+
+function parse(tree, index, length, buffer, close, indent) {
+    console.log(indent+'parse');
+    indent += '  ';
+    tree = tree || [];
+    index = index || 0;
+    buffer = buffer || '';
+    length = length || buffer.length;
+
+    var ch,
+        oldIndex;
+
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        switch (ch) {
+        case '<':
+            oldIndex = index;
+            index = parseTagClose(tree, index, length, buffer, close, indent);
+            if (close && close.closed) {
+                break loop;
+            }
+            if (oldIndex !== index || index >= length) break;
+            /*falls through*/
+        case '<':
+            oldIndex = index;
+            index = parseTag(tree, index, length, buffer, indent);
+            if (oldIndex !== index || index >= length) break;
+            /*falls through*/
+        case '{':
+            oldIndex = index;
+            var oldElsed = close && close.elsed;
+            index = parseBarsBlockElse(tree, index, length, buffer, close, indent);
+            if (close && close.elsed && !oldElsed) {
+                break loop;
+            }
+            if (oldIndex !== index || index >= length) break;
+            /*falls through*/
+        case '{':
+            oldIndex = index;
+            index = parseBarsBlockClose(tree, index, length, buffer, close, indent);
+            if (close && close.closed) {
+                break loop;
+            }
+            if (oldIndex !== index || index >= length) break;
+            /*falls through*/
+        case '{':
+            oldIndex = index;
+            index = parseBarsBlock(tree, index, length, buffer, indent);
+            if (oldIndex !== index || index >= length) break;
+            /*falls through*/
+        case '{':
+            oldIndex = index;
+            index = parseBarsInsert(tree, index, length, buffer, indent);
+            if (oldIndex !== index || index >= length) break;
+            /*falls through*/
+        default:
+            index = parseText(tree, index, length, buffer, indent);
+        }
     }
 
-    this.tokenDeffs = [];
-    tokenDeffs && this.addTokenDeff(tokenDeffs);
+console.log(indent+'<<<');
+    return index;
+}
+var validTagName = /^[_A-Za-z0-9-]$/;
+function parseTag(tree, index, length, buffer, indent) {
+    console.log(indent+'parseTag');
+    tree = tree || [];
+    index = index || 0;
+    buffer = buffer || '';
+    length = length || buffer.length;
+
+    var ch,
+        token = {
+            type: 'TAG-NODE',
+            name: '',
+            nodes: []
+        },
+        nameDone = false,
+        end = false;
+
+    index++; // move past <
+    /* Get Name */
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (!nameDone && validTagName.test(ch)) {
+            token.name += ch;
+        } else {
+            nameDone = true;
+        }
+
+        if (ch === '>') {
+            end = true;
+            break;
+        }
+    }
+
+    if (!end) {
+        throw new SyntaxError('Unexpected end of input.');
+    }
+
+    if (token.name === 'script' || token.name === 'style') {
+        var textToken = {
+            type: 'TEXT-NODE',
+            staticMap: {
+                textContent: ''
+            }
+        };
+
+        for (; index < length; index++) {
+            ch = buffer[index];
+
+            if (ch === '<') {
+                index = parseTagClose(tree, index, length, buffer, token, true, indent);
+
+                if (token.closed) {
+                    // delete token.closed;
+                    break;
+                }
+            }
+
+            textToken.staticMap.textContent += ch;
+        }
+
+        if (textToken.staticMap.textContent) {
+            token.nodes.push(textToken);
+        }
+    } else if (selfClosers.indexOf(token.name) === -1) {
+        index++;
+        index = parse(token.nodes, index, length, buffer, token, indent);
+    }
+
+    if (token.closed) {
+        // delete token.closed;
+        tree.push(token);
+    } else {
+        throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
+    }
+
+
+    return index;
 }
 
-Tokenizer.Tokens = function Tokens(range, tokens) {
-    var i;
-    if (!(this instanceof Tokenizer.Tokens)) {
-        return new Tokenizer.Tokens(range, tokens);
-    }
+function parseTagClose(tree, index, length, buffer, close, noErrorOnMismatch, indent) {
+    tree = tree || [];
+    index = index || 0;
+    buffer = buffer || '';
+    length = length || buffer.length;
 
-    if (!(range instanceof Tokenizer.Range))
-        throw new TypeError('First arument must be of type \'Tokenizer.Range\'.');
-    if (!(tokens instanceof Array))
-        throw new TypeError('Second arument must be of type \'Array\'.');
-    for (i = 0; i < tokens.length; i++) {
-        if (!(tokens[i] instanceof Tokenizer.Token))
-            throw new TypeError('Second arument must be an array of only \'Tokenizer.Token\' type.');
-    }
+    if (buffer[index + 1] !== '/') return index;
 
-    this.range  = range;
-    this.tokens = tokens;
-};
+    console.log(indent+'parseTagClose', noErrorOnMismatch);
+    var ch,
+        token = {
+            type: 'TAG-NODE',
+            name: ''
+        },
+        nameDone = false,
+        oldIndex = index,
+        end = false;
 
-Tokenizer.Token = function Token(id, str, range, ignore) {
-    if (!(this instanceof Tokenizer.Token)) {
-        return new Tokenizer.Token(id, str, range, ignore);
-    }
+    index+=2; // move past </
+    /* Get Name */
+    for (; index < length; index++) {
+        ch = buffer[index];
 
-    if (!(typeof id === 'string'))
-        throw new TypeError('First arument must be of type \'String\'.');
-    if (!(typeof str === 'string'))
-        throw new TypeError('Second arument must be of type \'String\'.');
-    if (!(range instanceof Tokenizer.Range))
-        throw new TypeError('Thrid arument must be of type \'Tokenizer.Range\'.');
-
-    this.id    = id;
-    this.str   = str;
-    this.range = range;
-    this.ignore = !!ignore;
-};
-
-Tokenizer.Range = function Range(sLine, eLine, sCol, eCol, sIndex, eIndex) {
-    var i;
-    if (!(this instanceof Tokenizer.Range)) {
-        return new Tokenizer.Range(sLine, eLine, sCol, eCol, sIndex, eIndex);
-    }
-
-    for (var i = 0; i < arguments.length; i++) {
-        if (!(typeof arguments[i] === 'number'))
-            throw new TypeError('Arument ' + i + ' must be of type \'Number\'.');
-    }
-
-    this.sLine  = sLine;
-    this.eLine  = eLine;
-    this.sCol   = sCol;
-    this.eCol   = eCol;
-    this.sIndex = sIndex;
-    this.eIndex = eIndex;
-};
-
-Tokenizer.prototype.addTokenDeff = function (tokenDeffs) {
-    var i, tokenDeff = {};
-    if (tokenDeffs instanceof Array) {
-        for (i = 0; i < tokenDeffs.length; i++) {
-            this.addTokenDeff(tokenDeffs[i]);
-        }
-    } else if (tokenDeffs instanceof Object) {
-        if ('id' in tokenDeffs && 'sChar' in tokenDeffs) {
-            tokenDeff.id    = tokenDeffs.id;
-            tokenDeff.sChar = tokenDeffs.sChar;
-
-            if ('pToken' in tokenDeffs)
-                tokenDeff.pToken = tokenDeffs.pToken;
-            if ('tChar' in tokenDeffs)
-                tokenDeff.tChar = tokenDeffs.tChar;
-            if ('match' in tokenDeffs)
-                tokenDeff.match = tokenDeffs.match;
-            if ('open' in tokenDeffs)
-                tokenDeff.open = tokenDeffs.open;
-            if ('close' in tokenDeffs)
-                tokenDeff.close = tokenDeffs.close;
-            if ('lines' in tokenDeffs)
-                tokenDeff.lines = tokenDeffs.lines;
-            if ('ignore' in tokenDeffs)
-                tokenDeff.ignore = tokenDeffs.ignore;
-            if ('imp' in tokenDeffs)
-                tokenDeff.imp = tokenDeffs.imp;
-            else
-                tokenDeff.imp = 0;
-
-            this.tokenDeffs.push(tokenDeff);
-
-            this.tokenDeffs.sort(function (a, b) {
-                return b.imp - a.imp;
-            });
-        }
-    } else {
-        throw new TypeError('First arument must be of type \'Array\' or \'Object\'');
-    }
-};
-
-Tokenizer.prototype.parse = function (data) {
-
-    data = data.replace(/\r?\n|\n/g, '\n');
-
-    data = data[data.length-1] === '\n' ? data : data + '\n';
-
-    var _ = this,
-        tokens = [],
-
-    // indexers
-        index  = 0,
-        i      = 0,
-        line   = 1,
-        column = 1,
-    // current token
-        token,
-        id,
-        str,
-        range,
-    // current range
-        sLine,
-        eLine,
-        sCol,
-        eCol,
-        sIndex,
-        eIndex;
-
-    function isEscaped(myIndex) {
-        myIndex = myIndex || index;
-        return data[myIndex] === '\\';
-    }
-
-    function nextChar() {
-        index += 1;
-        column += 1;
-        if (/^\n$/.test(data[index])) {
-            line += 1;
-            column = 0;
-        }
-        return data[index];
-    }
-
-    function getMatchToken(tokenDeff) {
-        var i,
-            validToken,
-            myIndex  = index,
-            myLine   = line,
-            myColumn = column,
-
-            matchStr;
-
-            str = data[myIndex];
-
-        function myNextChar() {
-            myIndex += 1;
-            myColumn += 1;
-            if (/^\n$/.test(data[myIndex])) {
-                myLine += 1;
-                myColumn = 0;
-            }
-            return data[myIndex];
-        }
-
-        if ('match' in tokenDeff && 'tChar' in tokenDeff) {
-            sLine  = myLine;
-            sCol   = myColumn;
-            sIndex = myIndex;
-
-            while (tokenDeff.tChar.test(data[myIndex + 1]) && myIndex < data.length) {
-                str += myNextChar() || '';
-            }
-
-            if (tokenDeff.match.test(str)) {
-                eLine  = myLine;
-                eCol   = myColumn;
-                eIndex = myIndex;
-
-                range = Tokenizer.Range(sLine, eLine, sCol, eCol, sIndex, eIndex);
-
-                index  = myIndex;
-                line   = myLine;
-                column = myColumn;
-
-                validToken = true;
-            }
-
-        } else if ('open' in tokenDeff && 'close' in tokenDeff) {
-
-            if (!(tokenDeff.open instanceof RegExp && tokenDeff.close instanceof RegExp)) return null;
-
-            if (data.substr(myIndex).search(tokenDeff.open) === 0) {
-
-                sLine  = myLine;
-                sCol   = myColumn;
-                sIndex = myIndex;
-
-                matchStr = data.substr(myIndex).match(tokenDeff.open)[0];
-
-                for (i = 1; i < matchStr.length; i++) {
-                    str += myNextChar() || '';
-                }
-                if (tokenDeff.lines) {
-
-                    while (myIndex < data.length) {
-                        if (isEscaped(myIndex)) {
-                        // escaped take both chars
-                            str += myNextChar() || '';
-                            str += myNextChar() || '';
-                        } else if (data.substr(myIndex).search(tokenDeff.close) === 0 && sIndex !== myIndex) {
-                            matchStr = data.substr(myIndex).match(tokenDeff.close)[0];
-                            for (i = 1; i < matchStr.length; i++) {
-                                str += myNextChar() || '';
-                            }
-
-                            if (tokenDeff.match) {
-                                validToken = tokenDeff.match.test(str);
-                            } else {
-                                validToken = true;
-                            }
-
-                            break;
-                        } else {
-                            str += myNextChar() || '';
-                        }
-                    }
-
-                } else {
-
-                    while (myIndex < data.length && !(/^\n$/.test(data[myIndex]))) {
-                        if (isEscaped(myIndex)) {
-                        // escaped take both chars
-                            str += myNextChar() || '';
-                            str += myNextChar() || '';
-                        } else if (data.substr(myIndex).search(tokenDeff.close) === 0 && sIndex !== myIndex) {
-                            matchStr = data.substr(myIndex).match(tokenDeff.close)[0];
-                            for (i = 1; i < matchStr.length; i++) {
-                                str += myNextChar() || '';
-                            }
-
-                            if (tokenDeff.match) {
-                                validToken = tokenDeff.match.test(str);
-                            } else {
-                                validToken = true;
-                            }
-
-                            break;
-                        } else {
-                            str += myNextChar() || '';
-                        }
-                    }
-                }
-
-                eLine  = myLine;
-                eCol   = myColumn;
-                eIndex = myIndex;
-
-                range = Tokenizer.Range(sLine, eLine, sCol, eCol, sIndex, eIndex);
-            }
-        }
-
-        if (validToken) {
-
-            var ti=1;
-            if (tokenDeff.pToken) {
-                do {
-                    if (tokenDeff.pToken.indexOf(tokens[tokens.length-ti] ? tokens[tokens.length-ti].id : 'SOF') !== -1) {
-                        validToken = true;
-                        break;
-                    } else {
-                        validToken = false;
-                    }
-                    ti++;
-                } while(tokens[tokens.length-ti+1] && tokens[tokens.length-ti+1].id === "WHITESPACE");
-            }
-
-            if (validToken) {
-                index  = myIndex;
-                line   = myLine;
-                column = myColumn;
-
-                return Tokenizer.Token(tokenDeff.id, str, range, tokenDeff.ignore);
-            }
-        }
-
-        return null;
-    }
-
-    while (index < data.length) {
-        token = null;
-        if (isEscaped()) {
-            sLine  = line;
-            sCol   = column;
-            sIndex = index;
-
-            str    = data[index] + nextChar();
-
-            eLine  = line;
-            eCol   = column;
-            eIndex = index;
-
-            range = Tokenizer.Range(sLine, eLine, sCol, eCol, sIndex, eIndex);
-
-            token = Tokenizer.Token('ILLEGAL', str, range);
+        if (!nameDone && validTagName.test(ch)) {
+            token.name += ch;
         } else {
-            for (i = 0; i < _.tokenDeffs.length; i++) {
-                if (_.tokenDeffs[i].sChar.test(data[index])) {
-                    token = getMatchToken(_.tokenDeffs[i]);
-                    if (token !== null) {
-                        break;
-                    }
+            nameDone = true;
+        }
+
+        if (ch === '>') {
+            end = true;
+            break;
+        }
+    }
+
+    if (!end) {
+        throw new SyntaxError('Unexpected end of input.');
+    }
+
+    if (!close) {
+        throw new SyntaxError('Unexpected closing tag: \'' +token.name+ '\'.');
+    }
+
+    if (token.type === close.type && token.name === close.name) {
+        close.closed = true;
+    } else if (noErrorOnMismatch) {
+        return oldIndex;
+    } else {
+        throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
+    }
+
+    return index;
+}
+
+function parseText(tree, index, length, buffer, indent) {
+    tree = tree || [];
+    index = index || 0;
+    buffer = buffer || '';
+    length = length || buffer.length;
+
+    var ch,
+        token = {
+            type: 'TEXT-NODE',
+            staticMap: {
+                textContent: ''
+            }
+        };
+
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '<' || ch === '{') {
+            index--;
+            break;
+        }
+
+        token.staticMap.textContent += ch;
+    }
+
+    if (token.staticMap.textContent) {
+    console.log(indent+'parseText');
+        tree.push(token);
+    }
+
+    return index;
+}
+
+function parseBarsInsert(tree, index, length, buffer, indent) {
+    console.log(indent+'parseBarsInsert');
+    tree = tree || [];
+    index = index || 0;
+    buffer = buffer || '';
+    length = length || buffer.length;
+
+    if (buffer[index + 1] !== '{') {
+        throw new SyntaxError('Unexpected end of input.');
+    }
+
+    var ch,
+        token = {
+            type: 'TEXT-NODE',
+            contextMap: {
+                textContent: ''
+            }
+        }, endChars = 0;
+
+    // move past {{
+    index+=2;
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '}') {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer[index];
+
+                if (ch === '}') {
+                    endChars++;
+                } else {
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                }
+
+                if (endChars === 2) {
+                    break loop;
                 }
             }
+        }
+        token.contextMap.textContent += ch;
+    }
 
-            if (token === null) {
+    tree.push(token);
 
-                sLine  = line;
-                sCol   = column;
-                sIndex = index;
+    return index;
+}
 
-                str    = data[index];
+function parseBarsBlock(tree, index, length, buffer, indent) {
+    tree = tree || [];
+    index = index || 0;
+    buffer = buffer || '';
+    length = length || buffer.length;
 
-                eLine  = line;
-                eCol   = column;
-                eIndex = index;
+    if (buffer[index + 1] !== '{') {
+        throw new SyntaxError('Unexpected end of input.');
+    }
 
-                range = Tokenizer.Range(sLine, eLine, sCol, eCol, sIndex, eIndex);
+    if (buffer[index + 2] !== '#') {
+        return index;
+    }
+    console.log(indent+'parseBarsBlock');
 
-                token = Tokenizer.Token('ILLEGAL', str, range);
+    var ch,
+        token = {
+            type: 'BLOCK-NODE',
+            name: '',
+            blockString: '',
+            consequent: {
+                type: 'GROUP-NODE',
+                nodes: []
+            },
+            alternate: {
+                type: 'GROUP-NODE',
+                nodes: []
+            }
+        }, endChars = 0;
 
+    // move past {{#
+    index += 3;
+
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (validTagName.test(ch)) {
+            token.name += ch;
+        } else {
+            break;
+        }
+    }
+
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '}') {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer[index];
+
+                if (ch === '}') {
+                    endChars++;
+                } else {
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                }
+
+                if (endChars === 2) {
+                    break loop;
+                }
             }
         }
 
-        if (token.id==='ILLEGAL') throw new SyntaxError('Unexpected ILLEGAL token '+token.str+' at file.js:'+token.range.sLine+':'+token.range.sCol);
-
-        tokens.push(token);
-        nextChar();
+        token.blockString += ch;
     }
 
-    range = Tokenizer.Range(0, line, 0, 0, 0, data.length);
-    return Tokenizer.Tokens(range, tokens);
-};
+    index++;
+    index = parse(token.consequent.nodes, index, length, buffer, token, indent);
 
-Tokenizer.prototype.stringify = function (object) {
-    var str = '', i;
-    if (!(object instanceof Tokenizer.Tokens))
-        throw new TypeError('First arument must be of type \'Tokenizer.Tokens\'.');
-
-    for (i = 0; i < object.tokens.length; i++) {
-        str += object.tokens[i].str;
+    if (token.elsed && !token.closed) {
+        index++;
+        index = parse(token.alternate.nodes, index, length, buffer, token, indent);
     }
 
-    return str;
-};
+    console.log(token.closed, index, buffer[index], buffer.split('').slice(Math.max(index-2, 0), Math.min(index+3, length)));
 
-module.exports = Tokenizer;
+    if (token.closed) {
+        // delete token.closed;
+        // delete token.elsed;
+        tree.push(token);
+    } else {
+        throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
+    }
 
-},{}],14:[function(require,module,exports){
+    return index;
+}
+
+function parseBarsBlockClose(tree, index, length, buffer, close, noErrorOnMismatch, indent) {
+    tree = tree || [];
+    index = index || 0;
+    buffer = buffer || '';
+    length = length || buffer.length;
+
+    if (buffer[index + 1] !== '{') {
+        throw new SyntaxError('Unexpected end of input.');
+    }
+
+    if (buffer[index + 2] !== '/') {
+        return index;
+    }
+    console.log(indent+'parseBarsBlockClose', noErrorOnMismatch);
+
+
+    var ch,
+        token = {
+            type: 'BLOCK-NODE',
+            name: ''
+        },
+        endChars = 0,
+        oldIndex = index;
+
+    // move past {{#
+    index += 3;
+
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (validTagName.test(ch)) {
+            token.name += ch;
+        } else {
+            break;
+        }
+    }
+
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '}') {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer[index];
+
+                if (ch === '}') {
+                    endChars++;
+                } else {
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                }
+
+                if (endChars === 2) {
+                    break loop;
+                }
+            }
+        }
+    }
+
+    if (!close) {
+        throw new SyntaxError('Unexpected closing tag: \'' +token.name+ '\'.');
+    }
+
+
+    console.log(token.type,close.type,token.name,close.name);
+
+    if (token.type === close.type && token.name === close.name) {
+        close.closed = true;
+    } else if (noErrorOnMismatch) {
+        return oldIndex;
+    } else {
+        throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
+    }
+
+    return index;
+}
+
+function parseBarsBlockElse(tree, index, length, buffer, close, indent) {
+    tree = tree || [];
+    index = index || 0;
+    buffer = buffer || '';
+    length = length || buffer.length;
+
+    if (buffer[index + 1] !== '{') {
+        throw new SyntaxError('Unexpected end of input.');
+    }
+
+    var ch,
+        name = '',
+        endChars = 0,
+        oldIndex = index;
+
+    // move past {{
+    index += 2;
+
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '}') {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer[index];
+
+                if (ch === '}') {
+                    endChars++;
+                } else {
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                }
+
+                if (endChars === 2) {
+                    break loop;
+                }
+            }
+        }
+        name += ch;
+    }
+
+    if (close && close.type === 'BLOCK-NODE' && name === 'else') {
+        if (close.elsed) {
+            throw new SyntaxError('Unexpected else token.');
+        }
+
+        close.elsed = true;
+
+        console.log(indent+'parseBarsBlockElse');
+        return index;
+    } else if (!close) {
+        throw new SyntaxError('Unexpected else tag.');
+    } else {
+        return oldIndex;
+    }
+}
+
+function compile(buffer) {
+    var tree = {
+        type: 'GROUP-NODE',
+        nodes: []
+    };
+
+    parse(tree.nodes, 0, buffer.length, buffer, null, '');
+
+    console.log('compile');
+    return tree;
+    // return JSON.stringify(tree, null, 2);
+}
+
+module.exports = compile;
+
+},{}],13:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
