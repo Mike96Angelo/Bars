@@ -9,21 +9,33 @@
             var bars = window.Bars.create();
 
             var template = '<span>hello, {{#if @name}}<h2>{{@name + 67}}</h2>{{else}}Person{{/if}}.</span>';
-                template = '<p>\
-                                {{#if context("cat") && context("cat/name/length") > 4}}\
-                                    {{cat/name}}\
+                template = '<ul>\
+                                {{#with cat}}\
+                                    <li>{{name}}</li>\
                                 {{else}}\
-                                    Name is too short.\
-                                {{/if}}\
-                            </p>';
+                                    No cat here.\
+                                {{/with}}\
+                            </ul>';
 
-            "cat && cat/name/length"
-            ""
+            window.joey = {
+                name: 'Joey'
+            };
+
+            window.cats = [
+                {
+                    name: 'Joel'
+                },
+                {
+                    name: 'Joelle'
+                },
+                window.joey,
+                {
+                    name: 'Joe'
+                }
+            ];
 
             window.c = bars.compile(template).render({
-                cat: {
-                    name: 'Joey'
-                }
+                cat: window.joey
             });
 
             window.c.appendTo(document.body);

@@ -1,7 +1,7 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 module.exports = require('./lib');
 
-},{"./lib":5}],2:[function(require,module,exports){
+},{"./lib":4}],2:[function(require,module,exports){
 var Generator = require('generate-js'),
     Fragment = require('./fragment'),
     Parser = require('./parser'),
@@ -12,7 +12,10 @@ var Bars = Generator.generate(function Bars() {
 
     _.defineProperties({
         blocks: {
-            if: Nodes['IF-NODE']
+            if: Nodes['IF-NODE'],
+            unless: Nodes['UNLESS-NODE'],
+            each: Nodes['EACH-NODE'],
+            with: Nodes['WITH-NODE'],
         }
     });
 });
@@ -36,8 +39,206 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"./fragment":4,"./nodes":8,"./parser":12,"generate-js":13}],3:[function(require,module,exports){
-var Generator = require('generate-js');
+},{"./fragment":3,"./nodes":9,"./parser":15,"generate-js":16}],3:[function(require,module,exports){
+var Generator = require('generate-js'),
+    Nodes = window.Nodes = require('./nodes');
+
+var Fragment = Generator.generate(function Fragment(bars, struct) {
+    var _ = this;
+
+    _.defineProperties({
+        bars: bars,
+        struct: struct
+    });
+});
+
+Fragment.definePrototype({
+    render: function render(data) {
+        var _ = this,
+            dom = _.build();
+
+        if (data) dom.update(data);
+
+        return dom;
+    },
+
+    build: function build(struct) {
+        var _ = this,
+            i,
+            node;
+
+        struct = struct || _.struct;
+
+        if (struct.type === 'BLOCK-NODE') {
+            node = _.bars.blocks[struct.name].create({
+                blockString: struct.blockString,
+                nodesFrag: Fragment.create(_.bars, struct.nodesFrag),
+                alternateFrag: Fragment.create(_.bars, struct.alternateFrag),
+            });
+        } else {
+            node = Nodes[struct.type].create({
+                contextMap: struct.contextMap,
+                staticMap: struct.staticMap,
+                name: struct.name
+            });
+
+            if (struct.nodes) {
+                for (i = 0; i < struct.nodes.length; i++) {
+                    node.appendChild( _.build(struct.nodes[i]) );
+                }
+            }
+        }
+
+        return node;
+    }
+});
+
+module.exports = Fragment;
+
+},{"./nodes":9,"generate-js":16}],4:[function(require,module,exports){
+require('./bars');
+
+},{"./bars":2}],5:[function(require,module,exports){
+var Node  = require('./node');
+
+var BlockNode = Node.generate(function BlockNode(options) {
+    var _ = this;
+
+    _.supercreate(options);
+
+    _.defineProperties({
+        alternate: _.alternateFrag.render()
+    });
+
+    _.con = true;
+
+    _.appendChild(_.nodesFrag.render());
+});
+
+BlockNode.definePrototype({
+    type: 'BLOCK-NODE',
+
+    update: function(context) {
+        var _ = this,
+            i;
+
+        _.con = _.condition(context);
+
+        if (_.con) {
+            for (i = 0; i < _.nodes.length; i++) {
+                _.nodes[i].update(context);
+            }
+        } else {
+            _.alternate.update(context);
+        }
+
+        _._elementAppendTo(_.$parent);
+    },
+
+    condition: function condition(context) {
+        var _ = this;
+        return eval(_.blockString);
+    },
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this,
+            i;
+
+        if (_.con) {
+            for (i = 0; i < _.nodes.length; i++) {
+                _.nodes[i]._elementAppendTo(parent);
+            }
+
+            _.alternate._elementRemove();
+
+            _.$parent = parent;
+
+        } else {
+            for (i = 0; i < _.nodes.length; i++) {
+                _.nodes[i]._elementRemove();
+            }
+
+            _.alternate._elementAppendTo(parent);
+
+            _.$parent = parent;
+        }
+    },
+    _elementRemove: function _elementRemove() {
+        var _ = this,
+            i;
+
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementRemove();
+        }
+
+        _.alternate._elementRemove();
+
+        _.$parent = null;
+
+    }
+
+});
+
+module.exports = BlockNode;
+
+},{"./node":10}],6:[function(require,module,exports){
+var BlockNode  = require('./block');
+
+var EachNode = BlockNode.generate(function EachNode(options) {
+    var _ = this;
+
+    _.supercreate(options);
+});
+
+EachNode.definePrototype({
+    name: 'each',
+
+    condition: function condition(context) {
+        var _ = this;
+
+        return context(_.blockString).length;
+    },
+
+     update: function(context) {
+        var _ = this,
+            i,
+            data = context(_.blockString);
+
+            context = context.getContext(_.blockString);
+
+        if (typeof data === 'object') {
+            var keys = Object.keys(data);
+
+            if (keys.length) {
+                _.con = true;
+
+                for (i = 0; i < keys.length; i++) {
+                    if (_.nodes[i]) {
+                        _.nodes[i].update(context.getContext(keys[i]));
+                    } else {
+                        _.appendChild(_.nodesFrag.render(context.getContext(keys[i])));
+                    }
+                }
+
+                for (i = data.length; i < _.nodes.length; i++) {
+                    _.nodes[i].remove();
+                }
+            } else {
+                _.alternate.update(context);
+                _.con = false;
+            }
+        } else {
+            _.alternate.update(context);
+            _.con = false;
+        }
+
+        _._elementAppendTo(_.$parent);
+    },
+});
+
+module.exports = EachNode;
+
+},{"./block":5}],7:[function(require,module,exports){
+var Node = require('./node');
 
 function resolve(basepath, path) {
     var splitBasepath = basepath.split('/'),
@@ -47,7 +248,10 @@ function resolve(basepath, path) {
         splitPath.shift();
         return splitPath;
     }
-    splitBasepath.shift();
+
+    if (!basepath || basepath[0] === '/') {
+        splitBasepath.shift();
+    }
 
     while (splitPath[0] =='..') {
         splitPath.shift();
@@ -57,15 +261,55 @@ function resolve(basepath, path) {
     return splitBasepath.concat(splitPath);
 }
 
-var Context = Generator.generate(
-    function Context(data) {
+/**
+ * <span>hello, {{name}}.</span>
+ */
+
+var FragNode = Node.generate(function FragNode(options) {
+    var _ = this;
+
+    _.supercreate(options);
+
+    _.data = {};
+});
+
+FragNode.definePrototype({
+    type: 'FRAG-NODE',
+
+    update: function update(data) {
+        var _ = this,
+            context;
+
+        if (typeof data === 'function') {
+            context = data;
+        } else {
+            _.data = data;
+            context = _.getContext('');
+        }
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
+        }
+    },
+
+    _elementAppendTo: function _elementAppendTo(parent) {
         var _ = this;
 
-        _.data = data || {};
-    }
-);
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementAppendTo(parent);
+            _.$parent = parent;
+        }
+    },
 
-Context.definePrototype({
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementRemove();
+        }
+        _.$parent = null;
+    },
+
     getValue: function getValue(splitPath) {
         var _ = this;
 
@@ -84,230 +328,53 @@ Context.definePrototype({
     getContext: function getContext(basepath) {
         var _ = this;
 
-        return function context(path) {
+        function context(path) {
             return _.getValue(resolve(basepath, path));
+        }
+
+        context.getContext = function getContext(path) {
+            return _.getContext(resolve(basepath, path).join('/'));
         };
+
+        return context;
     },
 });
 
-module.exports = Context;
+module.exports = FragNode;
 
-},{"generate-js":13}],4:[function(require,module,exports){
-var Generator = require('generate-js'),
-    Nodes = window.Nodes = require('./nodes'),
-    Context = require('./context');
+},{"./node":10}],8:[function(require,module,exports){
+var BlockNode  = require('./block');
 
-var Fragment = Generator.generate(function Fragment(bars, struct) {
+var IfNode = BlockNode.generate(function IfNode(options) {
     var _ = this;
 
-    _.defineProperties({
-        bars: bars,
-        struct: struct
-    });
-});
-
-Fragment.definePrototype({
-    render: function render(data) {
-        var _ = this,
-            context = Context.create(data),
-            dom = _.build(context);
-
-        if (data) dom.update(data);
-
-        return dom;
-    },
-
-    build: function build(context, struct) {
-        var _ = this,
-            i,
-            node;
-
-        struct = struct || _.struct;
-
-        if (struct.type === 'BLOCK-NODE') {
-            node = _.bars.blocks[struct.name].create(_, context, {
-                blockString: struct.blockString
-            });
-        } else {
-            node = Nodes[struct.type].create(_, context, {
-                contextMap: struct.contextMap,
-                staticMap: struct.staticMap,
-                name: struct.name
-            });
-        }
-
-
-        if (node.type === 'IF-NODE') {
-            if (struct.consequent && struct.consequent.nodes) {
-                for (i = 0; i < struct.consequent.nodes.length; i++) {
-                    node.consequent.appendChild( _.build(context, struct.consequent.nodes[i]) );
-                }
-            }
-
-            if (struct.alternate && struct.alternate.nodes) {
-                for (i = 0; i < struct.alternate.nodes.length; i++) {
-                    node.alternate.appendChild( _.build(context, struct.alternate.nodes[i]) );
-                }
-            }
-        } else if (struct.nodes) {
-            for (i = 0; i < struct.nodes.length; i++) {
-                node.appendChild( _.build(context, struct.nodes[i]) );
-            }
-        }
-
-        return node;
-    },
-});
-
-module.exports = Fragment;
-
-},{"./context":3,"./nodes":8,"generate-js":13}],5:[function(require,module,exports){
-require('./bars');
-
-},{"./bars":2}],6:[function(require,module,exports){
-var Node = require('./node');
-
-/**
- * <span>hello, {{name}}.</span>
- */
-
-var GroupNode = Node.generate(function GroupNode(fragment, context, options) {
-    var _ = this;
-
-    _.supercreate(fragment, context, options);
-});
-
-GroupNode.definePrototype({
-    type: 'GROUP-NODE',
-
-    update: function update(data) {
-        var _ = this,
-            context;
-
-        if (typeof data === 'function') {
-            context = data;
-        } else {
-            _.context.data = data;
-            context = _.context.getContext('');
-        }
-
-        for (var i = 0; i < _.nodes.length; i++) {
-            _.nodes[i].update(context);
-        }
-    },
-    _elementAppendTo: function _elementAppendTo(parent) {
-        var _ = this;
-        console.log(_.type, _, parent);
-
-        for (var i = 0; i < _.nodes.length; i++) {
-            _.nodes[i]._elementAppendTo(parent);
-            _.$parent = parent;
-        }
-    },
-    _elementRemove: function _elementRemove() {
-        var _ = this;
-
-        for (var i = 0; i < _.nodes.length; i++) {
-            _.nodes[i]._elementRemove();
-        }
-        _.$parent = null;
-    },
-});
-
-module.exports = GroupNode;
-
-},{"./node":9}],7:[function(require,module,exports){
-var Node  = require('./node'),
-    Group = require('./group');
-
-var IfNode = Node.generate(function IfNode(fragment, context, options) {
-    var _ = this;
-
-    _.supercreate(fragment, context, options);
-
-    _.defineProperties({
-        consequent: Group.create(),
-        alternate: Group.create()
-    });
-
-    _.consequent.parent = _;
-    _.alternate.parent = _;
-
-    _.con = true;
+    _.supercreate(options);
 });
 
 IfNode.definePrototype({
-    type: 'IF-NODE',
-
-    update: function(context) {
-        var _ = this;
-
-        _.condition(context);
-    },
-
-    condition: function condition(context) {
-        var _ = this;
-
-        _.con = eval(_.blockString);
-
-        if (_.con) {
-            _.consequent.update(context);
-        } else {
-            _.alternate.update(context);
-        }
-
-        _._elementAppendTo(_.$parent);
-    },
-    _elementAppendTo: function _elementAppendTo(parent) {
-        var _ = this;
-
-        if (_.con) {
-            _.alternate._elementRemove();
-            _.consequent._elementAppendTo(parent);
-
-            _.$parent = parent;
-
-        } else {
-            _.consequent._elementRemove();
-            _.alternate._elementAppendTo(parent);
-
-            _.$parent = parent;
-
-        }
-    },
-    _elementRemove: function _elementRemove() {
-        var _ = this;
-
-        _.consequent._elementRemove();
-        _.alternate._elementRemove();
-
-        _.$parent = null;
-
-    },
-
+    name: 'if'
 });
 
 module.exports = IfNode;
 
-},{"./group":6,"./node":9}],8:[function(require,module,exports){
+},{"./block":5}],9:[function(require,module,exports){
 
-exports['GROUP-NODE'] = require('./group');
-exports['IF-NODE']    = require('./if');
-// exports['LOOP-NODE']  = require('./loop');
-exports['TEXT-NODE']  = require('./text');
-exports['TAG-NODE']   = require('./tag');
-// exports['BLOCK-NODE']   = require('./block');
+exports['FRAG-NODE']   = require('./frag');
+exports['IF-NODE']     = require('./if');
+exports['UNLESS-NODE'] = require('./unless');
+exports['TEXT-NODE']   = require('./text');
+exports['TAG-NODE']    = require('./tag');
+exports['EACH-NODE']   = require('./each');
+exports['WITH-NODE']   = require('./with');
 
 
-},{"./group":6,"./if":7,"./tag":10,"./text":11}],9:[function(require,module,exports){
+},{"./each":6,"./frag":7,"./if":8,"./tag":11,"./text":12,"./unless":13,"./with":14}],10:[function(require,module,exports){
 var Generator = require('generate-js');
 
-var Node = Generator.generate(function Node(fragment, context, options) {
+var Node = Generator.generate(function Node(options) {
     var _ = this;
 
     _.defineProperties({
-        fragment: fragment,
-        context: context,
         nodes: []
     });
 
@@ -395,8 +462,6 @@ Node.definePrototype({
     _elementAppendTo: function _elementAppendTo(parent) {
         var _ = this;
 
-        console.log(_.type, parent);
-
         if (parent instanceof Element && (_.$el instanceof Element || _.$el instanceof Text)) {
             var prev = _.prevDom();
 
@@ -426,7 +491,6 @@ Node.definePrototype({
             name: _.name,
             contextMap: _.contextMap,
             staticMap: _.staticMap,
-            consequent: _.consequent,
             alternate: _.alternate,
             nodes: _.nodes.length ? _.nodes : void(0)
         };
@@ -435,13 +499,13 @@ Node.definePrototype({
 
 module.exports = Node;
 
-},{"generate-js":13}],10:[function(require,module,exports){
+},{"generate-js":16}],11:[function(require,module,exports){
 var Node = require('./node');
 
-var TagNode = Node.generate(function TagNode(fragment, context, options) {
+var TagNode = Node.generate(function TagNode(options) {
     var _ = this;
 
-    _.supercreate(fragment, context, options);
+    _.supercreate(options);
 
     _.defineProperties({
         $el: document.createElement(options.name),
@@ -466,13 +530,13 @@ TagNode.definePrototype({
 
 module.exports = TagNode;
 
-},{"./node":9}],11:[function(require,module,exports){
+},{"./node":10}],12:[function(require,module,exports){
 var Node = require('./node');
 
-var TextNode = Node.generate(function TextNode(fragment, context, options) {
+var TextNode = Node.generate(function TextNode(options) {
     var _ = this;
 
-    _.supercreate(fragment, context, options);
+    _.supercreate(options);
 
     _.defineProperties({
         $el: document.createTextNode(options.staticMap && options.staticMap.textContent)
@@ -485,7 +549,65 @@ TextNode.definePrototype({
 
 module.exports = TextNode;
 
-},{"./node":9}],12:[function(require,module,exports){
+},{"./node":10}],13:[function(require,module,exports){
+var BlockNode  = require('./block');
+
+var UnlessNode = BlockNode.generate(function UnlessNode(options) {
+    var _ = this;
+
+    _.supercreate(options);
+});
+
+UnlessNode.definePrototype({
+    name: 'unless',
+
+    condition: function condition(context) {
+        var _ = this;
+        return !eval(_.blockString);
+    },
+});
+
+module.exports = UnlessNode;
+
+},{"./block":5}],14:[function(require,module,exports){
+var BlockNode  = require('./block');
+
+var WithNode = BlockNode.generate(function WithNode(options) {
+    var _ = this;
+
+    _.supercreate(options);
+});
+
+WithNode.definePrototype({
+    name: 'with',
+
+    condition: function condition(context) {
+        var _ = this;
+
+        return context(_.blockString).length;
+    },
+
+     update: function(context) {
+        var _ = this,
+            data = context(_.blockString);
+
+            context = context.getContext(_.blockString);
+
+        if (typeof data === 'object') {
+            _.con = true;
+            _.nodes[0].update(context);
+        } else {
+            _.alternate.update(context);
+            _.con = false;
+        }
+
+        _._elementAppendTo(_.$parent);
+    },
+});
+
+module.exports = WithNode;
+
+},{"./block":5}],15:[function(require,module,exports){
 var selfClosers = [
     'area',
     'base',
@@ -506,15 +628,18 @@ var selfClosers = [
 ];
 
 function parse(tree, index, length, buffer, close, indent) {
-    console.log(indent+'parse');
-    indent += '  ';
+    console.log(indent + 'parse');
+
     tree = tree || [];
     index = index || 0;
     buffer = buffer || '';
     length = length || buffer.length;
 
     var ch,
-        oldIndex;
+        oldIndex,
+        oldIndent = indent;
+
+    indent += '  ';
 
     loop: for (; index < length; index++) {
         ch = buffer[index];
@@ -522,7 +647,7 @@ function parse(tree, index, length, buffer, close, indent) {
         switch (ch) {
         case '<':
             oldIndex = index;
-            index = parseTagClose(tree, index, length, buffer, close, indent);
+            index = parseTagClose(tree, index, length, buffer, close, false, indent);
             if (close && close.closed) {
                 break loop;
             }
@@ -544,7 +669,7 @@ function parse(tree, index, length, buffer, close, indent) {
             /*falls through*/
         case '{':
             oldIndex = index;
-            index = parseBarsBlockClose(tree, index, length, buffer, close, indent);
+            index = parseBarsBlockClose(tree, index, length, buffer, close, false, indent);
             if (close && close.closed) {
                 break loop;
             }
@@ -565,7 +690,8 @@ function parse(tree, index, length, buffer, close, indent) {
         }
     }
 
-console.log(indent+'<<<');
+    console.log(oldIndent + '<<<');
+
     return index;
 }
 var validTagName = /^[_A-Za-z0-9-]$/;
@@ -621,7 +747,7 @@ function parseTag(tree, index, length, buffer, indent) {
                 index = parseTagClose(tree, index, length, buffer, token, true, indent);
 
                 if (token.closed) {
-                    // delete token.closed;
+                    delete token.closed;
                     break;
                 }
             }
@@ -638,7 +764,7 @@ function parseTag(tree, index, length, buffer, indent) {
     }
 
     if (token.closed) {
-        // delete token.closed;
+        delete token.closed;
         tree.push(token);
     } else {
         throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
@@ -656,7 +782,8 @@ function parseTagClose(tree, index, length, buffer, close, noErrorOnMismatch, in
 
     if (buffer[index + 1] !== '/') return index;
 
-    console.log(indent+'parseTagClose', noErrorOnMismatch);
+    console.log(indent+'parseTagClose');
+
     var ch,
         token = {
             type: 'TAG-NODE',
@@ -728,7 +855,7 @@ function parseText(tree, index, length, buffer, indent) {
     }
 
     if (token.staticMap.textContent) {
-    console.log(indent+'parseText');
+        console.log(indent+'parseText');
         tree.push(token);
     }
 
@@ -805,12 +932,12 @@ function parseBarsBlock(tree, index, length, buffer, indent) {
             type: 'BLOCK-NODE',
             name: '',
             blockString: '',
-            consequent: {
-                type: 'GROUP-NODE',
-                nodes: []
+            nodesFrag: {
+                type: 'FRAG-NODE',
+                nodes: [],
             },
-            alternate: {
-                type: 'GROUP-NODE',
+            alternateFrag: {
+                type: 'FRAG-NODE',
                 nodes: []
             }
         }, endChars = 0;
@@ -853,19 +980,19 @@ function parseBarsBlock(tree, index, length, buffer, indent) {
         token.blockString += ch;
     }
 
+    token.blockString = token.blockString.trim();
+
     index++;
-    index = parse(token.consequent.nodes, index, length, buffer, token, indent);
+    index = parse(token.nodesFrag.nodes, index, length, buffer, token, indent);
 
     if (token.elsed && !token.closed) {
         index++;
-        index = parse(token.alternate.nodes, index, length, buffer, token, indent);
+        index = parse(token.alternateFrag.nodes, index, length, buffer, token, indent);
     }
 
-    console.log(token.closed, index, buffer[index], buffer.split('').slice(Math.max(index-2, 0), Math.min(index+3, length)));
-
     if (token.closed) {
-        // delete token.closed;
-        // delete token.elsed;
+        delete token.closed;
+        delete token.elsed;
         tree.push(token);
     } else {
         throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
@@ -887,7 +1014,8 @@ function parseBarsBlockClose(tree, index, length, buffer, close, noErrorOnMismat
     if (buffer[index + 2] !== '/') {
         return index;
     }
-    console.log(indent+'parseBarsBlockClose', noErrorOnMismatch);
+
+    console.log(indent+'parseBarsBlockClose');
 
 
     var ch,
@@ -937,9 +1065,6 @@ function parseBarsBlockClose(tree, index, length, buffer, close, noErrorOnMismat
     if (!close) {
         throw new SyntaxError('Unexpected closing tag: \'' +token.name+ '\'.');
     }
-
-
-    console.log(token.type,close.type,token.name,close.name);
 
     if (token.type === close.type && token.name === close.name) {
         close.closed = true;
@@ -1012,20 +1137,23 @@ function parseBarsBlockElse(tree, index, length, buffer, close, indent) {
 
 function compile(buffer) {
     var tree = {
-        type: 'GROUP-NODE',
+        type: 'FRAG-NODE',
         nodes: []
     };
 
-    parse(tree.nodes, 0, buffer.length, buffer, null, '');
-
     console.log('compile');
+
+    parse(tree.nodes, 0, buffer.length, buffer, null, '  ');
+
+    console.log('compiled');
+
     return tree;
     // return JSON.stringify(tree, null, 2);
 }
 
 module.exports = compile;
 
-},{}],13:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
