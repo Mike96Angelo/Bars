@@ -112,17 +112,30 @@ var AttrNode = Node.generate(function AttrNode(options) {
 
     _.supercreate(options);
 
+    _.defineProperties({
+        $el: document.createElement('X-BARS'),
+    });
     // _.value = true;
 });
 
 AttrNode.definePrototype({
+    isDOM: true,
     type: 'ATTR-NODE',
+    update: function(context) {
+        var _ = this,
+            i;
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
+        }
+
+        _._elementAppendTo(_.$parent);
+    },
     _elementAppendTo: function _elementAppendTo(parent) {
         var _ = this;
 
         if (parent instanceof Element) {
             _.$parent = parent;
-            _.$parent.setAttribute(_.name, _.value);
+            _.$parent.setAttribute(_.name, _.$el.innerHTML);
 
         }
     },
@@ -410,8 +423,6 @@ exports['WITH-NODE']   = require('./with');
 
 exports['ATTR-NODE']   = require('./attr');
 
-
-
 },{"./attr":5,"./each":7,"./frag":8,"./if":9,"./tag":12,"./text":13,"./unless":14,"./with":15}],11:[function(require,module,exports){
 var Generator = require('generate-js');
 
@@ -454,7 +465,7 @@ Node.definePrototype({
         var prev = _.parent.nodes[index - 1] || null;
 
         if (!prev) {
-            if (_.parent.type === 'TAG-NODE') {
+            if (_.parent.isDOM) {
                 return;
             } else {
                return _.parent.prevDom();
@@ -473,7 +484,7 @@ Node.definePrototype({
     lastDom: function lastDom() {
         var _ = this;
 
-        if (_.isDom()) {
+        if (_.isDOM || _.isDom()) {
             return _.$el;
         }
 
@@ -569,6 +580,7 @@ var TagNode = Node.generate(function TagNode(options) {
 });
 
 TagNode.definePrototype({
+    isDOM: true,
     type: 'TAG-NODE',
     update: function update(context) {
         var _ = this, i;
@@ -708,25 +720,21 @@ var modes = {
     'ATTR-MODE': [
         '/', parseTagEnd,
         '>', parseTagEnd,
-        '{',  parseBarsBlockElse,
-        '{',  parseBarsBlockClose,
-        '{',  parseBarsBlock,
-        '',   parseWhiteSpace,
-        '',   parseAttr,
-        '',   parseError
+        '{', parseBarsBlockElse,
+        '{', parseBarsBlockClose,
+        '{', parseBarsBlock,
+        '',  parseWhiteSpace,
+        '',  parseAttr,
+        '',  parseError
     ],
-    'SINGLE-QUOTE-MODE': [
-        // '"',  parseStringClose,
-        // '\'', parseStringClose,
-        '"',  parseString,
-        '\'', parseString,
+    'VALUE-MODE': [
+        '"',  parseStringClose,
+        '\'', parseStringClose,
         '{',  parseBarsBlockElse,
         '{',  parseBarsBlockClose,
         '{',  parseBarsBlock,
         '{',  parseBarsInsert,
-        '',   parseWhiteSpace,
-        '',   parseAttr,
-        '',   parseError
+        '',   parseTextValue
     ],
 };
 
@@ -734,6 +742,7 @@ var VALID_IDENTIFIER = /^[_A-Za-z0-9-]$/;
 var WHITESPACE = /^\s$/;
 
 function parseError(mode, tree, index, length, buffer, indent) {
+    console.log(JSON.stringify(buffer[index-1]),JSON.stringify(buffer[index]), {mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
     throw new SyntaxError('Unexpected token: ' + JSON.stringify(buffer[index]));
 }
 
@@ -760,7 +769,8 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
     var ch,
         token = {
             type: 'ATTR-NODE',
-            name: ''
+            name: '',
+            nodes: []
         };
 
     for (; index < length; index++) {
@@ -776,8 +786,54 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
     if (token.name) {
         console.log(indent + 'parseAttr');
 
-        index--;
         tree.push(token);
+
+        if (ch === '=') {
+            // move past =
+            index++;
+
+            ch = buffer[index];
+
+            if (ch === '\'' || ch === '"') {
+                var stringToken = {
+                    type: 'STRING-NODE',
+                    name: ch
+                };
+
+                index++;
+                index = parse('VALUE-MODE', token.nodes, index, length, buffer, indent, stringToken);
+
+                if (!stringToken.closed) {
+                    throw new SyntaxError('Missing closing tag: expected \'' + stringToken + '\'.');
+                }
+            } else {
+                var textValueToken = {
+                    type: 'TEXT-NODE',
+                    staticMap: {
+                        textContent: ''
+                    }
+                };
+                for (; index < length; index++) {
+                    ch = buffer[index];
+
+                    if (!VALID_IDENTIFIER.test(ch)) {
+                        break;
+                    }
+
+                    textValueToken.staticMap.textContent += ch;
+                }
+
+                if (textValueToken.staticMap.textContent) {
+                    token.nodes.push(textValueToken);
+                    index--;
+                } else {
+                    throw new SyntaxError('Unexpected end of input.');
+                }
+            }
+        } else {
+            index--;
+        }
+
         return index;
     }
 
@@ -813,40 +869,22 @@ function parseWhiteSpace(mode, tree, index, length, buffer, indent) {
     return null;
 }
 
-function parseString(mode, tree, index, length, buffer, indent) {
+function parseStringClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
     var token = {
-            type: 'STRING-NODE',
-            name: buffer[index] === '\'' ? 'SINGLE-QUOTE' : 'DOUBLE-QUOTE',
-            nodes: []
-        };
+        type: 'STRING-NODE',
+        name: buffer[index]
+    };
 
-    /* go past opener */
-    index++;
-
-    parse('STRING-MODE', token.nodes, index, length, buffer, indent, token);
-
-    if (token.closed) {
-        delete token.closed;
-        tree.push(token);
-    } else {
-        throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
+    if (token.type === close.type) {
+        if (token.name === close.name) {
+            close.closed = true;
+            return index;
+        }
+        return null;
     }
 
-    return index;
+    throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
 }
-
-// function parseStringClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
-//     var token = {
-//         type: 'STRING-NODE',
-//         name: buffer[index] === '\'' ? 'SINGLE-QUOTE' : 'DOUBLE-QUOTE'
-//     };
-
-//     if (token.name === close.name && token.type === close.type) {
-
-//     }
-
-//     return index;
-// }
 
 // function parseString(mode, tree, index, length, buffer, indent) {
 //     var ch,
@@ -1076,6 +1114,35 @@ function parseText(mode, tree, index, length, buffer, indent) {
         ch = buffer[index];
 
         if (ch === '<' || ch === '{') {
+            index--;
+            break;
+        }
+
+        token.staticMap.textContent += ch;
+    }
+
+    if (token.staticMap.textContent) {
+        console.log(indent+'parseText');
+        tree.push(token);
+        return index;
+    }
+
+    return null;
+}
+
+function parseTextValue(mode, tree, index, length, buffer, indent, close) {
+    var ch,
+        token = {
+            type: 'TEXT-NODE',
+            staticMap: {
+                textContent: ''
+            }
+        };
+
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '{' || (close && ch === close.name && buffer[index - 1] !== '\\')) {
             index--;
             break;
         }

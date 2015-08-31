@@ -17,7 +17,8 @@
                                 {{/if}}\
                             </ul>';
 
-                template = '<span {{#if context("test")}}data-test="asdf"{{else}}data-nothing{{/if}}>hi</span>';
+                template = '<span data-test="{{#if context("test")}}cats {{test}} !{{else}}nothing{{/if}}">hi</span>';
+                // template = '<span data-test="true" >hi</span>';
 
             window.joey = {
                 name: 'Joey'
