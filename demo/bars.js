@@ -39,7 +39,7 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"./fragment":3,"./nodes":9,"./parser":15,"generate-js":16}],3:[function(require,module,exports){
+},{"./fragment":3,"./nodes":10,"./parser":16,"generate-js":17}],3:[function(require,module,exports){
 var Generator = require('generate-js'),
     Nodes = window.Nodes = require('./nodes');
 
@@ -89,16 +89,55 @@ Fragment.definePrototype({
             }
         }
 
+        if (struct.type === 'TAG-NODE' && struct.attrs) {
+            for (i = 0; i < struct.attrs.length; i++) {
+                node.addAttr( _.build(struct.attrs[i]) );
+            }
+        }
+
         return node;
     }
 });
 
 module.exports = Fragment;
 
-},{"./nodes":9,"generate-js":16}],4:[function(require,module,exports){
+},{"./nodes":10,"generate-js":17}],4:[function(require,module,exports){
 require('./bars');
 
 },{"./bars":2}],5:[function(require,module,exports){
+var Node = require('./node');
+
+var AttrNode = Node.generate(function AttrNode(options) {
+    var _ = this;
+
+    _.supercreate(options);
+
+    // _.value = true;
+});
+
+AttrNode.definePrototype({
+    type: 'ATTR-NODE',
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+
+        if (parent instanceof Element) {
+            _.$parent = parent;
+            _.$parent.setAttribute(_.name, _.value);
+
+        }
+    },
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        if (_.$parent instanceof Element) {
+            _.$parent.removeAttribute(_.name);
+        }
+    }
+});
+
+module.exports = AttrNode;
+
+},{"./node":11}],6:[function(require,module,exports){
 var Node  = require('./node');
 
 var BlockNode = Node.generate(function BlockNode(options) {
@@ -153,6 +192,7 @@ BlockNode.definePrototype({
             _.$parent = parent;
 
         } else {
+
             for (i = 0; i < _.nodes.length; i++) {
                 _.nodes[i]._elementRemove();
             }
@@ -180,7 +220,7 @@ BlockNode.definePrototype({
 
 module.exports = BlockNode;
 
-},{"./node":10}],6:[function(require,module,exports){
+},{"./node":11}],7:[function(require,module,exports){
 var BlockNode  = require('./block');
 
 var EachNode = BlockNode.generate(function EachNode(options) {
@@ -237,7 +277,7 @@ EachNode.definePrototype({
 
 module.exports = EachNode;
 
-},{"./block":5}],7:[function(require,module,exports){
+},{"./block":6}],8:[function(require,module,exports){
 var Node = require('./node');
 
 function resolve(basepath, path) {
@@ -342,7 +382,7 @@ FragNode.definePrototype({
 
 module.exports = FragNode;
 
-},{"./node":10}],8:[function(require,module,exports){
+},{"./node":11}],9:[function(require,module,exports){
 var BlockNode  = require('./block');
 
 var IfNode = BlockNode.generate(function IfNode(options) {
@@ -357,7 +397,7 @@ IfNode.definePrototype({
 
 module.exports = IfNode;
 
-},{"./block":5}],9:[function(require,module,exports){
+},{"./block":6}],10:[function(require,module,exports){
 
 exports['FRAG-NODE']   = require('./frag');
 exports['IF-NODE']     = require('./if');
@@ -368,7 +408,11 @@ exports['EACH-NODE']   = require('./each');
 exports['WITH-NODE']   = require('./with');
 
 
-},{"./each":6,"./frag":7,"./if":8,"./tag":11,"./text":12,"./unless":13,"./with":14}],10:[function(require,module,exports){
+exports['ATTR-NODE']   = require('./attr');
+
+
+
+},{"./attr":5,"./each":7,"./frag":8,"./if":9,"./tag":12,"./text":13,"./unless":14,"./with":15}],11:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Node = Generator.generate(function Node(options) {
@@ -389,6 +433,16 @@ Node.definePrototype({
         for (var key in _.contextMap) {
             _.$el[key] = context(_.contextMap[key]);
         }
+    },
+    getParentTag: function getParentTag() {
+        var _ = this,
+            parent = _.parent || null;
+
+        while (parent && parent.type !== 'TAG-NODE') {
+            parent = parent.parent;
+        }
+
+        return parent;
     },
     prevDom: function prevDom() {
         var _ = this;
@@ -436,6 +490,7 @@ Node.definePrototype({
         child._elementAppendTo(_.$el);
 
         child.parent = _;
+        child.parentTag = _.getParentTag();
 
     },
     appendTo: function appendTo(parent) {
@@ -499,7 +554,7 @@ Node.definePrototype({
 
 module.exports = Node;
 
-},{"generate-js":16}],11:[function(require,module,exports){
+},{"generate-js":17}],12:[function(require,module,exports){
 var Node = require('./node');
 
 var TagNode = Node.generate(function TagNode(options) {
@@ -509,28 +564,40 @@ var TagNode = Node.generate(function TagNode(options) {
 
     _.defineProperties({
         $el: document.createElement(options.name),
-        attrs: {
-            // class: AttrNode()
-        }
+        attrs: []
     });
 });
 
 TagNode.definePrototype({
     type: 'TAG-NODE',
-    update: function update(data) {
-        var _ = this;
+    update: function update(context) {
+        var _ = this, i;
+
         //self
+        for (i = 0; i < _.attrs.length; i++) {
+            _.attrs[i].update(context);
+        }
 
         //then children
-        for (var i = 0; i < _.nodes.length; i++) {
-            _.nodes[i].update(data);
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
         }
+    },
+    addAttr: function addAttr(child) {
+        var _ = this;
+
+        _.attrs.push(child);
+        child._elementAppendTo(_.$el);
+
+        child.parent = _;
+        child.parentTag = _.getParentTag();
+
     },
 });
 
 module.exports = TagNode;
 
-},{"./node":10}],12:[function(require,module,exports){
+},{"./node":11}],13:[function(require,module,exports){
 var Node = require('./node');
 
 var TextNode = Node.generate(function TextNode(options) {
@@ -549,7 +616,7 @@ TextNode.definePrototype({
 
 module.exports = TextNode;
 
-},{"./node":10}],13:[function(require,module,exports){
+},{"./node":11}],14:[function(require,module,exports){
 var BlockNode  = require('./block');
 
 var UnlessNode = BlockNode.generate(function UnlessNode(options) {
@@ -569,7 +636,7 @@ UnlessNode.definePrototype({
 
 module.exports = UnlessNode;
 
-},{"./block":5}],14:[function(require,module,exports){
+},{"./block":6}],15:[function(require,module,exports){
 var BlockNode  = require('./block');
 
 var WithNode = BlockNode.generate(function WithNode(options) {
@@ -591,14 +658,15 @@ WithNode.definePrototype({
         var _ = this,
             data = context(_.blockString);
 
-            context = context.getContext(_.blockString);
-
         if (typeof data === 'object') {
             _.con = true;
+
+            context = context.getContext(_.blockString);
+
             _.nodes[0].update(context);
         } else {
-            _.alternate.update(context);
             _.con = false;
+            _.alternate.update(context);
         }
 
         _._elementAppendTo(_.$parent);
@@ -607,7 +675,7 @@ WithNode.definePrototype({
 
 module.exports = WithNode;
 
-},{"./block":5}],15:[function(require,module,exports){
+},{"./block":6}],16:[function(require,module,exports){
 var selfClosers = [
     'area',
     'base',
@@ -627,66 +695,238 @@ var selfClosers = [
     'wbr'
 ];
 
-function parse(tree, index, length, buffer, close, indent) {
-    console.log(indent + 'parse');
+var modes = {
+    'DOM-MODE': [
+        '<', parseTagClose,
+        '<', parseTag,
+        '{', parseBarsBlockElse,
+        '{', parseBarsBlockClose,
+        '{', parseBarsBlock,
+        '{', parseBarsInsert,
+        '',  parseText
+    ],
+    'ATTR-MODE': [
+        '/', parseTagEnd,
+        '>', parseTagEnd,
+        '{',  parseBarsBlockElse,
+        '{',  parseBarsBlockClose,
+        '{',  parseBarsBlock,
+        '',   parseWhiteSpace,
+        '',   parseAttr,
+        '',   parseError
+    ],
+    'SINGLE-QUOTE-MODE': [
+        // '"',  parseStringClose,
+        // '\'', parseStringClose,
+        '"',  parseString,
+        '\'', parseString,
+        '{',  parseBarsBlockElse,
+        '{',  parseBarsBlockClose,
+        '{',  parseBarsBlock,
+        '{',  parseBarsInsert,
+        '',   parseWhiteSpace,
+        '',   parseAttr,
+        '',   parseError
+    ],
+};
 
-    tree = tree || [];
-    index = index || 0;
-    buffer = buffer || '';
-    length = length || buffer.length;
+var VALID_IDENTIFIER = /^[_A-Za-z0-9-]$/;
+var WHITESPACE = /^\s$/;
+
+function parseError(mode, tree, index, length, buffer, indent) {
+    throw new SyntaxError('Unexpected token: ' + JSON.stringify(buffer[index]));
+}
+
+function parseTagEnd(mode, tree, index, length, buffer, indent, close) {
+    var ch = buffer[index];
+
+    if (ch === '>') {
+        console.log(indent + 'parseTagEnd');
+        close.closed = true;
+        return index;
+    }
+
+    if (ch === '/' && buffer[index + 1] === '>') {
+        console.log(indent + 'parseTagEnd');
+        index++;
+        close.selfClosed = true;
+        return index;
+    }
+
+    return null;
+}
+
+function parseAttr(mode, tree, index, length, buffer, indent) {
+    var ch,
+        token = {
+            type: 'ATTR-NODE',
+            name: ''
+        };
+
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (!VALID_IDENTIFIER.test(ch)) {
+            break;
+        }
+
+        token.name += ch;
+    }
+
+    if (token.name) {
+        console.log(indent + 'parseAttr');
+
+        index--;
+        tree.push(token);
+        return index;
+    }
+
+    return null;
+}
+
+function parseWhiteSpace(mode, tree, index, length, buffer, indent) {
+    // console.log(JSON.stringify(buffer[index]), {mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
 
     var ch,
+        whitespace = 0;
+
+
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (!WHITESPACE.test(ch)) {
+
+            break;
+        }
+        whitespace++;
+    }
+
+    // console.log(JSON.stringify(buffer[index]), {mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
+
+
+    if (whitespace) {
+        console.log(indent + 'parseWhiteSpace');
+        index--;
+        return index;
+    }
+
+    return null;
+}
+
+function parseString(mode, tree, index, length, buffer, indent) {
+    var token = {
+            type: 'STRING-NODE',
+            name: buffer[index] === '\'' ? 'SINGLE-QUOTE' : 'DOUBLE-QUOTE',
+            nodes: []
+        };
+
+    /* go past opener */
+    index++;
+
+    parse('STRING-MODE', token.nodes, index, length, buffer, indent, token);
+
+    if (token.closed) {
+        delete token.closed;
+        tree.push(token);
+    } else {
+        throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
+    }
+
+    return index;
+}
+
+// function parseStringClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
+//     var token = {
+//         type: 'STRING-NODE',
+//         name: buffer[index] === '\'' ? 'SINGLE-QUOTE' : 'DOUBLE-QUOTE'
+//     };
+
+//     if (token.name === close.name && token.type === close.type) {
+
+//     }
+
+//     return index;
+// }
+
+// function parseString(mode, tree, index, length, buffer, indent) {
+//     var ch,
+//         opener = buffer[index],
+//         token = {
+//             type: 'STRING-NODE',
+//             value: ''
+//         };
+
+//     /* go past opener */
+//     index++;
+
+//     for (; index < length; index++) {
+//         ch = buffer[index];
+
+//         if (ch === '\n' && buffer[index - 1] !== '\\') {
+//             throw new SyntaxError('Unexpected end of input.');
+//         }
+
+//         if (ch === opener && buffer[index - 1] !== '\\') {
+//             break;
+//         }
+
+//         token.value += ch;
+//     }
+
+//     tree.push(token);
+
+//     return index;
+// }
+
+function parse(mode, tree, index, length, buffer, indent, close) {
+    console.log(indent + 'parse - ', mode);
+
+    // console.log({mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
+
+    var ch,
+        testCh,
         oldIndex,
-        oldIndent = indent;
+        oldIndent = indent,
+        oldElsed,
+        newIndex,
+        parseFuncs = modes[mode],
+        parseFuncsLength = parseFuncs.length,
+        parseFunc,
+        i;
 
     indent += '  ';
 
     loop: for (; index < length; index++) {
         ch = buffer[index];
 
-        switch (ch) {
-        case '<':
-            oldIndex = index;
-            index = parseTagClose(tree, index, length, buffer, close, false, indent);
-            if (close && close.closed) {
-                break loop;
+        for (i = 0; i < parseFuncsLength; i++) {
+            testCh = modes[mode][i];
+            parseFunc = parseFuncs[++i];
+
+            if (ch === testCh || !testCh) {
+                oldIndex = index;
+                oldElsed = close && close.elsed;
+
+                newIndex = parseFunc(mode, tree, index, length, buffer, indent, close);
+
+                if (typeof newIndex === 'number') {
+                    index = newIndex;
+                }
+
+                if (
+                    close &&
+                    (
+                        (close.closed) ||
+                        (close.elsed && !oldElsed)
+                    )
+                ) {
+                    break loop;
+                }
+
+                if (typeof newIndex === 'number') {
+                    break;
+                }
             }
-            if (oldIndex !== index || index >= length) break;
-            /*falls through*/
-        case '<':
-            oldIndex = index;
-            index = parseTag(tree, index, length, buffer, indent);
-            if (oldIndex !== index || index >= length) break;
-            /*falls through*/
-        case '{':
-            oldIndex = index;
-            var oldElsed = close && close.elsed;
-            index = parseBarsBlockElse(tree, index, length, buffer, close, indent);
-            if (close && close.elsed && !oldElsed) {
-                break loop;
-            }
-            if (oldIndex !== index || index >= length) break;
-            /*falls through*/
-        case '{':
-            oldIndex = index;
-            index = parseBarsBlockClose(tree, index, length, buffer, close, false, indent);
-            if (close && close.closed) {
-                break loop;
-            }
-            if (oldIndex !== index || index >= length) break;
-            /*falls through*/
-        case '{':
-            oldIndex = index;
-            index = parseBarsBlock(tree, index, length, buffer, indent);
-            if (oldIndex !== index || index >= length) break;
-            /*falls through*/
-        case '{':
-            oldIndex = index;
-            index = parseBarsInsert(tree, index, length, buffer, indent);
-            if (oldIndex !== index || index >= length) break;
-            /*falls through*/
-        default:
-            index = parseText(tree, index, length, buffer, indent);
         }
     }
 
@@ -694,42 +934,41 @@ function parse(tree, index, length, buffer, close, indent) {
 
     return index;
 }
-var validTagName = /^[_A-Za-z0-9-]$/;
-function parseTag(tree, index, length, buffer, indent) {
+
+function parseTag(mode, tree, index, length, buffer, indent) {
     console.log(indent+'parseTag');
-    tree = tree || [];
-    index = index || 0;
-    buffer = buffer || '';
-    length = length || buffer.length;
 
     var ch,
         token = {
             type: 'TAG-NODE',
             name: '',
-            nodes: []
-        },
-        nameDone = false,
-        end = false;
+            nodes: [],
+            attrs: []
+        };
 
     index++; // move past <
     /* Get Name */
     for (; index < length; index++) {
         ch = buffer[index];
 
-        if (!nameDone && validTagName.test(ch)) {
-            token.name += ch;
-        } else {
-            nameDone = true;
-        }
-
-        if (ch === '>') {
-            end = true;
+        if (!VALID_IDENTIFIER.test(ch)) {
             break;
         }
+
+        token.name += ch;
     }
 
-    if (!end) {
+    index = parse('ATTR-MODE', token.attrs, index, length, buffer, indent, token);
+
+    if (!token.closed && !token.selfClosed) {
         throw new SyntaxError('Unexpected end of input.');
+    }
+
+    delete token.closed;
+
+    if (token.selfClosed) {
+        delete token.selfClosed;
+        return index;
     }
 
     if (token.name === 'script' || token.name === 'style') {
@@ -744,7 +983,7 @@ function parseTag(tree, index, length, buffer, indent) {
             ch = buffer[index];
 
             if (ch === '<') {
-                index = parseTagClose(tree, index, length, buffer, token, true, indent);
+                index = parseTagClose(mode, tree, index, length, buffer, indent, token, true);
 
                 if (token.closed) {
                     delete token.closed;
@@ -760,7 +999,7 @@ function parseTag(tree, index, length, buffer, indent) {
         }
     } else if (selfClosers.indexOf(token.name) === -1) {
         index++;
-        index = parse(token.nodes, index, length, buffer, token, indent);
+        index = parse(mode, token.nodes, index, length, buffer, indent, token);
     }
 
     if (token.closed) {
@@ -770,17 +1009,12 @@ function parseTag(tree, index, length, buffer, indent) {
         throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
     }
 
-
     return index;
 }
 
-function parseTagClose(tree, index, length, buffer, close, noErrorOnMismatch, indent) {
-    tree = tree || [];
-    index = index || 0;
-    buffer = buffer || '';
-    length = length || buffer.length;
+function parseTagClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
 
-    if (buffer[index + 1] !== '/') return index;
+    if (buffer[index + 1] !== '/') return null;
 
     console.log(indent+'parseTagClose');
 
@@ -790,7 +1024,6 @@ function parseTagClose(tree, index, length, buffer, close, noErrorOnMismatch, in
             name: ''
         },
         nameDone = false,
-        oldIndex = index,
         end = false;
 
     index+=2; // move past </
@@ -798,7 +1031,7 @@ function parseTagClose(tree, index, length, buffer, close, noErrorOnMismatch, in
     for (; index < length; index++) {
         ch = buffer[index];
 
-        if (!nameDone && validTagName.test(ch)) {
+        if (!nameDone && VALID_IDENTIFIER.test(ch)) {
             token.name += ch;
         } else {
             nameDone = true;
@@ -821,7 +1054,8 @@ function parseTagClose(tree, index, length, buffer, close, noErrorOnMismatch, in
     if (token.type === close.type && token.name === close.name) {
         close.closed = true;
     } else if (noErrorOnMismatch) {
-        return oldIndex;
+        /* Canceling Parse */
+        return null;
     } else {
         throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
     }
@@ -829,12 +1063,7 @@ function parseTagClose(tree, index, length, buffer, close, noErrorOnMismatch, in
     return index;
 }
 
-function parseText(tree, index, length, buffer, indent) {
-    tree = tree || [];
-    index = index || 0;
-    buffer = buffer || '';
-    length = length || buffer.length;
-
+function parseText(mode, tree, index, length, buffer, indent) {
     var ch,
         token = {
             type: 'TEXT-NODE',
@@ -857,17 +1086,14 @@ function parseText(tree, index, length, buffer, indent) {
     if (token.staticMap.textContent) {
         console.log(indent+'parseText');
         tree.push(token);
+        return index;
     }
 
-    return index;
+    return null;
 }
 
-function parseBarsInsert(tree, index, length, buffer, indent) {
+function parseBarsInsert(mode, tree, index, length, buffer, indent) {
     console.log(indent+'parseBarsInsert');
-    tree = tree || [];
-    index = index || 0;
-    buffer = buffer || '';
-    length = length || buffer.length;
 
     if (buffer[index + 1] !== '{') {
         throw new SyntaxError('Unexpected end of input.');
@@ -912,18 +1138,15 @@ function parseBarsInsert(tree, index, length, buffer, indent) {
     return index;
 }
 
-function parseBarsBlock(tree, index, length, buffer, indent) {
-    tree = tree || [];
-    index = index || 0;
-    buffer = buffer || '';
-    length = length || buffer.length;
+function parseBarsBlock(mode, tree, index, length, buffer, indent) {
 
     if (buffer[index + 1] !== '{') {
         throw new SyntaxError('Unexpected end of input.');
     }
 
     if (buffer[index + 2] !== '#') {
-        return index;
+        /* Canceling Parse */
+        return null;
     }
     console.log(indent+'parseBarsBlock');
 
@@ -948,7 +1171,7 @@ function parseBarsBlock(tree, index, length, buffer, indent) {
     for (; index < length; index++) {
         ch = buffer[index];
 
-        if (validTagName.test(ch)) {
+        if (VALID_IDENTIFIER.test(ch)) {
             token.name += ch;
         } else {
             break;
@@ -983,11 +1206,11 @@ function parseBarsBlock(tree, index, length, buffer, indent) {
     token.blockString = token.blockString.trim();
 
     index++;
-    index = parse(token.nodesFrag.nodes, index, length, buffer, token, indent);
+    index = parse(mode, token.nodesFrag.nodes, index, length, buffer, indent, token);
 
     if (token.elsed && !token.closed) {
         index++;
-        index = parse(token.alternateFrag.nodes, index, length, buffer, token, indent);
+        index = parse(mode, token.alternateFrag.nodes, index, length, buffer, indent, token);
     }
 
     if (token.closed) {
@@ -1001,18 +1224,14 @@ function parseBarsBlock(tree, index, length, buffer, indent) {
     return index;
 }
 
-function parseBarsBlockClose(tree, index, length, buffer, close, noErrorOnMismatch, indent) {
-    tree = tree || [];
-    index = index || 0;
-    buffer = buffer || '';
-    length = length || buffer.length;
+function parseBarsBlockClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
 
     if (buffer[index + 1] !== '{') {
         throw new SyntaxError('Unexpected end of input.');
     }
 
     if (buffer[index + 2] !== '/') {
-        return index;
+        return null;
     }
 
     console.log(indent+'parseBarsBlockClose');
@@ -1023,8 +1242,7 @@ function parseBarsBlockClose(tree, index, length, buffer, close, noErrorOnMismat
             type: 'BLOCK-NODE',
             name: ''
         },
-        endChars = 0,
-        oldIndex = index;
+        endChars = 0;
 
     // move past {{#
     index += 3;
@@ -1032,7 +1250,7 @@ function parseBarsBlockClose(tree, index, length, buffer, close, noErrorOnMismat
     for (; index < length; index++) {
         ch = buffer[index];
 
-        if (validTagName.test(ch)) {
+        if (VALID_IDENTIFIER.test(ch)) {
             token.name += ch;
         } else {
             break;
@@ -1069,7 +1287,8 @@ function parseBarsBlockClose(tree, index, length, buffer, close, noErrorOnMismat
     if (token.type === close.type && token.name === close.name) {
         close.closed = true;
     } else if (noErrorOnMismatch) {
-        return oldIndex;
+        /* Canceling Parse */
+        return null;
     } else {
         throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
     }
@@ -1077,11 +1296,7 @@ function parseBarsBlockClose(tree, index, length, buffer, close, noErrorOnMismat
     return index;
 }
 
-function parseBarsBlockElse(tree, index, length, buffer, close, indent) {
-    tree = tree || [];
-    index = index || 0;
-    buffer = buffer || '';
-    length = length || buffer.length;
+function parseBarsBlockElse(mode, tree, index, length, buffer, indent, close) {
 
     if (buffer[index + 1] !== '{') {
         throw new SyntaxError('Unexpected end of input.');
@@ -1089,8 +1304,7 @@ function parseBarsBlockElse(tree, index, length, buffer, close, indent) {
 
     var ch,
         name = '',
-        endChars = 0,
-        oldIndex = index;
+        endChars = 0;
 
     // move past {{
     index += 2;
@@ -1131,7 +1345,8 @@ function parseBarsBlockElse(tree, index, length, buffer, close, indent) {
     } else if (!close) {
         throw new SyntaxError('Unexpected else tag.');
     } else {
-        return oldIndex;
+        /* Canceling Parse */
+        return null;
     }
 }
 
@@ -1143,7 +1358,7 @@ function compile(buffer) {
 
     console.log('compile');
 
-    parse(tree.nodes, 0, buffer.length, buffer, null, '  ');
+    parse('DOM-MODE', tree.nodes, 0, buffer.length, buffer, '  ', null);
 
     console.log('compiled');
 
@@ -1153,7 +1368,7 @@ function compile(buffer) {
 
 module.exports = compile;
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
