@@ -479,6 +479,10 @@ Node.definePrototype({
     update: function(context) {
         var _ = this;
 
+        if (_.isDOM || _.type === 'TEXT-NODE' && _.parentTag) {
+            _.parentTag.prevDom = _.$el;
+        }
+
         for (var key in _.contextMap) {
             _.$el[key] = context(_.contextMap[key]);
         }
@@ -493,41 +497,41 @@ Node.definePrototype({
 
         return parent;
     },
-    prevDom: function prevDom() {
-        var _ = this;
+    // prevDom: function prevDom() {
+    //     var _ = this;
 
-        if (!_.parent) return;
+    //     if (!_.parent) return;
 
-        var index = _.parent.nodes.indexOf(_);
+    //     var index = _.parent.nodes.indexOf(_);
 
-        var prev = _.parent.nodes[index - 1] || null;
+    //     var prev = _.parent.nodes[index - 1] || null;
 
-        if (!prev) {
-            if (_.parent.isDOM) {
-                return;
-            } else {
-               return _.parent.prevDom();
-            }
-        }
+    //     if (!prev) {
+    //         if (_.parent.isDOM) {
+    //             return;
+    //         } else {
+    //            return _.parent.prevDom();
+    //         }
+    //     }
 
-        var lastDom = prev.lastDom();
+    //     var lastDom = prev.lastDom();
 
-        if (!lastDom) {
-            return prev.prevDom();
-        }
+    //     if (!lastDom) {
+    //         return prev.prevDom();
+    //     }
 
-        return lastDom;
+    //     return lastDom;
 
-    },
-    lastDom: function lastDom() {
-        var _ = this;
+    // },
+    // lastDom: function lastDom() {
+    //     var _ = this;
 
-        if (_.isDOM || _.isDom()) {
-            return _.$el;
-        }
+    //     if (_.isDOM || _.isDom()) {
+    //         return _.$el;
+    //     }
 
-        return _.nodes[_.nodes.length - 1].prevDom();
-    },
+    //     return _.nodes[_.nodes.length - 1].prevDom();
+    // },
     isDom: function isDom() {
         var _ = this;
         return _.type === 'TEXT-NODE' || _.type === 'TAG-NODE';
@@ -567,7 +571,7 @@ Node.definePrototype({
         var _ = this;
 
         if (parent instanceof Element && (_.$el instanceof Element || _.$el instanceof Text)) {
-            var prev = _.prevDom();
+            var prev = _.parentTag && _.parentTag.prevDom;
 
             if (prev) {
                 parent.insertBefore(_.$el, prev.nextSibling);
