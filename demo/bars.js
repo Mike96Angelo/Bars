@@ -382,7 +382,10 @@ FragNode.definePrototype({
 
     update: function update(data) {
         var _ = this,
-            context;
+            context,
+            helper,
+            args,
+            content;
 
         if (typeof data === 'function') {
             context = data;
@@ -391,17 +394,43 @@ FragNode.definePrototype({
             context = _.getContext('');
         }
 
-        for (var i = 0; i < _.nodes.length; i++) {
-            _.nodes[i].update(context);
+        if (_.name) {
+            _.empty();
+            helper = _.bars.helpers[_.name];
+
+            if (typeof helper === 'function') {
+                args = _.blockString.split(/\d+/).map(function(item) {
+                    return context(item);
+                });
+
+                content = helper.apply(_, args);
+                content = _.bars.compile(content).render();
+
+                _.appendChild(content);
+                content.update(context);
+            } else {
+                throw new Error('Helper not found: ' + _.name);
+            }
+        } else if (_.contextPath) {
+            _.empty();
+            content = context(_.contextPath);
+            content = _.bars.compile(content).render();
+            _.appendChild(content);
+            content.update(context);
+        } else {
+            for (var i = 0; i < _.nodes.length; i++) {
+                _.nodes[i].update(context);
+            }
         }
     },
 
     _elementAppendTo: function _elementAppendTo(parent) {
         var _ = this;
 
+        _.$parent = parent;
+
         for (var i = 0; i < _.nodes.length; i++) {
             _.nodes[i]._elementAppendTo(parent);
-            _.$parent = parent;
         }
     },
 
@@ -507,41 +536,13 @@ Node.definePrototype({
 
         return parent;
     },
-    // prevDom: function prevDom() {
-    //     var _ = this;
+    empty: function empty() {
+        var _ = this;
 
-    //     if (!_.parent) return;
-
-    //     var index = _.parent.nodes.indexOf(_);
-
-    //     var prev = _.parent.nodes[index - 1] || null;
-
-    //     if (!prev) {
-    //         if (_.parent.isDOM) {
-    //             return;
-    //         } else {
-    //            return _.parent.prevDom();
-    //         }
-    //     }
-
-    //     var lastDom = prev.lastDom();
-
-    //     if (!lastDom) {
-    //         return prev.prevDom();
-    //     }
-
-    //     return lastDom;
-
-    // },
-    // lastDom: function lastDom() {
-    //     var _ = this;
-
-    //     if (_.isDOM || _.isDom()) {
-    //         return _.$el;
-    //     }
-
-    //     return _.nodes[_.nodes.length - 1].prevDom();
-    // },
+        for (var i = _.nodes.length - 1; i >= 0; i--) {
+            _.nodes[i].remove();
+        }
+    },
     isDom: function isDom() {
         var _ = this;
         return _.type === 'TEXT-NODE' || _.type === 'TAG-NODE';
@@ -550,11 +551,11 @@ Node.definePrototype({
         var _ = this;
 
         _.nodes.push(child);
-        child._elementAppendTo(_.$el);
 
         child.parent = _;
         child.parentTag = _.getParentTag();
 
+        child._elementAppendTo(_.$el);
     },
     appendTo: function appendTo(parent) {
         var _ = this;
@@ -809,6 +810,8 @@ var modes = {
     'DOM-MODE': [
         '<', parseTagClose,
         '<', parseTag,
+        '{', parseBarsHelperHTML,
+        '{', parseBarsInsertHTML,
         '{', parseBarsComment,
         '{', parseBarsHelper,
         '{', parseBarsPartial,
@@ -831,6 +834,7 @@ var modes = {
     'VALUE-MODE': [
         '"',  parseStringClose,
         '\'', parseStringClose,
+        '{',  parseBarsHelper,
         '{',  parseBarsBlockElse,
         '{',  parseBarsBlockClose,
         '{',  parseBarsBlock,
@@ -1290,7 +1294,56 @@ function parseBarsInsert(mode, tree, index, length, buffer, indent) {
         }
         token.contextPath += ch;
     }
-console.log("INTEKJSDLAKFJKLASDJF", token)
+
+    tree.push(token);
+
+    return index;
+}
+
+function parseBarsInsertHTML(mode, tree, index, length, buffer, indent) {
+    console.log(indent+'parseBarsInsert');
+
+    if (buffer[index + 1] !== '{') {
+        return null;
+    }
+
+    if (buffer[index + 2] !== '{') {
+        return null;
+    }
+
+    var ch,
+        token = {
+            type: 'FRAG-NODE',
+            contextPath: ''
+        }, endChars = 0;
+
+    // move past {{{
+    index += 3;
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '}') {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer[index];
+
+                if (ch === '}') {
+                    endChars++;
+                } else {
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                }
+
+                if (endChars === 3) {
+                    break loop;
+                }
+            }
+        }
+
+        token.contextPath += ch;
+    }
+
     tree.push(token);
 
     return index;
@@ -1398,6 +1451,74 @@ function parseBarsHelper(mode, tree, index, length, buffer, indent) {
                 }
 
                 if (endChars === 2) {
+                    break loop;
+                }
+            }
+        }
+
+        token.blockString += ch;
+    }
+
+    token.blockString = token.blockString.trim();
+
+    tree.push(token);
+
+    return index;
+}
+
+function parseBarsHelperHTML(mode, tree, index, length, buffer, indent) {
+    if (buffer[index + 1] !== '{') {
+        return null;
+    }
+
+    if (buffer[index + 2] !== '{') {
+        /* Canceling Parse */
+        return null;
+    }
+
+    if (buffer[index + 3] !== '?') {
+        /* Canceling Parse */
+        return null;
+    }
+    console.log(indent+'parseBarsHelperHTML');
+
+    var ch,
+        token = {
+            type: 'FRAG-NODE',
+            name: '',
+            blockString: ''
+        }, endChars = 0;
+
+    // move past {{{?
+    index += 4;
+
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (VALID_IDENTIFIER.test(ch)) {
+            token.name += ch;
+        } else {
+            break;
+        }
+    }
+
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '}') {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer[index];
+
+                if (ch === '}') {
+                    endChars++;
+                } else {
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                }
+
+                if (endChars === 3) {
                     break loop;
                 }
             }
