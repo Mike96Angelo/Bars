@@ -11,14 +11,14 @@
             var template = '<span>hello, {{#if @name}}<h2>{{@name + 67}}</h2>{{else}}Person{{/if}}.</span>';
                 template = '<ul>\
                                 {{#if false}}\
-                                    <li>{{name}}</li>\
+                                    <li>{{?caps name}}</li>\
                                 {{else}}\
                                     No cat here.\
                                 {{/if}}\
                             </ul>';
 
-                template = '<span data-test="{{#if test}}cats {{test}} !{{else}}nothing{{/if}}">hi</span>';
-                // template = '<span data-test="true" >hi</span>';
+                // template = '<span data-test="{{#if test}}cats {{test}} !{{else}}nothing{{/if}}">hi</span>';
+                template = '<span data-test="true" >{{name}}</span>';
 
             window.joey = {
                 name: 'Joey'
@@ -37,9 +37,13 @@
                 }
             ];
 
+            // bars.registerHelper('caps', function(value) {
+            //     return '<h1>' + value.split('').join('-mike-') + '</h1>';
+            // });
+
             window.c = bars.compile(template).render({
                 cats: window.cats,
-                name:90
+                name: 'capitalizable'
             });
 
             window.c.appendTo(document.body);

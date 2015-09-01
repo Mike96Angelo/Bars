@@ -17,7 +17,8 @@ var Bars = Generator.generate(function Bars() {
             each: Nodes['EACH-NODE'],
             with: Nodes['WITH-NODE'],
         },
-        partials: {}
+        partials: {},
+        helpers: {}
     });
 });
 
@@ -41,6 +42,12 @@ Bars.definePrototype({
         var _ = this;
 
         _.partials[name] = _.compile(template);
+    },
+
+    registerHelper: function registerHelper(name, func) {
+        var _ = this;
+
+        _.helpers[name] = func;
     },
 });
 
@@ -72,7 +79,8 @@ Fragment.definePrototype({
     build: function build(struct) {
         var _ = this,
             i,
-            node;
+            node,
+            helper;
 
         struct = struct || _.struct;
 
@@ -81,6 +89,7 @@ Fragment.definePrototype({
                 blockString: struct.blockString,
                 nodesFrag: Fragment.create(_.bars, struct.nodesFrag),
                 alternateFrag: Fragment.create(_.bars, struct.alternateFrag),
+                bars: _.bars
             });
         } else if (struct.type === 'PARTIAL-NODE') {
             node = _.bars.partials[struct.name];
@@ -88,12 +97,15 @@ Fragment.definePrototype({
             if (!node) {
                 throw new Error('Partial not found: ' + struct.name);
             }
+
             node = node.render();
         } else {
             node = Nodes[struct.type].create({
-                contextMap: struct.contextMap,
-                staticMap: struct.staticMap,
-                name: struct.name
+                contextPath: struct.contextPath,
+                content: struct.content,
+                name: struct.name,
+                bars: _.bars,
+                blockString: struct.blockString
             });
 
             if (struct.nodes) {
@@ -483,9 +495,7 @@ Node.definePrototype({
             _.parentTag.prevDom = _.$el;
         }
 
-        for (var key in _.contextMap) {
-            _.$el[key] = context(_.contextMap[key]);
-        }
+        _.content = context(_.contextPath);
     },
     getParentTag: function getParentTag() {
         var _ = this,
@@ -597,8 +607,8 @@ Node.definePrototype({
         return {
             type: _.type,
             name: _.name,
-            contextMap: _.contextMap,
-            staticMap: _.staticMap,
+            content: _.content,
+            contextPath: _.contextPath,
             alternate: _.alternate,
             nodes: _.nodes.length ? _.nodes : void(0)
         };
@@ -660,12 +670,43 @@ var TextNode = Node.generate(function TextNode(options) {
     _.supercreate(options);
 
     _.defineProperties({
-        $el: document.createTextNode(options.staticMap && options.staticMap.textContent)
+        $el: document.createTextNode(options && options.content)
     });
 });
 
 TextNode.definePrototype({
     type: 'TEXT-NODE',
+
+    update: function update(context) {
+        var _ = this,
+            helper,
+            args,
+            content;
+
+        if (_.name) {
+            helper = _.bars.helpers[_.name];
+
+            if (typeof helper === 'function') {
+                args = _.blockString.split(/\d+/).map(function(item) {
+                    return context(item);
+                });
+
+                content = helper.apply(_, args);
+            } else {
+                throw new Error('Helper not found: ' + _.name);
+            }
+        } else if (_.contextPath) {
+            content = context(_.contextPath);
+        } else {
+            content = _.content;
+        }
+
+        if (_.isDOM || _.type === 'TEXT-NODE' && _.parentTag) {
+            _.parentTag.prevDom = _.$el;
+        }
+
+        _.$el.textContent = content;
+    },
 });
 
 module.exports = TextNode;
@@ -704,17 +745,38 @@ WithNode.definePrototype({
 
     update: function(context) {
         var _ = this,
+            node,
+            lastCon = _.con,
             data = context(_.blockString);
 
         if (typeof data === 'object') {
             _.con = true;
-
             context = context.getContext(_.blockString);
-
-            _.nodes[0].update(context);
         } else {
             _.con = false;
-            _.alternate.update(context);
+        }
+
+        if (_.con) {
+            if (_.nodes[0]) {
+                _.nodes[0].update(context);
+            } else {
+                node = _.nodesFrag.render(context);
+
+                _.appendChild(node);
+
+                node._elementAppendTo(_.$parent);
+            }
+        } else {
+            if (_.alternate) {
+                _.alternate.update(context);
+            } else {
+                _.alternate = _.alternateFrag.render(context);
+                _.alternate.parent = _;
+            }
+        }
+
+        if ((!_.con && lastCon) || (_.con && !lastCon)) {
+            _._elementAppendTo(_.$parent);
         }
 
         _._elementAppendTo(_.$parent);
@@ -747,6 +809,8 @@ var modes = {
     'DOM-MODE': [
         '<', parseTagClose,
         '<', parseTag,
+        '{', parseBarsComment,
+        '{', parseBarsHelper,
         '{', parseBarsPartial,
         '{', parseBarsBlockElse,
         '{', parseBarsBlockClose,
@@ -846,9 +910,7 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
             } else {
                 var textValueToken = {
                     type: 'TEXT-NODE',
-                    staticMap: {
-                        textContent: ''
-                    }
+                    content: ''
                 };
                 for (; index < length; index++) {
                     ch = buffer[index];
@@ -857,10 +919,10 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
                         break;
                     }
 
-                    textValueToken.staticMap.textContent += ch;
+                    textValueToken.content += ch;
                 }
 
-                if (textValueToken.staticMap.textContent) {
+                if (textValueToken.content) {
                     token.nodes.push(textValueToken);
                     index--;
                 } else {
@@ -1049,9 +1111,7 @@ function parseTag(mode, tree, index, length, buffer, indent) {
     if (token.name === 'script' || token.name === 'style') {
         var textToken = {
             type: 'TEXT-NODE',
-            staticMap: {
-                textContent: ''
-            }
+            content: ''
         };
 
         for (; index < length; index++) {
@@ -1066,10 +1126,10 @@ function parseTag(mode, tree, index, length, buffer, indent) {
                 }
             }
 
-            textToken.staticMap.textContent += ch;
+            textToken.content += ch;
         }
 
-        if (textToken.staticMap.textContent) {
+        if (textToken.content) {
             token.nodes.push(textToken);
         }
     } else if (selfClosers.indexOf(token.name) === -1) {
@@ -1142,9 +1202,7 @@ function parseText(mode, tree, index, length, buffer, indent) {
     var ch,
         token = {
             type: 'TEXT-NODE',
-            staticMap: {
-                textContent: ''
-            }
+            content: ''
         };
 
     for (; index < length; index++) {
@@ -1155,10 +1213,10 @@ function parseText(mode, tree, index, length, buffer, indent) {
             break;
         }
 
-        token.staticMap.textContent += ch;
+        token.content += ch;
     }
 
-    if (token.staticMap.textContent) {
+    if (token.content) {
         console.log(indent+'parseText');
         tree.push(token);
         return index;
@@ -1171,9 +1229,7 @@ function parseTextValue(mode, tree, index, length, buffer, indent, close) {
     var ch,
         token = {
             type: 'TEXT-NODE',
-            staticMap: {
-                textContent: ''
-            }
+            content: ''
         };
 
     for (; index < length; index++) {
@@ -1184,10 +1240,10 @@ function parseTextValue(mode, tree, index, length, buffer, indent, close) {
             break;
         }
 
-        token.staticMap.textContent += ch;
+        token.content += ch;
     }
 
-    if (token.staticMap.textContent) {
+    if (token.content) {
         console.log(indent+'parseText');
         tree.push(token);
         return index;
@@ -1206,9 +1262,7 @@ function parseBarsInsert(mode, tree, index, length, buffer, indent) {
     var ch,
         token = {
             type: 'TEXT-NODE',
-            contextMap: {
-                textContent: ''
-            }
+            contextPath: ''
         }, endChars = 0;
 
     // move past {{
@@ -1234,9 +1288,9 @@ function parseBarsInsert(mode, tree, index, length, buffer, indent) {
                 }
             }
         }
-        token.contextMap.textContent += ch;
+        token.contextPath += ch;
     }
-
+console.log("INTEKJSDLAKFJKLASDJF", token)
     tree.push(token);
 
     return index;
@@ -1292,6 +1346,122 @@ function parseBarsPartial(mode, tree, index, length, buffer, indent) {
     console.log(indent+'parseBarsPartial');
 
     tree.push(token);
+
+    return index;
+}
+
+function parseBarsHelper(mode, tree, index, length, buffer, indent) {
+    if (buffer[index + 1] !== '{') {
+        return null;
+    }
+
+    if (buffer[index + 2] !== '?') {
+        /* Canceling Parse */
+        return null;
+    }
+    console.log(indent+'parseBarsHelper');
+
+    var ch,
+        token = {
+            type: 'TEXT-NODE',
+            name: '',
+            blockString: ''
+        }, endChars = 0;
+
+    // move past {{?
+    index += 3;
+
+    for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (VALID_IDENTIFIER.test(ch)) {
+            token.name += ch;
+        } else {
+            break;
+        }
+    }
+
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '}') {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer[index];
+
+                if (ch === '}') {
+                    endChars++;
+                } else {
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                }
+
+                if (endChars === 2) {
+                    break loop;
+                }
+            }
+        }
+
+        token.blockString += ch;
+    }
+
+    token.blockString = token.blockString.trim();
+
+    tree.push(token);
+
+    return index;
+}
+
+function parseBarsComment(mode, tree, index, length, buffer, indent) {
+    if (buffer[index + 1] !== '{') {
+        return null;
+    }
+
+    if (buffer[index + 2] !== '!') {
+        return null;
+    }
+
+    var ch,
+        token = {
+            type: 'COMMENT-NODE',
+            comment: ''
+        }, endChars = 0;
+
+    // move past {{!
+    index+=3;
+    loop: for (; index < length; index++) {
+        ch = buffer[index];
+
+        if (ch === '}') {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer[index];
+
+                if (ch === '}') {
+                    endChars++;
+                } else {
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                }
+
+                if (endChars === 2) {
+                    break loop;
+                }
+            }
+        }
+        token.comment += ch;
+    }
+
+    // TODO: Maybe create comment node?
+    // if (token.comment) {
+    //     console.log(indent+'parseBarsComment');
+
+    //     tree.push(token);
+
+    //     return index;
+    // }
 
     return index;
 }
