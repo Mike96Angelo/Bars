@@ -76,11 +76,10 @@ Fragment.definePrototype({
         return dom;
     },
 
-    build: function build(struct) {
+    build: function build(struct, parent) {
         var _ = this,
             i,
-            node,
-            helper;
+            node;
 
         struct = struct || _.struct;
 
@@ -91,6 +90,10 @@ Fragment.definePrototype({
                 alternateFrag: Fragment.create(_.bars, struct.alternateFrag),
                 bars: _.bars
             });
+
+            if (parent) {
+                parent.appendChild(node);
+            }
         } else if (struct.type === 'PARTIAL-NODE') {
             node = _.bars.partials[struct.name];
 
@@ -99,6 +102,9 @@ Fragment.definePrototype({
             }
 
             node = node.render();
+            if (parent) {
+                parent.appendChild(node);
+            }
         } else {
             node = Nodes[struct.type].create({
                 contextPath: struct.contextPath,
@@ -108,9 +114,13 @@ Fragment.definePrototype({
                 blockString: struct.blockString
             });
 
+            if (parent) {
+                parent.appendChild(node);
+            }
+
             if (struct.nodes) {
                 for (i = 0; i < struct.nodes.length; i++) {
-                    node.appendChild( _.build(struct.nodes[i]) );
+                    _.build(struct.nodes[i], node);
                 }
             }
         }
@@ -404,19 +414,19 @@ FragNode.definePrototype({
                 });
 
                 content = helper.apply(_, args);
-                content = _.bars.compile(content).render();
+                content = _.bars.compile(content).render(context);
 
                 _.appendChild(content);
-                content.update(context);
+                _._elementAppendTo(_.$parent);
             } else {
                 throw new Error('Helper not found: ' + _.name);
             }
         } else if (_.contextPath) {
             _.empty();
             content = context(_.contextPath);
-            content = _.bars.compile(content).render();
+            content = _.bars.compile(content).render(context);
             _.appendChild(content);
-            content.update(context);
+            _._elementAppendTo(_.$parent);
         } else {
             for (var i = 0; i < _.nodes.length; i++) {
                 _.nodes[i].update(context);
@@ -787,7 +797,7 @@ WithNode.definePrototype({
 module.exports = WithNode;
 
 },{"./block":6}],16:[function(require,module,exports){
-var selfClosers = [
+var SELF_CLOSEING_TAGS = [
     'area',
     'base',
     'br',
@@ -806,7 +816,7 @@ var selfClosers = [
     'wbr'
 ];
 
-var modes = {
+var MODES = {
     'DOM-MODE': [
         '<', parseTagClose,
         '<', parseTag,
@@ -847,21 +857,20 @@ var VALID_IDENTIFIER = /^[_A-Za-z0-9-]$/;
 var WHITESPACE = /^\s$/;
 
 function parseError(mode, tree, index, length, buffer, indent) {
-    console.log(JSON.stringify(buffer[index-1]),JSON.stringify(buffer[index]), {mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
-    throw new SyntaxError('Unexpected token: ' + JSON.stringify(buffer[index]));
+    throw new SyntaxError('Unexpected token: ' + JSON.stringify(buffer.slice(index-9,index+10))+ 'index:' + index);
 }
 
 function parseTagEnd(mode, tree, index, length, buffer, indent, close) {
     var ch = buffer[index];
 
     if (ch === '>') {
-        console.log(indent + 'parseTagEnd');
+        // console.log(indent + 'parseTagEnd');
         close.closed = true;
         return index;
     }
 
     if (ch === '/' && buffer[index + 1] === '>') {
-        console.log(indent + 'parseTagEnd');
+        // console.log(indent + 'parseTagEnd');
         index++;
         close.selfClosed = true;
         return index;
@@ -889,7 +898,7 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
     }
 
     if (token.name) {
-        console.log(indent + 'parseAttr');
+        // console.log(indent + 'parseAttr');
 
         tree.push(token);
 
@@ -909,7 +918,7 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
                 index = parse('VALUE-MODE', token.nodes, index, length, buffer, indent, stringToken);
 
                 if (!stringToken.closed) {
-                    throw new SyntaxError('Missing closing tag: expected \'' + stringToken + '\'.');
+                    throw new SyntaxError('Missing closing tag: expected \'' + stringToken + '\'. index:' + index);
                 }
             } else {
                 var textValueToken = {
@@ -930,7 +939,7 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
                     token.nodes.push(textValueToken);
                     index--;
                 } else {
-                    throw new SyntaxError('Unexpected end of input.');
+                    throw new SyntaxError('Unexpected end of input. index:' + index);
                 }
             }
         } else {
@@ -944,8 +953,6 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
 }
 
 function parseWhiteSpace(mode, tree, index, length, buffer, indent) {
-    // console.log(JSON.stringify(buffer[index]), {mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
-
     var ch,
         whitespace = 0;
 
@@ -960,11 +967,8 @@ function parseWhiteSpace(mode, tree, index, length, buffer, indent) {
         whitespace++;
     }
 
-    // console.log(JSON.stringify(buffer[index]), {mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
-
-
     if (whitespace) {
-        console.log(indent + 'parseWhiteSpace');
+        // console.log(indent + 'parseWhiteSpace');
         index--;
         return index;
     }
@@ -986,7 +990,7 @@ function parseStringClose(mode, tree, index, length, buffer, indent, close, noEr
         return null;
     }
 
-    throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
+    throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'. index:' + index);
 }
 
 // function parseString(mode, tree, index, length, buffer, indent) {
@@ -1004,7 +1008,7 @@ function parseStringClose(mode, tree, index, length, buffer, indent, close, noEr
 //         ch = buffer[index];
 
 //         if (ch === '\n' && buffer[index - 1] !== '\\') {
-//             throw new SyntaxError('Unexpected end of input.');
+//             throw new SyntaxError('Unexpected end of input. index:' + index);
 //         }
 
 //         if (ch === opener && buffer[index - 1] !== '\\') {
@@ -1020,7 +1024,7 @@ function parseStringClose(mode, tree, index, length, buffer, indent, close, noEr
 // }
 
 function parse(mode, tree, index, length, buffer, indent, close) {
-    console.log(indent + 'parse - ', mode);
+    // console.log(indent + 'parse - ', mode);
 
     // console.log({mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
 
@@ -1030,7 +1034,7 @@ function parse(mode, tree, index, length, buffer, indent, close) {
         oldIndent = indent,
         oldElsed,
         newIndex,
-        parseFuncs = modes[mode],
+        parseFuncs = MODES[mode],
         parseFuncsLength = parseFuncs.length,
         parseFunc,
         i;
@@ -1041,7 +1045,7 @@ function parse(mode, tree, index, length, buffer, indent, close) {
         ch = buffer[index];
 
         for (i = 0; i < parseFuncsLength; i++) {
-            testCh = modes[mode][i];
+            testCh = parseFuncs[i];
             parseFunc = parseFuncs[++i];
 
             if (ch === testCh || !testCh) {
@@ -1071,13 +1075,13 @@ function parse(mode, tree, index, length, buffer, indent, close) {
         }
     }
 
-    console.log(oldIndent + '<<<');
+    // console.log(oldIndent + '<<<');
 
     return index;
 }
 
 function parseTag(mode, tree, index, length, buffer, indent) {
-    console.log(indent+'parseTag');
+    // console.log(indent+'parseTag');
 
     var ch,
         token = {
@@ -1102,7 +1106,7 @@ function parseTag(mode, tree, index, length, buffer, indent) {
     index = parse('ATTR-MODE', token.attrs, index, length, buffer, indent, token);
 
     if (!token.closed && !token.selfClosed) {
-        throw new SyntaxError('Unexpected end of input.');
+        throw new SyntaxError('Unexpected end of input. index:' + index);
     }
 
     delete token.closed;
@@ -1136,7 +1140,7 @@ function parseTag(mode, tree, index, length, buffer, indent) {
         if (textToken.content) {
             token.nodes.push(textToken);
         }
-    } else if (selfClosers.indexOf(token.name) === -1) {
+    } else if (SELF_CLOSEING_TAGS.indexOf(token.name) === -1) {
         index++;
         index = parse(mode, token.nodes, index, length, buffer, indent, token);
     }
@@ -1145,7 +1149,7 @@ function parseTag(mode, tree, index, length, buffer, indent) {
         delete token.closed;
         tree.push(token);
     } else {
-        throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
+        throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'. index:' + index);
     }
 
     return index;
@@ -1155,7 +1159,7 @@ function parseTagClose(mode, tree, index, length, buffer, indent, close, noError
 
     if (buffer[index + 1] !== '/') return null;
 
-    console.log(indent+'parseTagClose');
+    // console.log(indent+'parseTagClose');
 
     var ch,
         token = {
@@ -1183,11 +1187,11 @@ function parseTagClose(mode, tree, index, length, buffer, indent, close, noError
     }
 
     if (!end) {
-        throw new SyntaxError('Unexpected end of input.');
+        throw new SyntaxError('Unexpected end of input. index:' + index);
     }
 
     if (!close) {
-        throw new SyntaxError('Unexpected closing tag: \'' +token.name+ '\'.');
+        throw new SyntaxError('Unexpected closing tag: \'' +token.name+ '\'. index:' + index);
     }
 
     if (token.type === close.type && token.name === close.name) {
@@ -1196,7 +1200,7 @@ function parseTagClose(mode, tree, index, length, buffer, indent, close, noError
         /* Canceling Parse */
         return null;
     } else {
-        throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
+        throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'. index:' + index);
     }
 
     return index;
@@ -1221,7 +1225,7 @@ function parseText(mode, tree, index, length, buffer, indent) {
     }
 
     if (token.content) {
-        console.log(indent+'parseText');
+        // console.log(indent+'parseText');
         tree.push(token);
         return index;
     }
@@ -1248,7 +1252,7 @@ function parseTextValue(mode, tree, index, length, buffer, indent, close) {
     }
 
     if (token.content) {
-        console.log(indent+'parseText');
+        // console.log(indent+'parseText');
         tree.push(token);
         return index;
     }
@@ -1257,10 +1261,10 @@ function parseTextValue(mode, tree, index, length, buffer, indent, close) {
 }
 
 function parseBarsInsert(mode, tree, index, length, buffer, indent) {
-    console.log(indent+'parseBarsInsert');
+    // console.log(indent+'parseBarsInsert');
 
     if (buffer[index + 1] !== '{') {
-        throw new SyntaxError('Unexpected end of input.');
+        throw new SyntaxError('Unexpected end of input. index:' + index);
     }
 
     var ch,
@@ -1284,7 +1288,7 @@ function parseBarsInsert(mode, tree, index, length, buffer, indent) {
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 2) {
@@ -1301,7 +1305,7 @@ function parseBarsInsert(mode, tree, index, length, buffer, indent) {
 }
 
 function parseBarsInsertHTML(mode, tree, index, length, buffer, indent) {
-    console.log(indent+'parseBarsInsert');
+    // console.log(indent+'parseBarsInsert');
 
     if (buffer[index + 1] !== '{') {
         return null;
@@ -1332,7 +1336,7 @@ function parseBarsInsertHTML(mode, tree, index, length, buffer, indent) {
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 3) {
@@ -1379,7 +1383,7 @@ function parseBarsPartial(mode, tree, index, length, buffer, indent) {
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 2) {
@@ -1393,10 +1397,10 @@ function parseBarsPartial(mode, tree, index, length, buffer, indent) {
     token.name = token.name.trim();
 
     if (!token.name) {
-        throw new SyntaxError('Unexpected end of input.');
+        throw new SyntaxError('Unexpected end of input. index:' + index);
     }
 
-    console.log(indent+'parseBarsPartial');
+    // console.log(indent+'parseBarsPartial');
 
     tree.push(token);
 
@@ -1412,7 +1416,7 @@ function parseBarsHelper(mode, tree, index, length, buffer, indent) {
         /* Canceling Parse */
         return null;
     }
-    console.log(indent+'parseBarsHelper');
+    // console.log(indent+'parseBarsHelper');
 
     var ch,
         token = {
@@ -1447,7 +1451,7 @@ function parseBarsHelper(mode, tree, index, length, buffer, indent) {
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 2) {
@@ -1480,7 +1484,7 @@ function parseBarsHelperHTML(mode, tree, index, length, buffer, indent) {
         /* Canceling Parse */
         return null;
     }
-    console.log(indent+'parseBarsHelperHTML');
+    // console.log(indent+'parseBarsHelperHTML');
 
     var ch,
         token = {
@@ -1515,7 +1519,7 @@ function parseBarsHelperHTML(mode, tree, index, length, buffer, indent) {
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 3) {
@@ -1564,7 +1568,7 @@ function parseBarsComment(mode, tree, index, length, buffer, indent) {
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 2) {
@@ -1577,7 +1581,7 @@ function parseBarsComment(mode, tree, index, length, buffer, indent) {
 
     // TODO: Maybe create comment node?
     // if (token.comment) {
-    //     console.log(indent+'parseBarsComment');
+        console.log(indent+'parseBarsComment');
 
     //     tree.push(token);
 
@@ -1590,14 +1594,14 @@ function parseBarsComment(mode, tree, index, length, buffer, indent) {
 function parseBarsBlock(mode, tree, index, length, buffer, indent) {
 
     if (buffer[index + 1] !== '{') {
-        throw new SyntaxError('Unexpected end of input.');
+        throw new SyntaxError('Unexpected end of input. index:' + index);
     }
 
     if (buffer[index + 2] !== '#') {
         /* Canceling Parse */
         return null;
     }
-    console.log(indent+'parseBarsBlock');
+    // console.log(indent+'parseBarsBlock');
 
     var ch,
         token = {
@@ -1640,7 +1644,7 @@ function parseBarsBlock(mode, tree, index, length, buffer, indent) {
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 2) {
@@ -1667,7 +1671,7 @@ function parseBarsBlock(mode, tree, index, length, buffer, indent) {
         delete token.elsed;
         tree.push(token);
     } else {
-        throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'.');
+        throw new SyntaxError('Missing closing tag: expected \'' + token.name + '\'. index:' + index);
     }
 
     return index;
@@ -1676,14 +1680,14 @@ function parseBarsBlock(mode, tree, index, length, buffer, indent) {
 function parseBarsBlockClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
 
     if (buffer[index + 1] !== '{') {
-        throw new SyntaxError('Unexpected end of input.');
+        throw new SyntaxError('Unexpected end of input. index:' + index);
     }
 
     if (buffer[index + 2] !== '/') {
         return null;
     }
 
-    console.log(indent+'parseBarsBlockClose');
+    // console.log(indent+'parseBarsBlockClose');
 
 
     var ch,
@@ -1719,7 +1723,7 @@ function parseBarsBlockClose(mode, tree, index, length, buffer, indent, close, n
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 2) {
@@ -1730,7 +1734,7 @@ function parseBarsBlockClose(mode, tree, index, length, buffer, indent, close, n
     }
 
     if (!close) {
-        throw new SyntaxError('Unexpected closing tag: \'' +token.name+ '\'.');
+        throw new SyntaxError('Unexpected closing tag: \'' +token.name+ '\'. index:' + index);
     }
 
     if (token.type === close.type && token.name === close.name) {
@@ -1739,7 +1743,7 @@ function parseBarsBlockClose(mode, tree, index, length, buffer, indent, close, n
         /* Canceling Parse */
         return null;
     } else {
-        throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
+        throw new SyntaxError('Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'. index:' + index);
     }
 
     return index;
@@ -1748,7 +1752,7 @@ function parseBarsBlockClose(mode, tree, index, length, buffer, indent, close, n
 function parseBarsBlockElse(mode, tree, index, length, buffer, indent, close) {
 
     if (buffer[index + 1] !== '{') {
-        throw new SyntaxError('Unexpected end of input.');
+        throw new SyntaxError('Unexpected end of input. index:' + index);
     }
 
     var ch,
@@ -1771,7 +1775,7 @@ function parseBarsBlockElse(mode, tree, index, length, buffer, indent, close) {
                 if (ch === '}') {
                     endChars++;
                 } else {
-                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'.');
+                    throw new SyntaxError('Unexpected character: expected \'}\' but found \'' +ch+ '\'. index:' + index);
                 }
 
                 if (endChars === 2) {
@@ -1784,15 +1788,15 @@ function parseBarsBlockElse(mode, tree, index, length, buffer, indent, close) {
 
     if (close && close.type === 'BLOCK-NODE' && name === 'else') {
         if (close.elsed) {
-            throw new SyntaxError('Unexpected else token.');
+            throw new SyntaxError('Unexpected else token. index:' + index);
         }
 
         close.elsed = true;
 
-        console.log(indent+'parseBarsBlockElse');
+        // console.log(indent+'parseBarsBlockElse');
         return index;
     } else if (!close && name === 'else') {
-        throw new SyntaxError('Unexpected else tag.');
+        throw new SyntaxError('Unexpected else tag. index:' + index);
     } else {
         /* Canceling Parse */
         return null;
@@ -1800,16 +1804,19 @@ function parseBarsBlockElse(mode, tree, index, length, buffer, indent, close) {
 }
 
 function compile(buffer) {
+    var n = Date.now();
     var tree = {
         type: 'FRAG-NODE',
         nodes: []
     };
 
-    console.log('compile');
+    // console.log('compile');
 
     parse('DOM-MODE', tree.nodes, 0, buffer.length, buffer, '  ', null);
 
-    console.log('compiled');
+    // console.log('compiled');
+    //
+    console.log(Date.now()-n);
 
     return tree;
     // return JSON.stringify(tree, null, 2);
