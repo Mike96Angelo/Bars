@@ -1,4 +1,4 @@
-#Pre-release v0.1.2
+# Pre-release v0.1.3
 
 ## Table of Contents
 
@@ -12,8 +12,8 @@
         * [DomFrag.update(data)](#dom-update)
         * [DomFrag.appendTo(element)](#dom-append-to)
 
-
 <a name="bars"></a>
+
 # Bars
 
 Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.

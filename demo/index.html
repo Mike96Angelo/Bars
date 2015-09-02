@@ -4,6 +4,7 @@
         <title></title>
     </head>
     <body>
+        <script type="text/template"></script>
         <script src="bars.js"></script>
         <script type="text/javascript">
             var bars = window.Bars.create();
@@ -18,7 +19,7 @@
                             </ul>';
 
                 // template = '<span data-test="{{#if test}}cats {{test}} !{{else}}nothing{{/if}}">hi</span>';
-                template = '<span data-test="true">{{name}}</span>';
+                template = '<span>{{{?caps name}}}</span>';
 
             window.joey = {
                 name: 'Joey'
@@ -38,7 +39,7 @@
             ];
 
             bars.registerHelper('caps', function(value) {
-                return '<h1>' + value.split('').join('-mike-') + '</h1>';
+                return '<h1>' + value.toString().toUpperCase() + '</h1>';
             });
 
             window.c = bars.compile(template).render({
