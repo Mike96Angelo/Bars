@@ -18,7 +18,11 @@ var Bars = Generator.generate(function Bars() {
             with: Nodes['WITH-NODE'],
         },
         partials: {},
-        helpers: {}
+        helpers: {
+            log: function log() {
+                console.log.apply(console, arguments);
+            }
+        }
     });
 });
 
@@ -102,6 +106,8 @@ Fragment.definePrototype({
             }
 
             node = node.render();
+            node.setPath(struct.blockString);
+
             if (parent) {
                 parent.appendChild(node);
             }
@@ -223,6 +229,7 @@ BlockNode.definePrototype({
             } else {
                 _.alternate = _.alternateFrag.render(context);
                 _.alternate.parent = _;
+                _.alternate.parentTag = _.alternate.getParentTag();
             }
         }
 
@@ -271,7 +278,9 @@ BlockNode.definePrototype({
             _.nodes[i]._elementRemove();
         }
 
-        _.alternate._elementRemove();
+        if (_.alternate) {
+            _.alternate._elementRemove();
+        }
 
         _.$parent = null;
 
@@ -330,6 +339,8 @@ EachNode.definePrototype({
                 } else {
                     _.alternate = _.alternateFrag.render(context);
                     _.alternate.parent = _;
+                    _.alternate.parentTag = _.alternate.getParentTag();
+
                 }
                 _.con = false;
             }
@@ -339,6 +350,7 @@ EachNode.definePrototype({
             } else {
                 _.alternate = _.alternateFrag.render(context);
                 _.alternate.parent = _;
+                _.alternate.parentTag = _.alternate.getParentTag();
             }
             _.con = false;
         }
@@ -355,24 +367,27 @@ module.exports = EachNode;
 var Node = require('./node');
 
 function resolve(basepath, path) {
-    var splitBasepath = basepath.split('/'),
-        splitPath = path.split('/');
+    var newSplitpath;
 
     if (path[0] === '/') {
-        splitPath.shift();
-        return splitPath;
+        newSplitpath = path.split('/');
+    } else {
+        newSplitpath = basepath.split('/').concat(path.split('/'));
     }
 
-    if (!basepath || basepath[0] === '/') {
-        splitBasepath.shift();
+
+    for (var i = 0; i < newSplitpath.length; i++) {
+        if (newSplitpath[i] === '.' || newSplitpath[i] === '') {
+            newSplitpath.splice(i, 1);
+            i--;
+        } else if (newSplitpath[i] === '..') {
+            newSplitpath.splice(i - 1, 2);
+            i -= 2;
+        }
     }
 
-    while (splitPath[0] =='..') {
-        splitPath.shift();
-        splitBasepath.pop();
-    }
-
-    return splitBasepath.concat(splitPath);
+    // console.log(newSplitpath);
+    return newSplitpath;
 }
 
 /**
@@ -404,26 +419,42 @@ FragNode.definePrototype({
             context = _.getContext('');
         }
 
+        if (_.path) {
+            context = context.getContext(_.path);
+        }
+
         if (_.name) {
             _.empty();
             helper = _.bars.helpers[_.name];
 
             if (typeof helper === 'function') {
-                args = _.blockString.split(/\d+/).map(function(item) {
+                args = _.blockString.split(/\s+/).map(function(item) {
                     return context(item);
                 });
-
                 content = helper.apply(_, args);
+
+                if (content === null || content === void(0)) {
+                    content = '';
+                } else {
+                    content = '' + content;
+                }
+
                 content = _.bars.compile(content).render(context);
 
                 _.appendChild(content);
-                _._elementAppendTo(_.$parent);
             } else {
                 throw new Error('Helper not found: ' + _.name);
             }
         } else if (_.contextPath) {
             _.empty();
-            content = context(_.contextPath);
+            content =  context(_.contextPath);
+
+            if (content === null || content === void(0)) {
+                content = '';
+            } else {
+                content = '' + content;
+            }
+
             content = _.bars.compile(content).render(context);
             _.appendChild(content);
             _._elementAppendTo(_.$parent);
@@ -461,8 +492,10 @@ FragNode.definePrototype({
         for (var i = 0; i < splitPath.length; i++) {
             if (splitPath[i] === '@key' || splitPath[i] === '@index') {
                 value = splitPath[i - 1];
-            } else {
+            } else if (value !== null && value !== void(0)) {
                 value = value[splitPath[i]];
+            } else {
+                return;
             }
         }
 
@@ -480,6 +513,14 @@ FragNode.definePrototype({
         };
 
         return context;
+    },
+
+    setPath: function setPath(path) {
+        var _ = this;
+
+        _.defineProperties({
+            path: path
+        });
     },
 });
 
@@ -698,7 +739,7 @@ TextNode.definePrototype({
             helper = _.bars.helpers[_.name];
 
             if (typeof helper === 'function') {
-                args = _.blockString.split(/\d+/).map(function(item) {
+                args = _.blockString.split(/\s+/).map(function(item) {
                     return context(item);
                 });
 
@@ -820,8 +861,9 @@ var SELF_CLOSEING_TAGS = [
 
 var MODES = {
     'DOM-MODE': [
-        60 /*'<'*/, parseTagClose,
-        60 /*'<'*/, parseTag,
+        60 /*'<'*/,  parseHTMLComment,
+        60 /*'<'*/,  parseTagClose,
+        60 /*'<'*/,  parseTag,
         123 /*'{'*/, parseBarsHelperHTML,
         123 /*'{'*/, parseBarsInsertHTML,
         123 /*'{'*/, parseBarsComment,
@@ -831,27 +873,29 @@ var MODES = {
         123 /*'{'*/, parseBarsBlockClose,
         123 /*'{'*/, parseBarsBlock,
         123 /*'{'*/, parseBarsInsert,
-        null,  parseText
+        null,        parseText
     ],
     'ATTR-MODE': [
         47 /*'/'*/, parseTagEnd,
         62 /*'>'*/, parseTagEnd,
+        123 /*'{'*/, parseBarsComment,
         123 /*'{'*/, parseBarsBlockElse,
         123 /*'{'*/, parseBarsBlockClose,
         123 /*'{'*/, parseBarsBlock,
-        null,  parseWhiteSpace,
-        null,  parseAttr,
-        null,  parseError
+        null,        parseWhiteSpace,
+        null,        parseAttr,
+        null,        parseError
     ],
     'VALUE-MODE': [
-        34 /*'"'*/,  parseStringClose,
-        39 /*'\''*/, parseStringClose,
+        34 /*'"'*/,   parseStringClose,
+        39 /*'\''*/,  parseStringClose,
+        123 /*'{'*/,  parseBarsComment,
         123 /*'{'*/,  parseBarsHelper,
         123 /*'{'*/,  parseBarsBlockElse,
         123 /*'{'*/,  parseBarsBlockClose,
         123 /*'{'*/,  parseBarsBlock,
         123 /*'{'*/,  parseBarsInsert,
-        null,   parseTextValue
+        null,         parseTextValue
     ],
 };
 
@@ -963,7 +1007,7 @@ function HTML_IDENTIFIER(ch) {
            (48 <= ch && ch <= 57) ||
            (65 <= ch && ch <= 90) ||
            (ch === 95) ||
-           (97 <= ch && ch <= 122)
+           (97 <= ch && ch <= 122);
 }
 
 function WHITESPACE(ch) {
@@ -1040,7 +1084,7 @@ function throwError(buffer, index, message) {
 }
 
 function parseError(mode, tree, index, length, buffer, indent) {
-    throwError(buffer, index, 'Unexpected token: ' + JSON.stringify(buffer.slice(index))+'.');
+    throwError(buffer, index, 'Unexpected token: ' + JSON.stringify(buffer[index])+'.');
 }
 
 function parseTagEnd(mode, tree, index, length, buffer, indent, close) {
@@ -1255,6 +1299,10 @@ function parseTag(mode, tree, index, length, buffer, indent) {
         }
 
         token.name += buffer[index];
+    }
+
+    if (!token.name) {
+        throwError(buffer, index, 'Missing tag name.');
     }
 
     index = parse('ATTR-MODE', token.attrs, index, length, buffer, indent, token);
@@ -1542,17 +1590,35 @@ function parseBarsPartial(mode, tree, index, length, buffer, indent) {
     }
 
     if (buffer.codePointAt(index + 2) !== 62 /*'>'*/) {
+        /* Canceling Parse */
         return null;
     }
+    LOGGING && console.log(indent+'parseBarsPartial');
 
     var ch,
         token = {
             type: 'PARTIAL-NODE',
-            name: ''
+            name: '',
+            blockString: ''
         }, endChars = 0;
 
     // move past {{>
-    index+=3;
+    index += 3;
+
+    for (; index < length; index++) {
+        ch = buffer.codePointAt(index);
+
+        if (HTML_IDENTIFIER(ch)) {
+            token.name += buffer[index];
+        } else {
+            break;
+        }
+    }
+
+    if (!token.name) {
+        throwError(buffer, index, 'Missing partial name.');
+    }
+
     loop: for (; index < length; index++) {
         ch = buffer.codePointAt(index);
 
@@ -1574,16 +1640,11 @@ function parseBarsPartial(mode, tree, index, length, buffer, indent) {
                 }
             }
         }
-        token.name += buffer[index];
+
+        token.blockString += buffer[index];
     }
 
-    token.name = token.name.trim();
-
-    if (!token.name) {
-        throwError(buffer, index, 'Unexpected end of input.');
-    }
-
-    LOGGING && console.log(indent+'parseBarsPartial');
+    token.blockString = token.blockString.trim();
 
     tree.push(token);
 
@@ -1619,6 +1680,10 @@ function parseBarsHelper(mode, tree, index, length, buffer, indent) {
         } else {
             break;
         }
+    }
+
+    if (!token.name) {
+        throwError(buffer, index, 'Missing helper name.');
     }
 
     loop: for (; index < length; index++) {
@@ -1663,7 +1728,7 @@ function parseBarsHelperHTML(mode, tree, index, length, buffer, indent) {
         return null;
     }
 
-    if (buffer[index + 3] !== 63 /*'?'*/) {
+    if (buffer.codePointAt(index + 3) !== 63 /*'?'*/) {
         /* Canceling Parse */
         return null;
     }
@@ -1687,6 +1752,10 @@ function parseBarsHelperHTML(mode, tree, index, length, buffer, indent) {
         } else {
             break;
         }
+    }
+
+    if (!token.name) {
+        throwError(buffer, index, 'Missing helper name.');
     }
 
     loop: for (; index < length; index++) {
@@ -1726,7 +1795,7 @@ function parseBarsComment(mode, tree, index, length, buffer, indent) {
         return null;
     }
 
-    if (buffer.codePointAt(index + 2) !== '!') {
+    if (buffer.codePointAt(index + 2) !== 33 /*'!'*/) {
         return null;
     }
 
@@ -1756,6 +1825,68 @@ function parseBarsComment(mode, tree, index, length, buffer, indent) {
 
                 if (endChars === 2) {
                     break loop;
+                }
+            }
+        }
+        token.comment += buffer[index];
+    }
+
+    // TODO: Maybe create comment node?
+    // if (token.comment) {
+        // LOGGING && console.log(indent+'parseBarsComment');
+
+    //     tree.push(token);
+
+    //     return index;
+    // }
+
+    return index;
+}
+
+function parseHTMLComment(mode, tree, index, length, buffer, indent) {
+    if (buffer.codePointAt(index + 1) !== 33 /*'!'*/) {
+        return null;
+    }
+
+    if (buffer.codePointAt(index + 2) !== 45 /*'-'*/) {
+        return null;
+    }
+
+    if (buffer.codePointAt(index + 3) !== 45 /*'-'*/) {
+        return null;
+    }
+
+    var ch,
+        token = {
+            type: 'COMMENT-NODE',
+            comment: ''
+        },
+        endChars = 0;
+
+    // move past <!--
+    index+=4;
+    loop: for (; index < length; index++) {
+        ch = buffer.codePointAt(index);
+
+        if (ch === 45 /*'-'*/) {
+            endChars++;
+            index++;
+
+            for (; index < length; index++) {
+                ch = buffer.codePointAt(index);
+
+                if (ch === 45 /*'-'*/) {
+                    endChars++;
+                } else {
+                    endChars = 0;
+                    break;
+                }
+
+                if (endChars >= 2) {
+                    if (buffer.codePointAt(index + 1) === 62 /*'>'*/) {
+                        index++;
+                        break loop;
+                    }
                 }
             }
         }
@@ -1812,6 +1943,10 @@ function parseBarsBlock(mode, tree, index, length, buffer, indent) {
         } else {
             break;
         }
+    }
+
+    if (!token.name) {
+        throwError(buffer, index, 'Missing block name.');
     }
 
     loop: for (; index < length; index++) {
@@ -1999,7 +2134,7 @@ function compile(buffer) {
 
     LOGGING && console.log('compiled');
     //
-    console.log(Date.now()-n);
+    LOGGING && console.log(Date.now()-n);
 
     return tree;
     // return JSON.stringify(tree, null, 2);

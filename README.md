@@ -1,4 +1,4 @@
-# Pre-release v0.1.3
+# Pre-release v0.1.5
 
 ## Table of Contents
 
@@ -54,7 +54,7 @@ bars.registerPartial('person', '<h2>{{name}}</h2>{{#if age}} - {{age}}{{/if}}');
 
 /**
  * To use the `person` partial in another
- * template use this {{>person}}.
+ * template use this {{>person <arg>}}.
  */
 ```
 
@@ -75,8 +75,8 @@ bars.registerPartial('caps', function (text) {
 
 /**
  * To use the `caps` partial in another
- * template use this {{?caps <agrs...>}}
- * or {{{?caps <agrs...>}}} to render as html.
+ * template use this {{?caps <args...>}}
+ * or {{{?caps <args...>}}} to render as html.
  */
 ```
 

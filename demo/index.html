@@ -10,16 +10,23 @@
             var bars = window.Bars.create();
 
             var template = '<span>hello, {{#if @name}}<h2>{{@name + 67}}</h2>{{else}}Person{{/if}}.</span>';
-                template = '<ul>\
-                                {{#if false}}\
-                                    <li>{{?caps name}}</li>\
+                template = '<ul>\n\
+                                {{#each cats}}\n\
+                                    <li>{{{?multiply name}}}</li>\
                                 {{else}}\
                                     No cat here.\
-                                {{/if}}\
+                                {{/each}}\
                             </ul>';
 
-                // template = '<span data-test="{{#if test}}cats {{test}} !{{else}}nothing{{/if}}">hi</span>';
-                template = '<span>{{{?caps name}}}</span>';
+                template = '<div>\
+                                {{#if name}}\
+                                    NAME\
+                                {{else}}\
+                                    nnoname\
+                                {{/if}}\
+                            </div>';
+                // template = '<span class=" {{#if name}}NAME {{else}} nnoname{{/if}}">asdf</span>';
+                // template = '<span {{#if name}}named{{else}}no-named{{/if}}>{{?caps ../.}}</span>';
 
             window.joey = {
                 name: 'Joey'
@@ -27,24 +34,26 @@
 
             window.cats = [
                 {
-                    name: 'Joel'
+                    name: undefined
                 },
                 {
-                    name: 'Joelle'
+                    name: false
                 },
                 window.joey,
                 {
-                    name: 'Joe'
+                    name: NaN
                 }
             ];
 
-            bars.registerHelper('caps', function(value) {
-                return '<h1>' + value.toString().toUpperCase() + '</h1>';
+            bars.registerHelper('multiply', function(a, b) {
+                return undefined;
             });
+
+            bars.registerPartial('cat', 'Cat #{{@index}}\'s name is {{name}}.');
 
             window.c = bars.compile(template).render({
                 cats: window.cats,
-                name: 'capitalizable'
+                // name: 'asdf'
             });
 
             window.c.appendTo(document.body);
