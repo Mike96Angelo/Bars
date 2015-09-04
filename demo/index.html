@@ -22,10 +22,10 @@
                                 {{#if name}}\
                                     NAME\
                                 {{else}}\
-                                    nnoname\
+                                    noname\
                                 {{/if}}\
                             </div>';
-                // template = '<span class=" {{#if name}}NAME {{else}} nnoname{{/if}}">asdf</span>';
+                template = '<span class=" {{#if name}}NAME {{else}} nnoname{{/if}}">asdf</span>';
                 // template = '<span {{#if name}}named{{else}}no-named{{/if}}>{{?caps ../.}}</span>';
 
             window.joey = {
@@ -53,7 +53,7 @@
 
             window.c = bars.compile(template).render({
                 cats: window.cats,
-                // name: 'asdf'
+                name: 'asdf'
             });
 
             window.c.appendTo(document.body);

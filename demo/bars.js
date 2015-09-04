@@ -33,6 +33,8 @@ Bars.definePrototype({
 
         console.log(parsed);
 
+        //here
+
         return Fragment.create(_, parsed );
     },
 
@@ -91,7 +93,7 @@ Fragment.definePrototype({
             node = _.bars.blocks[struct.name].create({
                 blockString: struct.blockString,
                 nodesFrag: Fragment.create(_.bars, struct.nodesFrag),
-                alternateFrag: Fragment.create(_.bars, struct.alternateFrag),
+                altFrag: Fragment.create(_.bars, struct.altFrag),
                 bars: _.bars
             });
 
@@ -227,7 +229,7 @@ BlockNode.definePrototype({
             if (_.alternate) {
                 _.alternate.update(context);
             } else {
-                _.alternate = _.alternateFrag.render(context);
+                _.alternate = _.altFrag.render(context);
                 _.alternate.parent = _;
                 _.alternate.parentTag = _.alternate.getParentTag();
             }
@@ -337,7 +339,7 @@ EachNode.definePrototype({
                 if (_.alternate) {
                     _.alternate.update(context);
                 } else {
-                    _.alternate = _.alternateFrag.render(context);
+                    _.alternate = _.altFrag.render(context);
                     _.alternate.parent = _;
                     _.alternate.parentTag = _.alternate.getParentTag();
 
@@ -348,7 +350,7 @@ EachNode.definePrototype({
             if (_.alternate) {
                 _.alternate.update(context);
             } else {
-                _.alternate = _.alternateFrag.render(context);
+                _.alternate = _.altFrag.render(context);
                 _.alternate.parent = _;
                 _.alternate.parentTag = _.alternate.getParentTag();
             }
@@ -579,13 +581,15 @@ Node.definePrototype({
     },
     getParentTag: function getParentTag() {
         var _ = this,
-            parent = _.parent || null;
+            parent = _.parent,
+            oldParent = parent;
 
-        while (parent && parent.type !== 'TAG-NODE') {
+        while (parent && parent.isDOM) {
+            oldParent = parent;
             parent = parent.parent;
         }
 
-        return parent;
+        _.parentTag = oldParent;
     },
     empty: function empty() {
         var _ = this;
@@ -594,17 +598,13 @@ Node.definePrototype({
             _.nodes[i].remove();
         }
     },
-    isDom: function isDom() {
-        var _ = this;
-        return _.type === 'TEXT-NODE' || _.type === 'TAG-NODE';
-    },
     appendChild: function appendChild(child) {
         var _ = this;
 
         _.nodes.push(child);
 
         child.parent = _;
-        child.parentTag = _.getParentTag();
+        _.getParentTag();
 
         child._elementAppendTo(_.$el);
     },
@@ -822,8 +822,9 @@ WithNode.definePrototype({
             if (_.alternate) {
                 _.alternate.update(context);
             } else {
-                _.alternate = _.alternateFrag.render(context);
+                _.alternate = _.altFrag.render(context);
                 _.alternate.parent = _;
+                _.alternate.parentTag = _.alternate.getParentTag();
             }
         }
 
@@ -1059,12 +1060,12 @@ function getHTMLUnEscape(str) {
     return str;
 }
 
-function getLineAndColumn(buffer, index) {
+function throwError(buffer, index, message) {
     var lines = 1,
         columns = 0;
 
     for (var i = 0; i < index; i++) {
-        if (buffer[i] === '\n') {
+        if (buffer.codePointAt(i) === 10 /*'\n'*/) {
             lines++;
             columns = 1;
         } else {
@@ -1072,15 +1073,7 @@ function getLineAndColumn(buffer, index) {
         }
     }
 
-    return {
-        line: lines,
-        column: columns
-    };
-}
-
-function throwError(buffer, index, message) {
-    var lineAndColumn = getLineAndColumn(buffer, index);
-    throw new SyntaxError(message + ' at ' + lineAndColumn.line+ ':' + lineAndColumn.column);
+    throw new SyntaxError(message + ' at ' + lines + ':' + columns);
 }
 
 function parseError(mode, tree, index, length, buffer, indent) {
@@ -1926,7 +1919,7 @@ function parseBarsBlock(mode, tree, index, length, buffer, indent) {
                 type: 'FRAG-NODE',
                 nodes: [],
             },
-            alternateFrag: {
+            altFrag: {
                 type: 'FRAG-NODE',
                 nodes: []
             }
@@ -1981,7 +1974,7 @@ function parseBarsBlock(mode, tree, index, length, buffer, indent) {
 
     if (token.elsed && !token.closed) {
         index++;
-        index = parse(mode, token.alternateFrag.nodes, index, length, buffer, indent, token);
+        index = parse(mode, token.altFrag.nodes, index, length, buffer, indent, token);
     }
 
     if (token.closed) {
