@@ -584,12 +584,12 @@ Node.definePrototype({
             parent = _.parent,
             oldParent = parent;
 
-        while (parent && parent.isDOM) {
+        while (parent && !parent.isDOM) {
             oldParent = parent;
             parent = parent.parent;
         }
 
-        _.parentTag = oldParent;
+        _.parentTag = parent || oldParent;
     },
     empty: function empty() {
         var _ = this;
@@ -633,7 +633,15 @@ Node.definePrototype({
         var _ = this;
 
         if (parent instanceof Element && (_.$el instanceof Element || _.$el instanceof Text)) {
-            var prev = _.parentTag && _.parentTag.prevDom;
+            var prev = null;
+
+            if (!_.parentTag) {
+                _.getParentTag();
+            }
+
+            if (_.parentTag) {
+                prev = _.parentTag.prevDom;
+            }
 
             if (prev) {
                 parent.insertBefore(_.$el, prev.nextSibling);
@@ -839,6 +847,26 @@ WithNode.definePrototype({
 module.exports = WithNode;
 
 },{"./block":6}],16:[function(require,module,exports){
+if (!String.prototype.codePointAt) {
+    String.prototype.codePointAt = function (pos) {
+        pos = isNaN(pos) ? 0 : pos;
+        var str = String(this),
+            code = str.charCodeAt(pos),
+            next = str.charCodeAt(pos + 1);
+        // If a surrogate pair
+        if (0xD800 <= code && code <= 0xDBFF && 0xDC00 <= next && next <= 0xDFFF) {
+            return ((code - 0xD800) * 0x400) + (next - 0xDC00) + 0x10000;
+        }
+        return code;
+    };
+}
+
+if (!Number.isNaN) {
+    Number.isNaN = function isNaN(value) {
+        return value !== value;
+    };
+}
+
 var LOGGING = false;
 
 var SELF_CLOSEING_TAGS = [
