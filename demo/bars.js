@@ -1,28 +1,20 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 module.exports = require('./lib');
 
-},{"./lib":4}],2:[function(require,module,exports){
+},{"./lib":6}],2:[function(require,module,exports){
 var Generator = require('generate-js'),
-    Fragment = require('./fragment'),
     Parser = require('./parser'),
-    Nodes = require('./nodes');
+    Renderer = require('./renderer'),
+    Blocks = require('./blocks'),
+    Helpers = require('./helpers');
 
 var Bars = Generator.generate(function Bars() {
     var _ = this;
 
     _.defineProperties({
-        blocks: {
-            if: Nodes['IF-NODE'],
-            unless: Nodes['UNLESS-NODE'],
-            each: Nodes['EACH-NODE'],
-            with: Nodes['WITH-NODE'],
-        },
+        blocks: Blocks.create(),
         partials: {},
-        helpers: {
-            log: function log() {
-                console.log.apply(console, arguments);
-            }
-        }
+        helpers: Helpers.create()
     });
 });
 
@@ -33,9 +25,7 @@ Bars.definePrototype({
 
         console.log(parsed);
 
-        //here
-
-        return Fragment.create(_, parsed );
+        return Renderer.create(_, parsed );
     },
 
     registerBlock: function registerBlock(name, block) {
@@ -59,219 +49,427 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"./fragment":3,"./nodes":10,"./parser":16,"generate-js":17}],3:[function(require,module,exports){
-var Generator = require('generate-js'),
-    Nodes = window.Nodes = require('./nodes');
+},{"./blocks":3,"./helpers":5,"./parser":7,"./renderer":8,"generate-js":9}],3:[function(require,module,exports){
+var Generator = require('generate-js');
 
-var Fragment = Generator.generate(function Fragment(bars, struct) {
+var Blocks = Generator.generate(function Blocks() {});
+
+Blocks.definePrototype({
+    if: function ifBlock(con) {
+        return con;
+    },
+
+    unless: function unlessBlock(con) {
+        return !con;
+    },
+
+    with: function withBlock(data) {
+        var _ = this;
+
+        if (data && typeof data === 'object') {
+            _.context = _.context.getContext(_.args);
+
+            return true;
+        }
+
+        return false;
+    },
+
+    each: function eachBlock(data) {
+        var _ = this,
+            i;
+
+        if (data && typeof data === 'object') {
+            var keys = Object.keys(data);
+
+            _.context = _.context.getContext(_.args);
+
+            if (keys.length) {
+                for (i = _.nodes.length; i < keys.length; i++) {
+                    _.createFragment(keys[i]);
+                }
+
+                for (i = keys.length; i < _.nodes.length; i++) {
+                    _.nodes[i].remove();
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    },
+
+    reverse: function reverseBlock(data) {
+        var _ = this,
+            i;
+
+        if (data && typeof data === 'object') {
+            var keys = Object.keys(data).reverse();
+
+            _.context = _.context.getContext(_.args);
+
+            if (keys.length) {
+                for (i = _.nodes.length; i < keys.length; i++) {
+                    _.createFragment(keys[i]);
+                }
+
+                for (i = keys.length; i < _.nodes.length; i++) {
+                    _.nodes[i].remove();
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+});
+
+module.exports = Blocks;
+
+},{"generate-js":9}],4:[function(require,module,exports){
+var Generator = require('generate-js'),
+    Nodes = {};
+
+/**
+ * [BarsNode description]
+ * @param {[type]} bars     [description]
+ * @param {[type]} struct   [description]
+ */
+var BarsNode = Generator.generate(function BarsNode(bars, struct) {
     var _ = this;
 
     _.defineProperties({
         bars: bars,
-        struct: struct
+        nodes: [],
+        parentTag: {
+            get: _.getParentTag
+        },
+        prevDom: {
+            get: _.getPrevDom
+        },
+        type: struct.type,
+        name: struct.name,
+        text: struct.text,
+        args: struct.args,
+        conFrag: struct.conFrag,
+        altFrag: struct.altFrag,
     });
 });
 
-Fragment.definePrototype({
-    render: function render(data) {
-        var _ = this,
-            dom = _.build();
+BarsNode.definePrototype({
+    update: function update(context) {
+        var _ = this;
 
-        if (data) dom.update(data);
+        _.previousDom = null;
 
-        return dom;
+        _._update(context);
+
+        if (_.isDOM) {
+            _._elementAppendTo();
+            _.parentTag.previousDom = _;
+        }
+
+        _.previousDom = null;
     },
 
-    build: function build(struct, parent) {
-        var _ = this,
-            i,
-            node;
-
-        struct = struct || _.struct;
-
-        if (struct.type === 'BLOCK-NODE') {
-            node = _.bars.blocks[struct.name].create({
-                blockString: struct.blockString,
-                nodesFrag: Fragment.create(_.bars, struct.nodesFrag),
-                altFrag: Fragment.create(_.bars, struct.altFrag),
-                bars: _.bars
-            });
-
-            if (parent) {
-                parent.appendChild(node);
-            }
-        } else if (struct.type === 'PARTIAL-NODE') {
-            node = _.bars.partials[struct.name];
-
-            if (!node) {
-                throw new Error('Partial not found: ' + struct.name);
-            }
-
-            node = node.render();
-            node.setPath(struct.blockString);
-
-            if (parent) {
-                parent.appendChild(node);
-            }
-        } else {
-            node = Nodes[struct.type].create({
-                contextPath: struct.contextPath,
-                content: struct.content,
-                name: struct.name,
-                bars: _.bars,
-                blockString: struct.blockString
-            });
-
-            if (parent) {
-                parent.appendChild(node);
-            }
-
-            if (struct.nodes) {
-                for (i = 0; i < struct.nodes.length; i++) {
-                    _.build(struct.nodes[i], node);
-                }
-            }
-        }
-
-        if (struct.type === 'TAG-NODE' && struct.attrs) {
-            for (i = 0; i < struct.attrs.length; i++) {
-                node.addAttr( _.build(struct.attrs[i]) );
-            }
-        }
-
-        return node;
-    }
-});
-
-module.exports = Fragment;
-
-},{"./nodes":10,"generate-js":17}],4:[function(require,module,exports){
-module.exports = require('./bars');
-
-},{"./bars":2}],5:[function(require,module,exports){
-var Node = require('./node');
-
-var AttrNode = Node.generate(function AttrNode(options) {
-    var _ = this;
-
-    _.supercreate(options);
-
-    _.defineProperties({
-        $el: document.createElement('X-BARS'),
-    });
-    // _.value = true;
-});
-
-AttrNode.definePrototype({
-    isDOM: true,
-    type: 'ATTR-NODE',
-    update: function(context) {
-        var _ = this,
-            i;
-        for (i = 0; i < _.nodes.length; i++) {
-            _.nodes[i].update(context);
-        }
-
-        _._elementAppendTo(_.$parent);
+    _update: function _update() {
+        console.warn('_update method not implemented.');
     },
-    _elementAppendTo: function _elementAppendTo(parent) {
+
+    appendChild: function appendChild(child) {
+        var _ = this;
+
+        _.nodes.push(child);
+        child.parent = _;
+    },
+
+    appendTo: function appendTo(parent) {
         var _ = this;
 
         if (parent instanceof Element) {
-            _.$parent = parent;
-            _.$parent.setAttribute(_.name, _.$el.innerHTML);
+            _._elementAppendTo(parent);
+        }
+
+        if (BarsNode.isCreation(parent)) {
+            parent.appendChild(_);
+        }
+    },
+
+    remove: function remove() {
+        var _ = this,
+            index = _.parent.nodes.indexOf(_);
+
+        if (index >= 0) {
+            _.parent.nodes.splice(index, 1);
+        }
+
+        _._elementRemove();
+    },
+
+    getParentTag: function getParentTag() {
+        var _ = this,
+            parent = _.parent,
+            oldParent = parent;
+
+        while (parent && !parent.isDOM) {
+            oldParent = parent;
+            parent = parent.parent;
+        }
+
+        return parent || oldParent || null;
+    },
+
+    getPrevDom: function getPrevDom() {
+        var _ = this;
+
+        return (_.parentTag && _.parentTag.previousDom) || null;
+    },
+
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+
+        if (parent instanceof Element && _.isDOM) {
+            parent.appendChild(_.$el);
+        } else if (_.isDOM) {
+            if (!_.parentTag) return;
+
+            parent = _.parentTag.$el || _.parentTag.$parent;
+
+            if (!parent) return;
+
+            var prev = _.prevDom;
+
+            if (prev) {
+                parent.insertBefore(_.$el, prev.$el.nextSibling);
+            } else {
+                parent.appendChild(_.$el);
+            }
+        }
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        if (_.isDOM && _.$el.parentNode instanceof Element) {
+            _.$el.parentNode.removeChild(_.$el);
+        }
+    },
+});
+
+
+/**
+ * [TextNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+Nodes.TEXT = BarsNode.generate(function TextNode(bars, struct) {
+    var _ = this;
+
+    _.supercreate(bars, struct);
+
+    _.defineProperties({
+        $el: document.createTextNode(struct.text)
+    });
+});
+
+Nodes.TEXT.definePrototype({
+    isDOM: true,
+
+    appendChild: function appendChild(child) {
+        console.warn('appendChild CANNOT be called on TextNodes.');
+    },
+
+    _update: function _update(context) {
+        var _ = this,
+            helper,
+            args;
+
+        if (_.name) {
+            helper = _.bars.helpers[_.name];
+
+            if (typeof helper === 'function') {
+                args = _.args.split(/\s+/).map(function(item) {
+                    return context(item);
+                });
+
+                _.$el.textContent = helper.apply(_, args);
+            } else {
+                throw new Error('Helper not found: ' + _.name);
+            }
+        } else if (typeof _.args === 'string') {
+            _.$el.textContent = context(_.args);
+        }
+    },
+});
+
+
+/**
+ * [TagNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+Nodes.TAG = BarsNode.generate(function TagNode(bars, struct) {
+    var _ = this,
+        nodes = struct.nodes,
+        attrs = struct.attrs;
+
+    _.supercreate(bars, struct);
+
+    _.defineProperties({
+        $el: document.createElement(struct.name),
+        attrs: []
+    });
+
+    for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
+        _.appendChild(Nodes[node.type].create(bars, node));
+    }
+
+    for (var i = 0; i < attrs.length; i++) {
+        var attr = attrs[i];
+        _.addAttr(Nodes[attr.type].create(bars, attr));
+    }
+
+});
+
+Nodes.TAG.definePrototype({
+    isDOM: true,
+
+    _update: function _update(context) {
+        var _ = this;
+
+        for (var i = 0; i < _.attrs.length; i++) {
+            _.attrs[i].update(context);
+        }
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
+        }
+    },
+
+    addAttr: function addAttr(child) {
+        var _ = this;
+
+        _.attrs.push(child);
+        child.parent = _;
+    },
+});
+
+
+/**
+ * [AttrNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+Nodes.ATTR = BarsNode.generate(function AttrNode(bars, struct) {
+    var _ = this,
+        nodes = struct.nodes,
+        attrs = struct.attrs;
+
+    _.supercreate(bars, struct);
+
+    _.defineProperties({
+        $el: document.createElement('div'),
+    });
+
+    for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
+        _.appendChild(Nodes[node.type].create(bars, node));
+    }
+});
+
+Nodes.ATTR.definePrototype({
+    isDOM: true,
+    type: 'ATTR',
+    _update: function _update(context) {
+        var _ = this,
+            i;
+
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
+        }
+    },
+    _elementAppendTo: function _elementAppendTo() {
+        var _ = this,
+            parent = _.parentTag.$el;
+
+        if (parent instanceof Element) {
+            parent.setAttribute(_.name, _.$el.innerText);
 
         }
     },
     _elementRemove: function _elementRemove() {
-        var _ = this;
+        var _ = this,
+            parent = _.parentTag.$el;
 
-        if (_.$parent instanceof Element) {
-            _.$parent.removeAttribute(_.name);
+        if (parent instanceof Element) {
+            parent.removeAttribute(_.name);
         }
     }
 });
 
-module.exports = AttrNode;
 
-},{"./node":11}],6:[function(require,module,exports){
-var Node  = require('./node');
-
-var BlockNode = Node.generate(function BlockNode(options) {
+/**
+ * [BlockNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+Nodes.BLOCK = BarsNode.generate(function BlockNode(bars, struct) {
     var _ = this;
 
-    _.supercreate(options);
-
-    _.con = false;
+    _.supercreate(bars, struct);
 });
 
-BlockNode.definePrototype({
-    type: 'BLOCK-NODE',
+Nodes.BLOCK.definePrototype({
+    type: 'BLOCK',
 
-    update: function(context) {
+    createFragment: function createFragment(path) {
         var _ = this,
-            node,
-            lastCon = _.con;
+            frag = Nodes.FRAG.create(_.bars, _.conFrag);
 
-        _.con = _.condition(context);
+        frag.setPath(path);
 
-        if (_.con) {
-            if (_.nodes[0]) {
-                _.nodes[0].update(context);
-            } else {
-                node = _.nodesFrag.render(context);
+        _.appendChild(frag);
+    },
 
-                _.appendChild(node);
+    _update: function _update(context) {
+        var _ = this,
+            con;
 
-                node._elementAppendTo(_.$parent);
-            }
+        if (typeof _.bars.blocks[_.name] === 'function') {
+            _.context = context;
+            con = _.bars.blocks[_.name].call(_, _.context(_.args));
         } else {
-            if (_.alternate) {
-                _.alternate.update(context);
-            } else {
-                _.alternate = _.altFrag.render(context);
-                _.alternate.parent = _;
-                _.alternate.parentTag = _.alternate.getParentTag();
+            throw new Error('Block helper not found: ' + _.name);
+        }
+
+        if (con) {
+            if (!_.nodes.length) {
+                _.createFragment();
             }
-        }
 
-        if ((!_.con && lastCon) || (_.con && !lastCon)) {
-            _._elementAppendTo(_.$parent);
-        }
-    },
-
-    condition: function condition(context) {
-        var _ = this;
-        return context(_.blockString);
-    },
-    _elementAppendTo: function _elementAppendTo(parent) {
-        var _ = this,
-            i;
-
-        if (_.con) {
-            for (i = 0; i < _.nodes.length; i++) {
-                _.nodes[i]._elementAppendTo(parent);
+            for (var i = 0; i < _.nodes.length; i++) {
+                _.nodes[i].update(_.context);
             }
 
             if (_.alternate) {
                 _.alternate._elementRemove();
             }
-
-            _.$parent = parent;
-
         } else {
-
-            for (i = 0; i < _.nodes.length; i++) {
+            for (var i = 0; i < _.nodes.length; i++) {
                 _.nodes[i]._elementRemove();
             }
-
-            if (_.alternate) {
-                _.alternate._elementAppendTo(parent);
+            if (!_.alternate) {
+                _.alternate = Nodes.FRAG.create(_.bars, _.altFrag);
+                _.alternate.parent = _;
             }
 
-            _.$parent = parent;
+            _.alternate.update(_.context);
         }
     },
+    _elementAppendTo: function _elementAppendTo() {},
     _elementRemove: function _elementRemove() {
         var _ = this,
             i;
@@ -283,141 +481,66 @@ BlockNode.definePrototype({
         if (_.alternate) {
             _.alternate._elementRemove();
         }
-
-        _.$parent = null;
-
     }
-
 });
 
-module.exports = BlockNode;
 
-},{"./node":11}],7:[function(require,module,exports){
-var BlockNode  = require('./block');
-
-var EachNode = BlockNode.generate(function EachNode(options) {
+/**
+ * [PartialNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+Nodes.PARTIAL = BarsNode.generate(function PartialNode(bars, struct) {
     var _ = this;
 
-    _.supercreate(options);
+    _.supercreate(bars, struct);
 });
 
-EachNode.definePrototype({
-    name: 'each',
+Nodes.PARTIAL.definePrototype({
+    _update: function _update(context) {
+        var _ = this;
 
-     update: function(context) {
-        var _ = this,
-            lastCon = _.con,
-            node,
-            i,
-            data = context(_.blockString);
+        if (!_.partial) {
+            var partial = _.bars.partials[_.name];
 
-            context = context.getContext(_.blockString);
-
-        if (typeof data === 'object') {
-            var keys = Object.keys(data);
-
-            if (keys.length) {
-                _.con = true;
-
-                for (i = 0; i < keys.length; i++) {
-                    if (_.nodes[i]) {
-                        _.nodes[i].update(context.getContext(keys[i]));
-                    } else {
-                        node = _.nodesFrag.render(context.getContext(keys[i]));
-
-                        _.appendChild(node);
-
-                        node._elementAppendTo(_.$parent);
-
-                    }
-                }
-
-                for (i = keys.length; i < _.nodes.length; i++) {
-                    _.nodes[i].remove();
-                }
+            if (partial && typeof partial === 'object') {
+                _.partial = Nodes.FRAG.create(_.bars, partial);
+                _.partial.parent = _;
+                _.partial.setPath(_.args);
             } else {
-                if (_.alternate) {
-                    _.alternate.update(context);
-                } else {
-                    _.alternate = _.altFrag.render(context);
-                    _.alternate.parent = _;
-                    _.alternate.parentTag = _.alternate.getParentTag();
-
-                }
-                _.con = false;
+                throw new Error('Partial not found: ' + _.name);
             }
-        } else {
-            if (_.alternate) {
-                _.alternate.update(context);
-            } else {
-                _.alternate = _.altFrag.render(context);
-                _.alternate.parent = _;
-                _.alternate.parentTag = _.alternate.getParentTag();
-            }
-            _.con = false;
         }
 
-        if ((!_.con && lastCon) || (_.con && !lastCon)) {
-            _._elementAppendTo(_.$parent);
-        }
+        _.partial.update(context);
     },
 });
 
-module.exports = EachNode;
-
-},{"./block":6}],8:[function(require,module,exports){
-var Node = require('./node');
-
-function resolve(basepath, path) {
-    var newSplitpath;
-
-    if (path[0] === '/') {
-        newSplitpath = path.split('/');
-    } else {
-        newSplitpath = basepath.split('/').concat(path.split('/'));
-    }
-
-
-    for (var i = 0; i < newSplitpath.length; i++) {
-        if (newSplitpath[i] === '.' || newSplitpath[i] === '') {
-            newSplitpath.splice(i, 1);
-            i--;
-        } else if (newSplitpath[i] === '..') {
-            newSplitpath.splice(i - 1, 2);
-            i -= 2;
-        }
-    }
-
-    // console.log(newSplitpath);
-    return newSplitpath;
-}
 
 /**
- * <span>hello, {{name}}.</span>
+ * [FragNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
  */
+Nodes.FRAG = BarsNode.generate(function FragNode(bars, struct) {
+    var _ = this,
+        nodes = struct.nodes;
 
-var FragNode = Node.generate(function FragNode(options) {
-    var _ = this;
+    _.supercreate(bars, struct);
 
-    _.supercreate(options);
+    for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
 
-    _.data = {};
+        _.appendChild(Nodes[node.type].create(bars, node));
+    }
 });
 
-FragNode.definePrototype({
-    type: 'FRAG-NODE',
+Nodes.FRAG.definePrototype({
+    _update: function _update(context) {
+        var _ = this;
 
-    update: function update(data) {
-        var _ = this,
-            context,
-            helper,
-            args,
-            content;
-
-        if (typeof data === 'function') {
-            context = data;
-        } else {
-            _.data = data;
+        if (typeof context !== 'function') {
+            _.data = context;
             context = _.getContext('');
         }
 
@@ -425,45 +548,8 @@ FragNode.definePrototype({
             context = context.getContext(_.path);
         }
 
-        if (_.name) {
-            _.empty();
-            helper = _.bars.helpers[_.name];
-
-            if (typeof helper === 'function') {
-                args = _.blockString.split(/\s+/).map(function(item) {
-                    return context(item);
-                });
-                content = helper.apply(_, args);
-
-                if (content === null || content === void(0)) {
-                    content = '';
-                } else {
-                    content = '' + content;
-                }
-
-                content = _.bars.compile(content).render(context);
-
-                _.appendChild(content);
-            } else {
-                throw new Error('Helper not found: ' + _.name);
-            }
-        } else if (_.contextPath) {
-            _.empty();
-            content =  context(_.contextPath);
-
-            if (content === null || content === void(0)) {
-                content = '';
-            } else {
-                content = '' + content;
-            }
-
-            content = _.bars.compile(content).render(context);
-            _.appendChild(content);
-            _._elementAppendTo(_.$parent);
-        } else {
-            for (var i = 0; i < _.nodes.length; i++) {
-                _.nodes[i].update(context);
-            }
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
         }
     },
 
@@ -471,21 +557,16 @@ FragNode.definePrototype({
         var _ = this;
 
         _.$parent = parent;
-
-        for (var i = 0; i < _.nodes.length; i++) {
-            _.nodes[i]._elementAppendTo(parent);
-        }
     },
-
     _elementRemove: function _elementRemove() {
         var _ = this;
 
         for (var i = 0; i < _.nodes.length; i++) {
             _.nodes[i]._elementRemove();
         }
+
         _.$parent = null;
     },
-
     getValue: function getValue(splitPath) {
         var _ = this;
 
@@ -507,11 +588,11 @@ FragNode.definePrototype({
         var _ = this;
 
         function context(path) {
-            return _.getValue(resolve(basepath, path));
+            return _.getValue(_.resolve(basepath, path));
         }
 
         context.getContext = function getContext(path) {
-            return _.getContext(resolve(basepath, path).join('/'));
+            return _.getContext(_.resolve(basepath, path).join('/'));
         };
 
         return context;
@@ -520,333 +601,56 @@ FragNode.definePrototype({
     setPath: function setPath(path) {
         var _ = this;
 
-        _.defineProperties({
-            path: path
-        });
+        if (path) {
+            _.defineProperties({
+                path: path.toString()
+            });
+        }
     },
+
+    resolve: function resolve(basepath, path) {
+        var newSplitpath;
+
+        if (path[0] === '/') {
+            newSplitpath = path.split('/');
+        } else {
+            newSplitpath = basepath.split('/').concat(path.split('/'));
+        }
+
+
+        for (var i = 0; i < newSplitpath.length; i++) {
+            if (newSplitpath[i] === '.' || newSplitpath[i] === '') {
+                newSplitpath.splice(i, 1);
+                i--;
+            } else if (newSplitpath[i] === '..') {
+                newSplitpath.splice(i - 1, 2);
+                i -= 2;
+            }
+        }
+
+        return newSplitpath;
+    }
 });
 
-module.exports = FragNode;
+module.exports = Nodes.FRAG;
 
-},{"./node":11}],9:[function(require,module,exports){
-var BlockNode  = require('./block');
-
-var IfNode = BlockNode.generate(function IfNode(options) {
-    var _ = this;
-
-    _.supercreate(options);
-});
-
-IfNode.definePrototype({
-    name: 'if'
-});
-
-module.exports = IfNode;
-
-},{"./block":6}],10:[function(require,module,exports){
-exports['TAG-NODE']    = require('./tag');
-exports['ATTR-NODE']   = require('./attr');
-exports['TEXT-NODE']   = require('./text');
-
-exports['FRAG-NODE']   = require('./frag');
-
-exports['IF-NODE']     = require('./if');
-exports['UNLESS-NODE'] = require('./unless');
-exports['EACH-NODE']   = require('./each');
-exports['WITH-NODE']   = require('./with');
-
-},{"./attr":5,"./each":7,"./frag":8,"./if":9,"./tag":12,"./text":13,"./unless":14,"./with":15}],11:[function(require,module,exports){
+},{"generate-js":9}],5:[function(require,module,exports){
 var Generator = require('generate-js');
 
-var Node = Generator.generate(function Node(options) {
-    var _ = this;
+var Helpers = Generator.generate(function Helpers() {});
 
-    _.defineProperties({
-        nodes: []
-    });
-
-    _.defineProperties(options);
+Helpers.definePrototype({
+    log: function log() {
+        console.log.apply(console, arguments);
+    }
 });
 
-Node.definePrototype({
-    type: 'NODE',
-    update: function(context) {
-        var _ = this;
+module.exports = Helpers;
 
-        if (_.isDOM || _.type === 'TEXT-NODE' && _.parentTag) {
-            _.parentTag.prevDom = _.$el;
-        }
+},{"generate-js":9}],6:[function(require,module,exports){
+module.exports = require('./bars');
 
-        _.content = context(_.contextPath);
-    },
-    getParentTag: function getParentTag() {
-        var _ = this,
-            parent = _.parent,
-            oldParent = parent;
-
-        while (parent && !parent.isDOM) {
-            oldParent = parent;
-            parent = parent.parent;
-        }
-
-        _.parentTag = parent || oldParent;
-    },
-    empty: function empty() {
-        var _ = this;
-
-        for (var i = _.nodes.length - 1; i >= 0; i--) {
-            _.nodes[i].remove();
-        }
-    },
-    appendChild: function appendChild(child) {
-        var _ = this;
-
-        _.nodes.push(child);
-
-        child.parent = _;
-        _.getParentTag();
-
-        child._elementAppendTo(_.$el);
-    },
-    appendTo: function appendTo(parent) {
-        var _ = this;
-
-        if (parent instanceof Element) {
-            _._elementAppendTo(parent);
-        }
-
-        if (Node.isCreation(parent)) {
-            parent.appendChild(_);
-        }
-    },
-    remove: function remove() {
-        var _ = this,
-            index = _.parent.nodes.indexOf(_);
-
-            if (index >= 0) {
-                _.parent.nodes.splice(index, 1);
-            }
-
-        _._elementRemove();
-    },
-    _elementAppendTo: function _elementAppendTo(parent) {
-        var _ = this;
-
-        if (parent instanceof Element && (_.$el instanceof Element || _.$el instanceof Text)) {
-            var prev = null;
-
-            if (!_.parentTag) {
-                _.getParentTag();
-            }
-
-            if (_.parentTag) {
-                prev = _.parentTag.prevDom;
-            }
-
-            if (prev) {
-                parent.insertBefore(_.$el, prev.nextSibling);
-            } else {
-                parent.appendChild(_.$el);
-            }
-
-            _.$parent = parent;
-        }
-    },
-    _elementRemove: function _elementRemove() {
-        var _ = this;
-
-        if ((_.$el instanceof Element || _.$el instanceof Text) && _.$el.parentNode instanceof Element) {
-            _.$el.parentNode.removeChild(_.$el);
-
-            _.$parent = null;
-        }
-    },
-    toJSON: function toJSON() {
-        var _ = this;
-
-        return {
-            type: _.type,
-            name: _.name,
-            content: _.content,
-            contextPath: _.contextPath,
-            alternate: _.alternate,
-            nodes: _.nodes.length ? _.nodes : void(0)
-        };
-    },
-});
-
-module.exports = Node;
-
-},{"generate-js":17}],12:[function(require,module,exports){
-var Node = require('./node');
-
-var TagNode = Node.generate(function TagNode(options) {
-    var _ = this;
-
-    _.supercreate(options);
-
-    _.defineProperties({
-        $el: document.createElement(options.name),
-        attrs: []
-    });
-});
-
-TagNode.definePrototype({
-    isDOM: true,
-    type: 'TAG-NODE',
-    update: function update(context) {
-        var _ = this, i;
-
-        //self
-        for (i = 0; i < _.attrs.length; i++) {
-            _.attrs[i].update(context);
-        }
-
-        //then children
-        for (i = 0; i < _.nodes.length; i++) {
-            _.nodes[i].update(context);
-        }
-    },
-    addAttr: function addAttr(child) {
-        var _ = this;
-
-        _.attrs.push(child);
-        child._elementAppendTo(_.$el);
-
-        child.parent = _;
-        child.parentTag = _.getParentTag();
-
-    },
-});
-
-module.exports = TagNode;
-
-},{"./node":11}],13:[function(require,module,exports){
-var Node = require('./node');
-
-var TextNode = Node.generate(function TextNode(options) {
-    var _ = this;
-
-    _.supercreate(options);
-
-    _.defineProperties({
-        $el: document.createTextNode(options && options.content)
-    });
-});
-
-TextNode.definePrototype({
-    type: 'TEXT-NODE',
-
-    update: function update(context) {
-        var _ = this,
-            helper,
-            args,
-            content;
-
-        if (_.name) {
-            helper = _.bars.helpers[_.name];
-
-            if (typeof helper === 'function') {
-                args = _.blockString.split(/\s+/).map(function(item) {
-                    return context(item);
-                });
-
-                content = helper.apply(_, args);
-            } else {
-                throw new Error('Helper not found: ' + _.name);
-            }
-        } else if (_.contextPath) {
-            content = context(_.contextPath);
-        } else {
-            content = _.content;
-        }
-
-        if (_.isDOM || _.type === 'TEXT-NODE' && _.parentTag) {
-            _.parentTag.prevDom = _.$el;
-        }
-
-        _.$el.textContent = content;
-    },
-});
-
-module.exports = TextNode;
-
-},{"./node":11}],14:[function(require,module,exports){
-var BlockNode  = require('./block');
-
-var UnlessNode = BlockNode.generate(function UnlessNode(options) {
-    var _ = this;
-
-    _.supercreate(options);
-});
-
-UnlessNode.definePrototype({
-    name: 'unless',
-
-    condition: function condition(context) {
-        var _ = this;
-        return !context(_.blockString);
-    },
-});
-
-module.exports = UnlessNode;
-
-},{"./block":6}],15:[function(require,module,exports){
-var BlockNode  = require('./block');
-
-var WithNode = BlockNode.generate(function WithNode(options) {
-    var _ = this;
-
-    _.supercreate(options);
-});
-
-WithNode.definePrototype({
-    name: 'with',
-
-    update: function(context) {
-        var _ = this,
-            node,
-            lastCon = _.con,
-            data = context(_.blockString);
-
-        if (typeof data === 'object') {
-            _.con = true;
-            context = context.getContext(_.blockString);
-        } else {
-            _.con = false;
-        }
-
-        if (_.con) {
-            if (_.nodes[0]) {
-                _.nodes[0].update(context);
-            } else {
-                node = _.nodesFrag.render(context);
-
-                _.appendChild(node);
-
-                node._elementAppendTo(_.$parent);
-            }
-        } else {
-            if (_.alternate) {
-                _.alternate.update(context);
-            } else {
-                _.alternate = _.altFrag.render(context);
-                _.alternate.parent = _;
-                _.alternate.parentTag = _.alternate.getParentTag();
-            }
-        }
-
-        if ((!_.con && lastCon) || (_.con && !lastCon)) {
-            _._elementAppendTo(_.$parent);
-        }
-
-        _._elementAppendTo(_.$parent);
-    },
-});
-
-module.exports = WithNode;
-
-},{"./block":6}],16:[function(require,module,exports){
+},{"./bars":2}],7:[function(require,module,exports){
 if (!String.prototype.codePointAt) {
     String.prototype.codePointAt = function (pos) {
         pos = isNaN(pos) ? 0 : pos;
@@ -1130,7 +934,7 @@ function parseTagEnd(mode, tree, index, length, buffer, indent, close) {
 function parseAttr(mode, tree, index, length, buffer, indent) {
     var ch,
         token = {
-            type: 'ATTR-NODE',
+            type: 'ATTR',
             name: '',
             nodes: []
         };
@@ -1159,7 +963,7 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
             /* ch === '"' || ch === '\'' */
             if (ch === 34 || ch === 39) {
                 var stringToken = {
-                    type: 'STRING-NODE',
+                    type: 'STRING',
                     name: ch
                 };
 
@@ -1171,8 +975,8 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
                 }
             } else {
                 var textValueToken = {
-                    type: 'TEXT-NODE',
-                    content: ''
+                    type: 'TEXT',
+                    text: ''
                 };
                 for (; index < length; index++) {
                     ch = buffer.codePointAt(index);
@@ -1181,10 +985,10 @@ function parseAttr(mode, tree, index, length, buffer, indent) {
                         break;
                     }
 
-                    textValueToken.content += buffer[index];
+                    textValueToken.text += buffer[index];
                 }
 
-                if (textValueToken.content) {
+                if (textValueToken.text) {
                     token.nodes.push(textValueToken);
                     index--;
                 } else {
@@ -1227,7 +1031,7 @@ function parseWhiteSpace(mode, tree, index, length, buffer, indent) {
 
 function parseStringClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
     var token = {
-        type: 'STRING-NODE',
+        type: 'STRING',
         name: buffer.codePointAt(index)
     };
 
@@ -1304,7 +1108,7 @@ function parseTag(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'TAG-NODE',
+            type: 'TAG',
             name: '',
             nodes: [],
             attrs: []
@@ -1341,8 +1145,8 @@ function parseTag(mode, tree, index, length, buffer, indent) {
 
     if (token.name === 'script' || token.name === 'style') {
         var textToken = {
-            type: 'TEXT-NODE',
-            content: ''
+            type: 'TEXT',
+            text: ''
         };
 
         for (; index < length; index++) {
@@ -1357,10 +1161,10 @@ function parseTag(mode, tree, index, length, buffer, indent) {
                 }
             }
 
-            textToken.content += buffer[index];
+            textToken.text += buffer[index];
         }
 
-        if (textToken.content) {
+        if (textToken.text) {
             token.nodes.push(textToken);
         }
     } else if (SELF_CLOSEING_TAGS.indexOf(token.name) === -1) {
@@ -1388,7 +1192,7 @@ function parseTagClose(mode, tree, index, length, buffer, indent, close, noError
 
     var ch,
         token = {
-            type: 'TAG-NODE',
+            type: 'TAG',
             name: ''
         },
         nameDone = false,
@@ -1436,15 +1240,15 @@ function parseText(mode, tree, index, length, buffer, indent) {
         isEntity = false,
         entityStr = '',
         token = {
-            type: 'TEXT-NODE',
-            content: ''
+            type: 'TEXT',
+            text: ''
         };
 
     for (; index < length; index++) {
         ch = buffer.codePointAt(index);
 
         if (ch === 60 /*'<'*/ || ch === 123 /*'{'*/ && buffer.codePointAt(index + 1) === 123 /*'{'*/) {
-            token.content += entityStr;
+            token.text += entityStr;
             index--;
             break;
         }
@@ -1457,7 +1261,7 @@ function parseText(mode, tree, index, length, buffer, indent) {
         } else if (isEntity && ch === 59 /*';'*/) {
             entityStr += buffer[index];
 
-            token.content += getHTMLUnEscape(entityStr);
+            token.text += getHTMLUnEscape(entityStr);
 
             isEntity = false;
             entityStr = '';
@@ -1468,15 +1272,15 @@ function parseText(mode, tree, index, length, buffer, indent) {
         if (isEntity && HTML_ENTITY(ch)) {
             entityStr += buffer[index];
         } else {
-            token.content += entityStr;
+            token.text += entityStr;
             isEntity = false;
             entityStr = '';
 
-            token.content += buffer[index];
+            token.text += buffer[index];
         }
     }
 
-    if (token.content) {
+    if (token.text) {
         LOGGING && console.log(indent+'parseText');
         tree.push(token);
         return index;
@@ -1488,8 +1292,8 @@ function parseText(mode, tree, index, length, buffer, indent) {
 function parseTextValue(mode, tree, index, length, buffer, indent, close) {
     var ch,
         token = {
-            type: 'TEXT-NODE',
-            content: ''
+            type: 'TEXT',
+            text: ''
         };
 
     for (; index < length; index++) {
@@ -1500,10 +1304,10 @@ function parseTextValue(mode, tree, index, length, buffer, indent, close) {
             break;
         }
 
-        token.content += buffer[index];
+        token.text += buffer[index];
     }
 
-    if (token.content) {
+    if (token.text) {
         LOGGING && console.log(indent+'parseText');
         tree.push(token);
         return index;
@@ -1521,8 +1325,8 @@ function parseBarsInsert(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'TEXT-NODE',
-            contextPath: ''
+            type: 'TEXT',
+            args: ''
         }, endChars = 0;
 
     // move past {{
@@ -1548,7 +1352,7 @@ function parseBarsInsert(mode, tree, index, length, buffer, indent) {
                 }
             }
         }
-        token.contextPath += buffer[index];
+        token.args += buffer[index];
     }
 
     tree.push(token);
@@ -1569,8 +1373,8 @@ function parseBarsInsertHTML(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'FRAG-NODE',
-            contextPath: ''
+            type: 'FRAG',
+            args: ''
         }, endChars = 0;
 
     // move past {{{
@@ -1597,7 +1401,7 @@ function parseBarsInsertHTML(mode, tree, index, length, buffer, indent) {
             }
         }
 
-        token.contextPath += buffer[index];
+        token.args += buffer[index];
     }
 
     tree.push(token);
@@ -1618,9 +1422,9 @@ function parseBarsPartial(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'PARTIAL-NODE',
+            type: 'PARTIAL',
             name: '',
-            blockString: ''
+            args: ''
         }, endChars = 0;
 
     // move past {{>
@@ -1662,10 +1466,10 @@ function parseBarsPartial(mode, tree, index, length, buffer, indent) {
             }
         }
 
-        token.blockString += buffer[index];
+        token.args += buffer[index];
     }
 
-    token.blockString = token.blockString.trim();
+    token.args = token.args.trim();
 
     tree.push(token);
 
@@ -1685,9 +1489,9 @@ function parseBarsHelper(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'TEXT-NODE',
+            type: 'TEXT',
             name: '',
-            blockString: ''
+            args: ''
         }, endChars = 0;
 
     // move past {{?
@@ -1729,10 +1533,10 @@ function parseBarsHelper(mode, tree, index, length, buffer, indent) {
             }
         }
 
-        token.blockString += buffer[index];
+        token.args += buffer[index];
     }
 
-    token.blockString = token.blockString.trim();
+    token.args = token.args.trim();
 
     tree.push(token);
 
@@ -1757,9 +1561,9 @@ function parseBarsHelperHTML(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'FRAG-NODE',
+            type: 'FRAG',
             name: '',
-            blockString: ''
+            args: ''
         }, endChars = 0;
 
     // move past {{{?
@@ -1801,10 +1605,10 @@ function parseBarsHelperHTML(mode, tree, index, length, buffer, indent) {
             }
         }
 
-        token.blockString += buffer[index];
+        token.args += buffer[index];
     }
 
-    token.blockString = token.blockString.trim();
+    token.args = token.args.trim();
 
     tree.push(token);
 
@@ -1822,7 +1626,7 @@ function parseBarsComment(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'COMMENT-NODE',
+            type: 'COMMENT',
             comment: ''
         }, endChars = 0;
 
@@ -1879,7 +1683,7 @@ function parseHTMLComment(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'COMMENT-NODE',
+            type: 'COMMENT',
             comment: ''
         },
         endChars = 0;
@@ -1940,15 +1744,15 @@ function parseBarsBlock(mode, tree, index, length, buffer, indent) {
 
     var ch,
         token = {
-            type: 'BLOCK-NODE',
+            type: 'BLOCK',
             name: '',
-            blockString: '',
-            nodesFrag: {
-                type: 'FRAG-NODE',
+            args: '',
+            conFrag: {
+                type: 'FRAG',
                 nodes: [],
             },
             altFrag: {
-                type: 'FRAG-NODE',
+                type: 'FRAG',
                 nodes: []
             }
         }, endChars = 0;
@@ -1992,13 +1796,13 @@ function parseBarsBlock(mode, tree, index, length, buffer, indent) {
             }
         }
 
-        token.blockString += buffer[index];
+        token.args += buffer[index];
     }
 
-    token.blockString = token.blockString.trim();
+    token.args = token.args.trim();
 
     index++;
-    index = parse(mode, token.nodesFrag.nodes, index, length, buffer, indent, token);
+    index = parse(mode, token.conFrag.nodes, index, length, buffer, indent, token);
 
     if (token.elsed && !token.closed) {
         index++;
@@ -2031,7 +1835,7 @@ function parseBarsBlockClose(mode, tree, index, length, buffer, indent, close, n
 
     var ch,
         token = {
-            type: 'BLOCK-NODE',
+            type: 'BLOCK',
             name: ''
         },
         endChars = 0;
@@ -2125,7 +1929,7 @@ function parseBarsBlockElse(mode, tree, index, length, buffer, indent, close) {
         name += buffer[index];
     }
 
-    if (close && close.type === 'BLOCK-NODE' && name === 'else') {
+    if (close && close.type === 'BLOCK' && name === 'else') {
         if (close.elsed) {
             throwError(buffer, index, 'Unexpected else token.');
         }
@@ -2145,7 +1949,7 @@ function parseBarsBlockElse(mode, tree, index, length, buffer, indent, close) {
 function compile(buffer) {
     var n = Date.now();
     var tree = {
-        type: 'FRAG-NODE',
+        type: 'FRAG',
         nodes: []
     };
 
@@ -2163,7 +1967,33 @@ function compile(buffer) {
 
 module.exports = compile;
 
-},{}],17:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
+var Generator = require('generate-js'),
+    Frag = require('./frag');
+
+var Renderer = Generator.generate(function Renderer(bars, struct) {
+    var _ = this;
+
+    _.defineProperties({
+        bars: bars,
+        struct: struct
+    });
+});
+
+Renderer.definePrototype({
+    render: function render(data) {
+        var _ = this,
+            frag = Frag.create(_.bars, _.struct);
+
+        frag.update(data);
+
+        return frag;
+    },
+});
+
+module.exports = Renderer;
+
+},{"./frag":4,"generate-js":9}],9:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong

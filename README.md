@@ -1,4 +1,4 @@
-# Pre-release v0.1.6
+# Pre-release v0.1.7
 
 ## Table of Contents
 
