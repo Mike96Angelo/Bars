@@ -185,18 +185,6 @@ BarsNode.definePrototype({
         child.parent = _;
     },
 
-    appendTo: function appendTo(parent) {
-        var _ = this;
-
-        if (parent instanceof Element) {
-            _._elementAppendTo(parent);
-        }
-
-        if (BarsNode.isCreation(parent)) {
-            parent.appendChild(_);
-        }
-    },
-
     remove: function remove() {
         var _ = this,
             index = _.parent.nodes.indexOf(_);
@@ -567,6 +555,16 @@ Nodes.FRAG.definePrototype({
 
         _.$parent = null;
     },
+
+    appendTo: function appendTo(parent) {
+        var _ = this;
+
+        if (parent instanceof Element) {
+            _._elementAppendTo(parent);
+            _.update(_.data);
+        }
+    },
+
     getValue: function getValue(splitPath) {
         var _ = this;
 
