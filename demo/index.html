@@ -12,16 +12,11 @@
             var template = '<span>hello, {{#if @name}}<h2>{{@name + 67}}</h2>{{else}}Person{{/if}}.</span>';
                 // template = '{{?helper .}}{{{?helper .}}}{{>partial .}}{{! comment }}{{!-- comment --}}{{#block .}}{{else}}{{/block}}';
 
-                template = '{{#if lkasjdf}}\
-                                asdf\
+                template = 'BEFORE :: <span class="{{name}} {{name}}">{{#if name}}\
+                                NAME is {{name}}\
                             {{else}}\
-                                    asdfasdf\
-                                    {{#if name}}\
-                                        NAME\
-                                    {{else}}\
-                                        noname\
-                                    {{/if}}\
-                            {{/if}}after';
+                                noname\
+                            {{/if}}</span> :: AFTER';
                 // template = '<span {{#with cat}} class=" {{#if name}}{{name}}{{else}} nnoname{{/if}}" {{/with}}>asdf</span>';
                 // template = 'name: {{#name}}test{{else}}no-test{{/name}}';
 
@@ -43,19 +38,16 @@
             ];
 
             bars.registerHelper('multiply', function(a, b) {
-                return undefined;
+                return a * b;
             });
 
             // bars.registerPartial('cat', 'Cat #{{@index}}\'s name is {{name}}.');
 
             window.b = bars.compile(template);
-            window.c = window.b.render({
-                cats: window.cats,
-                name: 'asdf'
-            });
-
+            console.log(window.b)
+            window.c = window.b.render();
             window.c.appendTo(document.body);
-            // c.update({name:'test'});
+            window.c.update({name:'test'});
         </script>
     </body>
 </html>
