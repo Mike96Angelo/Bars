@@ -511,7 +511,7 @@ Nodes.PARTIAL.definePrototype({
             var partial = _.bars.partials[_.name];
 
             if (partial && typeof partial === 'object') {
-                _.partial = Nodes.FRAG.create(_.bars, partial);
+                _.partial = Nodes.FRAG.create(_.bars, partial.struct);
                 _.partial.parent = _;
                 _.partial.setPath(_.args);
             } else {
@@ -520,7 +520,7 @@ Nodes.PARTIAL.definePrototype({
         }
 
         _.partial.update(context);
-    },
+    }
 });
 
 
