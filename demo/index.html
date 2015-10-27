@@ -12,13 +12,14 @@
             var template = '<span>hello, {{#if @name}}<h2>{{@name + 67}}</h2>{{else}}Person{{/if}}.</span>';
                 // template = '{{?helper .}}{{{?helper .}}}{{>partial .}}{{! comment }}{{!-- comment --}}{{#block .}}{{else}}{{/block}}';
 
-                template = 'BEFORE :: <span class="{{name}} {{name}}">{{#if name}}\
-                                NAME is {{name}}\
-                            {{else}}\
-                                noname\
-                            {{/if}}</span> :: AFTER';
-                // template = '<span {{#with cat}} class=" {{#if name}}{{name}}{{else}} nnoname{{/if}}" {{/with}}>asdf</span>';
-                // template = 'name: {{#name}}test{{else}}no-test{{/name}}';
+                // template = 'BEFORE :: <span class="{{name}} {{name}}">{{#if name}}\
+                //                 NAME is {{name}}\
+                //                 (helper: {{?concat name name}})\
+                //             {{else}}\
+                //                 noname\
+                //             {{/if}}</span> :: ({{>partial}})',
+                // partial = 'AFTER (PARTIAL - {{name}})';
+                template = '--{{{name}}}--';
 
             window.joey = {
                 name: 'Joey'
@@ -37,17 +38,17 @@
                 }
             ];
 
-            bars.registerHelper('multiply', function(a, b) {
-                return a * b;
+            bars.registerHelper('concat', function(a, b) {
+                return a + '' + b;
             });
 
-            // bars.registerPartial('cat', 'Cat #{{@index}}\'s name is {{name}}.');
+            // bars.registerPartial('partial', partial);
 
             window.b = bars.compile(template);
             console.log(window.b)
             window.c = window.b.render();
             window.c.appendTo(document.body);
-            window.c.update({name:'test'});
+            window.c.update({name:'<h1>test</h1>'});
         </script>
     </body>
 </html>
