@@ -9,17 +9,19 @@
         <script type="text/javascript">
             var bars = window.Bars.create();
 
-            var template = '<span>hello, {{#if @name}}<h2>{{@name + 67}}</h2>{{else}}Person{{/if}}.</span>';
-                // template = '{{?helper .}}{{{?helper .}}}{{>partial .}}{{! comment }}{{!-- comment --}}{{#block .}}{{else}}{{/block}}';
+            var template = '<span>hello, {{#if @name}}<h2>{{@name}}</h2>{{else}}Person{{/if}}.</span>';
+                template = '{{?helper .}}{{{?helper .}}}{{>partial .}}{{! comment }}{{!-- comment --}}{{#block .}}{{else}}{{/block}}';
 
-                // template = 'BEFORE :: <span class="{{name}} {{name}}">{{#if name}}\
-                //                 NAME is {{name}}\
-                //                 (helper: {{?concat name name}})\
-                //             {{else}}\
-                //                 noname\
-                //             {{/if}}</span> :: ({{>partial}})',
-                // partial = 'AFTER (PARTIAL - {{name}})';
-                template = '--{{{name}}}--';
+                template = 'BEFORE :: \
+                                <input value="{{name}}" onkeyup="javascript:a.name=this.value;window.c.update(a);">\
+                                <span class="{{name}} {{name}}">{{#if name}}\
+                                NAME={{name}}\
+                                (helper: {{?helper name name}})\
+                            {{else}}\
+                                noname\
+                            {{/if}}</span> :: ({{>partial}})',
+                // partial = 'AFTER (PARTIAL - {{name}})',
+                // template = '<div class="{{name}}">--<p>Hi, {{name}}!</p><input>--</div>';
 
             window.joey = {
                 name: 'Joey'
@@ -38,17 +40,31 @@
                 }
             ];
 
-            bars.registerHelper('concat', function(a, b) {
-                return a + '' + b;
+            bars.registerHelper('helper', function(a) {
+                return 'HELPER';
             });
 
-            // bars.registerPartial('partial', partial);
+            bars.registerPartial('partial', 'PARTIAL');
 
+            bars.registerBlock('block', function (a) {
+                return 'BLOCK';
+            });
+
+            window.a = {name:'My Name'};
             window.b = bars.compile(template);
-            console.log(window.b)
             window.c = window.b.render();
             window.c.appendTo(document.body);
-            window.c.update({name:'<h1>test</h1>'});
+            window.c.update(a);
+
+            // setInterval(function() {
+            //     var n = Math.random();
+
+            //     window.c.update({
+            //         name: n < 0.8 ? n : null
+            //     });
+            // }, 1000);
+
+            // console.log(window.c)
         </script>
     </body>
 </html>

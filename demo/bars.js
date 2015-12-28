@@ -138,6 +138,36 @@ var Generator = require('generate-js'),
     Nodes = {},
     ARRAY = [];
 
+function parseArgs(args, context) {
+    return args.split(/\s+/).map(function(item) {
+        if (item === 'null') {
+            return null;
+        }
+
+        if (item === 'undefined') {
+            return void(0);
+        }
+
+        if (item === 'true') {
+            return true;
+        }
+
+        if (item === 'false') {
+            return false;
+        }
+
+        if (/("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)')/.test(item)) {
+            return item.slice(1, -1);
+        }
+
+        if (/^\-?\d*\.?\d+$/.test(item)) {
+            return parseFloat(item);
+        }
+
+        return context(item);
+    });
+}
+
 /**
  * [BarsNode description]
  * @param {[type]} bars     [description]
@@ -236,15 +266,16 @@ BarsNode.definePrototype({
     _elementAppendTo: function _elementAppendTo(parent) {
         var _ = this;
 
+        if (!_.parentTag) return;
+
+        parent = parent || _.parentTag.$el || _.parentTag.$parent;
+
+        if (!parent) return;
+        if (_.$el.parentElement) return;
+
         if (parent instanceof Element && _.isDOM) {
             parent.appendChild(_.$el);
         } else if (_.isDOM) {
-            if (!_.parentTag) return;
-
-            parent = _.parentTag.$el || _.parentTag.$parent;
-
-            if (!parent) return;
-
             var prev = _.prevDom;
 
             if (prev) {
@@ -296,10 +327,7 @@ Nodes.TEXT.definePrototype({
             helper = _.bars.helpers[_.name];
 
             if (typeof helper === 'function') {
-                args = _.args.split(/\s+/).map(function(item) {
-                    return context(item);
-                });
-
+                args = parseArgs(_.args, context);
                 _.$el.textContent = helper.apply(_, args);
             } else {
                 throw new Error('Helper not found: ' + _.name);
@@ -443,11 +471,13 @@ Nodes.BLOCK.definePrototype({
     _update: function _update(context) {
         var _ = this,
             con,
+            args,
             i;
 
         if (typeof _.bars.blocks[_.name] === 'function') {
+            args = parseArgs(_.args, context);
             _.context = context;
-            con = _.bars.blocks[_.name].call(_, _.context(_.args));
+            con = _.bars.blocks[_.name].apply(_, args);
         } else {
             throw new Error('Block helper not found: ' + _.name);
         }
@@ -2080,16 +2110,13 @@ function defineObjectProperties(obj, descriptor, properties) {
     var setProperties = {},
         i,
         keys,
-        length;
+        length,
 
-    if (!descriptor || typeof descriptor !== 'object') {
-        descriptor = {};
-    }
+        p = properties || descriptor,
+        d = properties && descriptor;
 
-    if (!properties || typeof properties !== 'object') {
-        properties = descriptor;
-        descriptor = {};
-    }
+    properties = (p && typeof p === 'object') ? p : {};
+    descriptor = (d && typeof d === 'object') ? d : {};
 
     keys = Object.getOwnPropertyNames(properties);
     length = keys.length;
