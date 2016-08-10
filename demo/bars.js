@@ -20,12 +20,17 @@ var Bars = Generator.generate(function Bars() {
 
 Bars.definePrototype({
     compile: function compile(template) {
-        var _ = this,
-            parsed = Parser(template);
+        var _ = this;
+        return _.build( _.parse(template) );
+    },
 
-        // console.log(parsed);
+    parse: function parse(template) {
+        return Parser(template);
+    },
 
-        return Renderer.create(_, parsed );
+    build: function build(parsedTemplate) {
+        var _ = this;
+        return Renderer.create( _, parsedTemplate );
     },
 
     registerBlock: function registerBlock(name, block) {
@@ -37,7 +42,7 @@ Bars.definePrototype({
     registerPartial: function registerPartial(name, template) {
         var _ = this;
 
-        _.partials[name] = Parser(template);
+        _.partials[name] = _.compile(template);
     },
 
     registerHelper: function registerHelper(name, func) {
@@ -89,8 +94,8 @@ Blocks.definePrototype({
                     _.createFragment(keys[i]);
                 }
 
-                while (keys.length < _.nodes.length) {
-                    _.nodes[_.nodes.length - 1].remove();
+                for (i = keys.length; i < _.nodes.length; i++) {
+                    _.nodes[i].remove();
                 }
 
                 return true;
@@ -114,8 +119,8 @@ Blocks.definePrototype({
                     _.createFragment(keys[i]);
                 }
 
-                while (keys.length < _.nodes.length) {
-                    _.nodes[_.nodes.length - 1].remove();
+                for (i = keys.length; i < _.nodes.length; i++) {
+                    _.nodes[i].remove();
                 }
 
                 return true;
@@ -132,6 +137,36 @@ module.exports = Blocks;
 var Generator = require('generate-js'),
     Nodes = {},
     ARRAY = [];
+
+function parseArgs(args, context) {
+    return args.split(/\s+/).map(function(item) {
+        if (item === 'null') {
+            return null;
+        }
+
+        if (item === 'undefined') {
+            return void(0);
+        }
+
+        if (item === 'true') {
+            return true;
+        }
+
+        if (item === 'false') {
+            return false;
+        }
+
+        if (/("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)')/.test(item)) {
+            return item.slice(1, -1);
+        }
+
+        if (/^\-?\d*\.?\d+$/.test(item)) {
+            return parseFloat(item);
+        }
+
+        return context(item);
+    });
+}
 
 /**
  * [BarsNode description]
@@ -150,10 +185,6 @@ var BarsNode = Generator.generate(function BarsNode(bars, struct) {
         prevDom: {
             get: _.getPrevDom
         },
-        hasUpdate: {
-            get: _.getHasNoUpdate,
-            set: _.setHasNoUpdate
-        },
         type: struct.type,
         name: struct.name,
         text: struct.text,
@@ -161,35 +192,20 @@ var BarsNode = Generator.generate(function BarsNode(bars, struct) {
         conFrag: struct.conFrag,
         altFrag: struct.altFrag,
     });
-
-    _._hasUpdate = true;
-    _.appended = false;
 });
 
 BarsNode.definePrototype({
     update: function update(context) {
         var _ = this;
 
-        if (_.isDOM) {
-            _.parentTag.previousDom = _;
-        }
-
-        if (!_.hasUpdate) return;
-
-        _.hasUpdate = false;
-
         _.previousDom = null;
 
         _._update(context);
 
-        // console.log('UPDATE', _.type, _.appended);
-
-        if (!_.appended) {
+        if (_.isDOM) {
             _._elementAppendTo();
+            _.parentTag.previousDom = _;
         }
-
-
-        // console.log('UPDATE', _.type, _.appended);
 
         _.previousDom = null;
     },
@@ -205,33 +221,27 @@ BarsNode.definePrototype({
         child.parent = _;
     },
 
-    empty: function empty() {
-        var _ = this,
-            i;
+    appendTo: function appendTo(parent) {
+        var _ = this;
 
-        for (i = _.nodes.length - 1; i >= 0; i--) {
-            _.nodes[i].remove();
+        if (parent instanceof Element) {
+            _._elementAppendTo(parent);
+        }
+
+        if (BarsNode.isCreation(parent)) {
+            parent.appendChild(_);
         }
     },
 
     remove: function remove() {
-        var _ = this;
+        var _ = this,
+            index = _.parent.nodes.indexOf(_);
 
-        if (_.parent) {
-            _.parent.removeChild(_);
+        if (index >= 0) {
+            _.parent.nodes.splice(index, 1);
         }
 
         _._elementRemove();
-    },
-
-    removeChild: function removeChild(child) {
-        var _ = this,
-            index = _.nodes.indexOf(child);
-
-        if (index >= 0) {
-            _.nodes.splice(index, 1);
-            child._elementRemove();
-        }
     },
 
     getParentTag: function getParentTag() {
@@ -253,43 +263,26 @@ BarsNode.definePrototype({
         return (_.parentTag && _.parentTag.previousDom) || null;
     },
 
-    getHasNoUpdate: function getHasNoUpdate() {
-        var _ = this;
-        return _._hasUpdate;
-    },
-
-    setHasNoUpdate: function setHasNoUpdate(value) {
-        var _ = this;
-        if (value) {
-            _._hasUpdate = true;
-            if (_.parent) {
-                _.parent.setHasNoUpdate(true);
-            }
-        } else {
-            _._hasUpdate = false;
-        }
-    },
-
     _elementAppendTo: function _elementAppendTo(parent) {
-        var _ = this,
-            prev;
+        var _ = this;
 
-        if (_.isDOM) {
-            if (!_.parentTag) return;
+        if (!_.parentTag) return;
 
-            parent = _.parentTag.$el || _.parentTag.$parent;
+        parent = parent || _.parentTag.$el || _.parentTag.$parent;
 
-            if (!parent) return;
+        if (!parent) return;
+        if (_.$el.parentElement) return;
 
-            prev = _.prevDom;
+        if (parent instanceof Element && _.isDOM) {
+            parent.appendChild(_.$el);
+        } else if (_.isDOM) {
+            var prev = _.prevDom;
 
             if (prev) {
                 parent.insertBefore(_.$el, prev.$el.nextSibling);
             } else {
                 parent.appendChild(_.$el);
             }
-
-            _.appended = true;
         }
     },
 
@@ -299,7 +292,6 @@ BarsNode.definePrototype({
         if (_.isDOM && _.$el.parentNode instanceof Element) {
             _.$el.parentNode.removeChild(_.$el);
         }
-        _.appended = false;
     },
 });
 
@@ -335,22 +327,13 @@ Nodes.TEXT.definePrototype({
             helper = _.bars.helpers[_.name];
 
             if (typeof helper === 'function') {
-                args = _.args.split(/\s+/).map(function(item) {
-                    return context(item);
-                });
-
+                args = parseArgs(_.args, context);
                 _.$el.textContent = helper.apply(_, args);
             } else {
                 throw new Error('Helper not found: ' + _.name);
             }
-            if (!_.hasUpdate) {
-                _.hasUpdate = true;
-            }
         } else if (typeof _.args === 'string') {
             _.$el.textContent = context(_.args);
-            if (!_.hasUpdate) {
-                _.hasUpdate = true;
-            }
         }
     },
 });
@@ -364,9 +347,7 @@ Nodes.TEXT.definePrototype({
 Nodes.TAG = BarsNode.generate(function TagNode(bars, struct) {
     var _ = this,
         nodes = struct.nodes || ARRAY,
-        node,
         attrs = struct.attrs || ARRAY,
-        attr,
         i;
 
     _.supercreate(bars, struct);
@@ -377,12 +358,12 @@ Nodes.TAG = BarsNode.generate(function TagNode(bars, struct) {
     });
 
     for (i = 0; i < nodes.length; i++) {
-        node = nodes[i];
+        var node = nodes[i];
         _.appendChild(Nodes[node.type].create(bars, node));
     }
 
     for (i = 0; i < attrs.length; i++) {
-        attr = attrs[i];
+        var attr = attrs[i];
         _.addAttr(Nodes[attr.type].create(bars, attr));
     }
 
@@ -410,14 +391,6 @@ Nodes.TAG.definePrototype({
         _.attrs.push(child);
         child.parent = _;
     },
-    toString: function toString() {
-        var _ = this,
-        html = '';
-
-        html += _.$el.outerHTML;
-
-        return html;
-    },
 });
 
 
@@ -428,9 +401,7 @@ Nodes.TAG.definePrototype({
  */
 Nodes.ATTR = BarsNode.generate(function AttrNode(bars, struct) {
     var _ = this,
-        nodes = struct.nodes || ARRAY,
-        node,
-        i;
+        nodes = struct.nodes || ARRAY;
 
     _.supercreate(bars, struct);
 
@@ -438,8 +409,8 @@ Nodes.ATTR = BarsNode.generate(function AttrNode(bars, struct) {
         $el: document.createElement('div'),
     });
 
-    for (i = 0; i < nodes.length; i++) {
-        node = nodes[i];
+    for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
         _.appendChild(Nodes[node.type].create(bars, node));
     }
 });
@@ -460,8 +431,7 @@ Nodes.ATTR.definePrototype({
             parent = _.parentTag.$el;
 
         if (parent instanceof Element) {
-            parent.setAttribute(_.name, _.$el.innerText);
-            // _.appended = true;
+            parent.setAttribute(_.name, _.$el.textContent);
         }
     },
     _elementRemove: function _elementRemove() {
@@ -471,7 +441,6 @@ Nodes.ATTR.definePrototype({
         if (parent instanceof Element) {
             parent.removeAttribute(_.name);
         }
-        // _.appended = false;
     }
 });
 
@@ -485,10 +454,6 @@ Nodes.BLOCK = BarsNode.generate(function BlockNode(bars, struct) {
     var _ = this;
 
     _.supercreate(bars, struct);
-
-    _.defineProperties({
-        nodesCache: []
-    });
 });
 
 Nodes.BLOCK.definePrototype({
@@ -496,46 +461,28 @@ Nodes.BLOCK.definePrototype({
 
     createFragment: function createFragment(path) {
         var _ = this,
-            frag = _.nodesCache.pop();
-
-        if (!frag) { console.log('2437335375747474747474477747477475475')
             frag = Nodes.FRAG.create(_.bars, _.conFrag);
-        }
 
-        frag.path = path;
+        frag.setPath(path);
 
         _.appendChild(frag);
     },
 
-    removeChild: function removeChild(child) {
-        var _ = this,
-            index = _.nodes.indexOf(child);
-
-        clearTimeout(_.emptyNodesCache);
-
-        if (index >= 0) {
-            _.nodes.splice(index, 1);
-            _.nodesCache.push(child);
-            child._elementRemove();
-        }
-
-        _.emptyNodesCache = setTimeout(function () {
-            while(_.nodesCache.length > 2) _.nodesCache.pop();
-        }, 2000);
-    },
-
     _update: function _update(context) {
         var _ = this,
+            con,
+            args,
             i;
 
         if (typeof _.bars.blocks[_.name] === 'function') {
+            args = parseArgs(_.args, context);
             _.context = context;
-            _.con = _.bars.blocks[_.name].call(_, _.context(_.args));
+            con = _.bars.blocks[_.name].apply(_, args);
         } else {
             throw new Error('Block helper not found: ' + _.name);
         }
 
-        if (_.con) {
+        if (con) {
             if (!_.nodes.length) {
                 _.createFragment();
             }
@@ -558,14 +505,8 @@ Nodes.BLOCK.definePrototype({
 
             _.alternate.update(_.context);
         }
-        if (!_.hasUpdate) {
-            _.hasUpdate = true;
-        }
     },
-    _elementAppendTo: function _elementAppendTo() {
-        var _ = this;
-        _.appended = true;
-    },
+    _elementAppendTo: function _elementAppendTo() {},
     _elementRemove: function _elementRemove() {
         var _ = this,
             i;
@@ -577,22 +518,7 @@ Nodes.BLOCK.definePrototype({
         if (_.alternate) {
             _.alternate._elementRemove();
         }
-        _.appended = false;
-    },
-    toString: function toString() {
-        var _ = this,
-        html = '';
-
-        if (_.con) {
-            for (var i = 0; i < _.nodes.length; i++) {
-                html += _.nodes[i];
-            }
-        } else {
-            html += _.alternate;
-        }
-
-        return html;
-    },
+    }
 });
 
 
@@ -609,37 +535,22 @@ Nodes.PARTIAL = BarsNode.generate(function PartialNode(bars, struct) {
 
 Nodes.PARTIAL.definePrototype({
     _update: function _update(context) {
-        var _ = this,
-            partial;
+        var _ = this;
 
         if (!_.partial) {
-            partial = _.bars.partials[_.name];
+            var partial = _.bars.partials[_.name];
 
             if (partial && typeof partial === 'object') {
-                _.partial = Nodes.FRAG.create(_.bars, partial);
+                _.partial = Nodes.FRAG.create(_.bars, partial.struct);
                 _.partial.parent = _;
-                _.partial.path = _.args;
+                _.partial.setPath(_.args);
             } else {
                 throw new Error('Partial not found: ' + _.name);
             }
         }
 
         _.partial.update(context);
-
-        if (!_.hasUpdate) {
-            _.hasUpdate = true;
-        }
-    },
-    toString: function toString() {
-        var _ = this,
-        html = '';
-
-        if (_.partial) {
-            html += _.partial;
-        }
-
-        return html;
-    },
+    }
 });
 
 
@@ -650,14 +561,12 @@ Nodes.PARTIAL.definePrototype({
  */
 Nodes.FRAG = BarsNode.generate(function FragNode(bars, struct) {
     var _ = this,
-        nodes = struct.nodes || ARRAY,
-        node,
-        i;
+        nodes = struct.nodes || ARRAY;
 
     _.supercreate(bars, struct);
 
-    for (i = 0; i < nodes.length; i++) {
-        node = nodes[i];
+    for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
 
         _.appendChild(Nodes[node.type].create(bars, node));
     }
@@ -665,11 +574,7 @@ Nodes.FRAG = BarsNode.generate(function FragNode(bars, struct) {
 
 Nodes.FRAG.definePrototype({
     _update: function _update(context) {
-        var _ = this,
-            helper,
-            args,
-            content,
-            i;
+        var _ = this;
 
         if (typeof context !== 'function') {
             _.data = context;
@@ -680,91 +585,31 @@ Nodes.FRAG.definePrototype({
             context = context.getContext(_.path);
         }
 
-         if (_.name) {
-            _.empty();
-            helper = _.bars.helpers[_.name];
-
-            if (typeof helper === 'function') {
-                args = _.args.split(/\s+/).map(function(item) {
-                    return context(item);
-                });
-
-                content = helper.apply(_, args);
-
-                if (content === null || content === void(0)) {
-                    content = '';
-                } else {
-                    content = '' + content;
-                }
-
-                content = _.bars.compile(content).render(context);
-
-                _.appendChild(content);
-            } else {
-                throw new Error('Helper not found: ' + _.name);
-            }
-        } else if (_.args) {
-            _.empty();
-            content =  context(_.args);
-
-            if (content === null || content === void(0)) {
-                content = '';
-            } else {
-                content = '' + content;
-            }
-
-            content = _.bars.compile(content).render(context);
-
-            _.appendChild(content);
-        }
-
-        for (i = 0; i < _.nodes.length; i++) {
+        for (var i = 0; i < _.nodes.length; i++) {
             _.nodes[i].update(context);
-        }
-
-        if (!_.hasUpdate) {
-            _.hasUpdate = true;
         }
     },
 
     _elementAppendTo: function _elementAppendTo(parent) {
         var _ = this;
-        if (parent instanceof Element) {
-            _.$parent = parent;
-            _.appended = true;
-        } else if (_.parent) {
-            for (var i = 0; i < _.nodes.length; i++) {
-                _.nodes[i]._elementAppendTo();
-            }
 
-            _.appended = true;
-        }
+        _.$parent = parent;
     },
     _elementRemove: function _elementRemove() {
-        var _ = this,
-            i;
+        var _ = this;
 
-        for (i = 0; i < _.nodes.length; i++) {
+        for (var i = 0; i < _.nodes.length; i++) {
             _.nodes[i]._elementRemove();
         }
 
         _.$parent = null;
-        _.appended = false;
     },
-
-    appendTo: function appendTo(parent) {
+    getValue: function getValue(splitPath) {
         var _ = this;
 
-        _._elementAppendTo(parent);
-        _.update(_.data);
-    },
+        var value = _.data;
 
-    getValue: function getValue(splitPath) {
-        var _ = this,
-            value = _.data,
-            i;
-
-        for (i = 0; i < splitPath.length; i++) {
+        for (var i = 0; i < splitPath.length; i++) {
             if (splitPath[i] === '@key' || splitPath[i] === '@index') {
                 value = splitPath[i - 1];
             } else if (value !== null && value !== void(0)) {
@@ -790,9 +635,18 @@ Nodes.FRAG.definePrototype({
         return context;
     },
 
+    setPath: function setPath(path) {
+        var _ = this;
+
+        if (path) {
+            _.defineProperties({
+                path: path.toString()
+            });
+        }
+    },
+
     resolve: function resolve(basepath, path) {
-        var newSplitpath,
-            i;
+        var newSplitpath;
 
         if (path[0] === '/') {
             newSplitpath = path.split('/');
@@ -801,7 +655,7 @@ Nodes.FRAG.definePrototype({
         }
 
 
-        for (i = 0; i < newSplitpath.length; i++) {
+        for (var i = 0; i < newSplitpath.length; i++) {
             if (newSplitpath[i] === '.' || newSplitpath[i] === '') {
                 newSplitpath.splice(i, 1);
                 i--;
@@ -812,17 +666,7 @@ Nodes.FRAG.definePrototype({
         }
 
         return newSplitpath;
-    },
-
-    toString: function toString() {
-        var _ = this,
-        html = '';
-
-        for (var i = 0; i < _.nodes.length; i++) {
-            html += _.nodes[i];
-        }
-        return html;
-    },
+    }
 });
 
 module.exports = Nodes.FRAG;
@@ -2174,13 +2018,9 @@ var Renderer = Generator.generate(function Renderer(bars, struct) {
 });
 
 Renderer.definePrototype({
-    render: function render(data) {
-        var _ = this,
-            frag = Frag.create(_.bars, _.struct);
-
-        frag.update(data);
-
-        return frag;
+    render: function render() {
+        var _ = this;
+        return Frag.create(_.bars, _.struct);
     },
 });
 
@@ -2270,16 +2110,13 @@ function defineObjectProperties(obj, descriptor, properties) {
     var setProperties = {},
         i,
         keys,
-        length;
+        length,
 
-    if (!descriptor || typeof descriptor !== 'object') {
-        descriptor = {};
-    }
+        p = properties || descriptor,
+        d = properties && descriptor;
 
-    if (!properties || typeof properties !== 'object') {
-        properties = descriptor;
-        descriptor = {};
-    }
+    properties = (p && typeof p === 'object') ? p : {};
+    descriptor = (d && typeof d === 'object') ? d : {};
 
     keys = Object.getOwnPropertyNames(properties);
     length = keys.length;

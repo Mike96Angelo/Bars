@@ -9,21 +9,19 @@
         <script type="text/javascript">
             var bars = window.Bars.create();
 
-            var template;
-            // template = '{{?helper .}}{{{?helper .}}}{{>partial .}}{{! comment }}{{!-- comment --}}{{#block .}}{{else}}{{/block}}';
+            var template = '<span>hello, {{#if @name}}<h2>{{@name}}</h2>{{else}}Person{{/if}}.</span>';
+                template = '{{?helper .}}{{{?helper .}}}{{>partial .}}{{! comment }}{{!-- comment --}}{{#block .}}{{else}}{{/block}}';
 
-                template = '{{#if lkasjdf}}\
-                                asdf\
+                template = 'BEFORE :: \
+                                <input value="{{name}}" onkeyup="javascript:a.name=this.value;window.c.update(a);">\
+                                <span class="{{name}} {{name}}">{{#if name}}\
+                                NAME={{name}}\
+                                (helper: {{?helper name name}})\
                             {{else}}\
-                                    asdfasdf\
-                                    {{#if name}}\
-                                        NAME\
-                                    {{else}}\
-                                        noname\
-                                    {{/if}}\
-                            {{/if}}after';
-                // template = '<span {{#with cat}} class=" {{#if name}}{{name}}{{else}} nnoname{{/if}}" {{/with}}>asdf</span>';
-                // template = 'name: {{#name}}test{{else}}no-test{{/name}}';
+                                noname\
+                            {{/if}}</span> :: ({{>partial}})',
+                // partial = 'AFTER (PARTIAL - {{name}})',
+                // template = '<div class="{{name}}">--<p>Hi, {{name}}!</p><input>--</div>';
 
             window.joey = {
                 name: 'Joey'
@@ -42,20 +40,31 @@
                 }
             ];
 
-            bars.registerHelper('multiply', function(a, b) {
-                return undefined;
+            bars.registerHelper('helper', function(a) {
+                return 'HELPER';
             });
 
-            // bars.registerPartial('cat', 'Cat #{{@index}}\'s name is {{name}}.');
+            bars.registerPartial('partial', 'PARTIAL');
 
+            bars.registerBlock('block', function (a) {
+                return 'BLOCK';
+            });
+
+            window.a = {name:'My Name'};
             window.b = bars.compile(template);
-            window.c = window.b.render({
-                cats: window.cats,
-                name: 'asdf'
-            });
-
+            window.c = window.b.render();
             window.c.appendTo(document.body);
-            // c.update({name:'test'});
+            window.c.update(a);
+
+            // setInterval(function() {
+            //     var n = Math.random();
+
+            //     window.c.update({
+            //         name: n < 0.8 ? n : null
+            //     });
+            // }, 1000);
+
+            // console.log(window.c)
         </script>
     </body>
 </html>
