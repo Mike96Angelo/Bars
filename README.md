@@ -1,4 +1,4 @@
-# Pre-release v0.1.7
+# Pre-release v0.1.14
 
 ## Table of Contents
 
@@ -7,7 +7,7 @@
     * [Bars.registerPartial(name, template)](#register-partial)
     * [Bars.registerHelper(name, func)](#register-helper)
     * [Class: Fragment](#class-fragment)
-        * [Fragment.render([data])](#frament-render)
+        * [Fragment.render()](#frament-render)
     * [Class: DomFrag](#class-dom-frag)
         * [DomFrag.update(data)](#dom-update)
         * [DomFrag.appendTo(element)](#dom-append-to)
@@ -86,7 +86,7 @@ bars.registerPartial('caps', function (text) {
 A Fragment that is compiled using the [Bars.compile(template)](#bars-compile) method.
 
 <a name="frament-render"></a>
-## Fragment.render([data])
+## Fragment.render()
 
 * *template* `Object` Object context for rendering.
 * *return*: `DomFrag` A new [DomFrag](#class-dom-frag).
@@ -95,7 +95,7 @@ Creates a new [DomFrag](#class-dom-frag) from the compiled template and `data`.
 
 Example:
 ```javascript
-var dom = frag.render({name: 'John'});
+var dom = frag.render().update({name: 'John'});
 ```
 
 <a name="class-dom-frag"></a>
@@ -136,7 +136,7 @@ dom.appendTo(document.body);
 ## License:
     The MIT License (MIT)
 
-    Copyright (c) 2015 Michaelangelo Jong
+    Copyright (c) 2015-2016 Michaelangelo Jong
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
