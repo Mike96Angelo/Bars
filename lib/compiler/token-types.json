@@ -1,0 +1,10 @@
+{
+    "ATTR":    0,
+    "BLOCK":   1,
+    "COMMENT": 2,
+    "FRAG":    3,
+    "PARTIAL": 4,
+    "STRING":  5,
+    "TAG":     6,
+    "TEXT":    7
+}
