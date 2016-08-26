@@ -5,7 +5,6 @@
 * [Bars](#bars)
     * [Bars.compile(template)](#compile)
     * [Bars.registerPartial(name, template)](#register-partial)
-    * [Bars.registerHelper(name, func)](#register-helper)
     * [Class: Fragment](#class-fragment)
         * [Fragment.render()](#frament-render)
     * [Class: DomFrag](#class-dom-frag)
@@ -55,28 +54,6 @@ bars.registerPartial('person', '<h2>{{name}}</h2>{{#if age}} - {{age}}{{/if}}');
 /**
  * To use the `person` partial in another
  * template use this {{>person <arg>}}.
- */
-```
-
-<a name="register-helper"></a>
-## Bars.registerHelper(name, func)
-
-* *name* `String` The name of the helper.
-* *func* `Function` The helper function.
-* *return*: `Bars` *This* [Bars](#bars).
-
-Returns *this* [Bars](#bars).
-
-Example:
-```javascript
-bars.registerPartial('caps', function (text) {
-    return text && text.toString().toUpperCase();
-});
-
-/**
- * To use the `caps` partial in another
- * template use this {{?caps <args...>}}
- * or {{{?caps <args...>}}} to render as html.
  */
 ```
 
