@@ -2,13 +2,13 @@
 
 ## Markup
 
-### Comment
+### Comment - *implemented*
 
 ```bars
 {{!<comment>}}
 ```
 
-### Block
+### Block - *implemented*
 
 ```bars
 {{#<name> <arg>}}
@@ -18,13 +18,13 @@
 {{/<name>}}
 ```
 
-### Partial
+### Partial - *implemented*
 
 ```bars
 {{><name> <arg>}}
 ```
 
-### Insert
+### Insert - *implemented*
 
 ```bars
 {{<arg>}}
