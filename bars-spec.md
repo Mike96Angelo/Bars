@@ -34,8 +34,28 @@
 
 ### Operators
 
-```bars
+#### Pre
 
+```bars
+!<value>
+```
+
+#### Post
+
+```bars
+<value> + <value>
+<value> - <value>
+<value> / <value>
+<value> * <value>
+<value> % <value>
+<value> || <value>
+<value> && <value>
+<value> < <value>
+<value> <= <value>
+<value> > <value>
+<value> >= <value>
+<value> == <value>
+<value> != <value>
 ```
 
 ### Number Literal
