@@ -37,7 +37,7 @@
 #### Pre
 
 ```bars
-!<value>
+! <value>
 ```
 
 #### Post
