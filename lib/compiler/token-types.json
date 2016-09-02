@@ -1,10 +1,19 @@
 {
-    "ATTR":    0,
-    "BLOCK":   1,
-    "COMMENT": 2,
-    "FRAG":    3,
-    "PARTIAL": 4,
-    "STRING":  5,
-    "TAG":     6,
-    "TEXT":    7
+    "HTML_COMMENT":      "HTML-COMMENT",
+    "HTML_TAG":          "HTML-TAG",
+    "HTML_TEXT":         "HTML-TEXT",
+    "HTML_ATTR":         "HTML-ATTR",
+    "STRING_TEXT":       "STRING-TEXT",
+    "BARS_COMMENT":      "BARS-COMMENT",
+    "BARS_BLOCK":        "BARS-BLOCK",
+    "BARS_ELSE":         "BARS-ELSE",
+    "BARS_INSERT":       "BARS-INSERT",
+    "BARS_PARTIAL":      "BARS-PARTIAL",
+    "STRING":            "STRING",
+    "NUMBER":            "NUMBER",
+    "BOOLEAN":           "BOOLEAN",
+    "INSERT_VAL":        "INSERT-VAL",
+    "UNARY_EXPRESSION":  "UNARY-EXPRESSION",
+    "BINARY_EXPRESSION": "BINARY-EXPRESSION",
+    "TRANSFORM":         "TRANSFORM"
 }
