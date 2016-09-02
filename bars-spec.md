@@ -21,7 +21,7 @@
 ### Partial - *implemented*
 
 ```bars
-{{><name> <arg>}}
+{{><name> <arg>?}}
 ```
 
 ### Insert - *implemented*
@@ -32,15 +32,15 @@
 
 ## Bars Argument
 
-### Operators
+### Operators - *implemented*
 
-#### Pre
+#### Unary - *implemented*
 
 ```bars
 ! <value>
 ```
 
-#### Post
+#### Binary - *implemented*
 
 ```bars
 <value> + <value>
@@ -58,16 +58,23 @@
 <value> != <value>
 ```
 
-### Number Literal
+### Number Literal - *implemented*
 
 ```bars
 -?[0-9]+
 ```
 
-### String Literal
+### String Literal - *implemented*
 
 ```bars
 '[^\n']*'
+```
+
+### Boolean Literal - *implemented*
+
+```bars
+true
+false
 ```
 
 ### Insert Value
@@ -84,7 +91,7 @@
 <insert-value>@<property>
 ```
 
-### Bars Transfrom Function
+### Bars Transfrom Function - *implemented*
 
 ```bars
 @<trasnform>(<args>, <arg>, ...)
