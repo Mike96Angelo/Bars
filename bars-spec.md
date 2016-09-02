@@ -11,7 +11,7 @@
 ### Block - *implemented*
 
 ```bars
-{{#<name> <arg>}}
+{{#<name> <arg>?}}
 
 {{else}}
 
@@ -32,15 +32,15 @@
 
 ## Bars Argument
 
-### Operators
+### Operators - *implemented*
 
-#### Pre
+#### Unary - *implemented*
 
 ```bars
 ! <value>
 ```
 
-#### Post
+#### Binary - *implemented*
 
 ```bars
 <value> + <value>
@@ -58,13 +58,13 @@
 <value> != <value>
 ```
 
-### Number Literal
+### Number Literal - *implemented*
 
 ```bars
 -?[0-9]+
 ```
 
-### String Literal
+### String Literal - *implemented*
 
 ```bars
 '[^\n']*'
@@ -84,7 +84,7 @@
 <insert-value>@<property>
 ```
 
-### Bars Transfrom Function
+### Bars Transfrom Function - *implemented*
 
 ```bars
 @<trasnform>(<args>, <arg>, ...)
