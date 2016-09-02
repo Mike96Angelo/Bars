@@ -11,7 +11,7 @@
 ### Block - *implemented*
 
 ```bars
-{{#<name> <arg>?}}
+{{#<name> <arg>}}
 
 {{else}}
 
@@ -21,7 +21,7 @@
 ### Partial - *implemented*
 
 ```bars
-{{><name> <arg>}}
+{{><name> <arg>?}}
 ```
 
 ### Insert - *implemented*
@@ -68,6 +68,13 @@
 
 ```bars
 '[^\n']*'
+```
+
+### Boolean Literal - *implemented*
+
+```bars
+true
+false
 ```
 
 ### Insert Value
