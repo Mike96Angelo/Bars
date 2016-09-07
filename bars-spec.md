@@ -61,13 +61,13 @@
 ### Number Literal - *implemented*
 
 ```bars
--?[0-9]+
+^-?[0-9]+([.][0-9])?([Ee][+-]?[0-9]+)?$
 ```
 
 ### String Literal - *implemented*
 
 ```bars
-'[^\n']*'
+^'[^\n']*'$
 ```
 
 ### Boolean Literal - *implemented*
