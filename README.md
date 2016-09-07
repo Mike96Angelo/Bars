@@ -22,6 +22,52 @@ Client-side html templating system that emits DOM.  The templates can be updated
 $ npm install bars
 ```
 
+# What Bars Looks Like
+
+### Bars:
+```bars
+<ul>
+{{#each persons}}
+   <li>{{@index + 1}} - {{name}}</li>
+{{/each}}
+</ul>
+
+{{#if x < 5}}
+   x is less then 5
+{{else}}
+   x is not less then 5
+{{/if}}
+
+{{@upperCase(title)}}
+```
+### Object:
+```javascript
+{
+   persons: [
+      { name: 'John' },
+      { name: 'Jane' },
+      { name: 'Jim' },
+   ],
+   x: 2,
+   title: 'The Cat in the Hat'
+}
+```
+
+### Output:
+```bars
+<ul>
+   <li>1 - John</li>
+   <li>2 - Jane</li>
+   <li>3 - Jim</li>
+</ul>
+
+   x is not less then 5
+   
+THE CAT IN THE HAT
+```
+
+For all features see [Bars Spec](bars-spec.md).
+
 <a name="compile"></a>
 ## Bars.compile(template)
 
