@@ -77,7 +77,7 @@ true
 false
 ```
 
-### Insert Value
+### Insert Value - *implemented*
 
 ```bars
 <name>
@@ -85,7 +85,7 @@ false
 <path>.<to>.<value>
 ```
 
-### Bars Insert Property
+### Bars Insert Property - *implemented*
 
 ```bars
 <insert-value>@<property>
