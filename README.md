@@ -1,4 +1,4 @@
-# Pre-release v0.1.15
+# Pre-release v0.1.19
 
 ## Table of Contents
 
@@ -64,8 +64,8 @@ $ npm install bars
 
 
    x is not less then 5
-   
-   
+
+
 THE CAT IN THE HAT
 ```
 
