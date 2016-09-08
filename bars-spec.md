@@ -94,5 +94,5 @@ false
 ### Bars Transfrom Function - *implemented*
 
 ```javascript
-@<trasnform>(<args>, <arg>, ...)
+@<transform>(<args>, <arg>, ...)
 ```
