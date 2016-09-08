@@ -28,7 +28,7 @@ $ npm install bars
 ```handlebars
 <ul>
 {{#each persons}}
-   <li>{{@index + 1}} - {{name}}</li>
+   <li>{{@Number(@index) + 1}} - {{name}}</li>
 {{/each}}
 </ul>
 
