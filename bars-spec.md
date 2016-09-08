@@ -36,13 +36,13 @@
 
 #### Unary - *implemented*
 
-```handlebars
+```javascript
 ! <value>
 ```
 
 #### Binary - *implemented*
 
-```handlebars
+```javascript
 <value> + <value>
 <value> - <value>
 <value> / <value>
@@ -60,13 +60,13 @@
 
 ### Number Literal - *implemented*
 
-```handlebars
+```javascript
 ^-?[0-9]+([.][0-9])?([Ee][+-]?[0-9]+)?$
 ```
 
 ### String Literal - *implemented*
 
-```handlebars
+```javascript
 ^'[^\n']*'$
 ```
 
@@ -79,7 +79,7 @@ false
 
 ### Insert Value - *implemented*
 
-```handlebars
+```javascript
 <name>
 <path>/<to>/<value>
 <path>.<to>.<value>
@@ -87,12 +87,12 @@ false
 
 ### Bars Insert Property - *implemented*
 
-```handlebars
+```javascript
 <insert-value>@<property>
 ```
 
 ### Bars Transfrom Function - *implemented*
 
-```handlebars
+```javascript
 @<trasnform>(<args>, <arg>, ...)
 ```
