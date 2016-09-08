@@ -63,7 +63,7 @@ $ npm install bars
 </ul>
 
 
-   x is not less then 5
+   x is less then 5
 
 
 THE CAT IN THE HAT
