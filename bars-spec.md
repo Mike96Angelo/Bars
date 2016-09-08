@@ -4,13 +4,13 @@
 
 ### Comment - *implemented*
 
-```bars
+```handlebars
 {{!<comment>}}
 ```
 
 ### Block - *implemented*
 
-```bars
+```handlebars
 {{#<name> <arg>}}
 
 {{else}}
@@ -20,13 +20,13 @@
 
 ### Partial - *implemented*
 
-```bars
+```handlebars
 {{><name> <arg>?}}
 ```
 
 ### Insert - *implemented*
 
-```bars
+```handlebars
 {{<arg>}}
 ```
 
@@ -36,13 +36,13 @@
 
 #### Unary - *implemented*
 
-```bars
+```handlebars
 ! <value>
 ```
 
 #### Binary - *implemented*
 
-```bars
+```handlebars
 <value> + <value>
 <value> - <value>
 <value> / <value>
@@ -60,26 +60,26 @@
 
 ### Number Literal - *implemented*
 
-```bars
+```handlebars
 ^-?[0-9]+([.][0-9])?([Ee][+-]?[0-9]+)?$
 ```
 
 ### String Literal - *implemented*
 
-```bars
+```handlebars
 ^'[^\n']*'$
 ```
 
 ### Boolean Literal - *implemented*
 
-```bars
+```handlebars
 true
 false
 ```
 
 ### Insert Value - *implemented*
 
-```bars
+```handlebars
 <name>
 <path>/<to>/<value>
 <path>.<to>.<value>
@@ -87,12 +87,12 @@ false
 
 ### Bars Insert Property - *implemented*
 
-```bars
+```handlebars
 <insert-value>@<property>
 ```
 
 ### Bars Transfrom Function - *implemented*
 
-```bars
+```handlebars
 @<trasnform>(<args>, <arg>, ...)
 ```
