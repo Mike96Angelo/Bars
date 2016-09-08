@@ -25,7 +25,7 @@ $ npm install bars
 # What Bars Looks Like
 
 ### Bars:
-```bars
+```handlebars
 <ul>
 {{#each persons}}
    <li>{{@index + 1}} - {{name}}</li>
