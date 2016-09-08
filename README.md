@@ -28,7 +28,7 @@ $ npm install bars
 ```handlebars
 <ul>
 {{#each persons}}
-   <li>{{@index + 1}} - {{name}}</li>
+   <li>{{@Number(@index) + 1}} - {{name}}</li>
 {{/each}}
 </ul>
 
@@ -63,7 +63,7 @@ $ npm install bars
 </ul>
 
 
-   x is not less then 5
+   x is less then 5
 
 
 THE CAT IN THE HAT
