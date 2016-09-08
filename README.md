@@ -54,6 +54,7 @@ $ npm install bars
 ```
 
 ### Output:
+##### *text representation*
 ```bars
 <ul>
    <li>1 - John</li>
@@ -61,7 +62,9 @@ $ npm install bars
    <li>3 - Jim</li>
 </ul>
 
+
    x is not less then 5
+   
    
 THE CAT IN THE HAT
 ```
