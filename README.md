@@ -70,6 +70,7 @@ THE CAT IN THE HAT
 ```
 
 For all features see [Bars Spec](bars-spec.md).
+For demos, tests and benckmarks see [Try Bars](http://mike96angelo.github.io/Bars/).
 
 <a name="compile"></a>
 ## Bars.compile(template)
