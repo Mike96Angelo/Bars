@@ -1,6 +1,6 @@
 {
   "name": "bars",
-  "version": "0.1.15",
+  "version": "0.1.19",
   "description": "Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.",
   "main": "index.js",
   "scripts": {
@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "browserify": "^11.0.1",
-    "gulp": "^3.9.0",
+    "gulp": "^3.9.1",
     "vinyl-buffer": "^1.0.0",
     "vinyl-source-stream": "^1.1.0"
   }

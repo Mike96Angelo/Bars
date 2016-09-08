@@ -14,12 +14,13 @@
 
                 template = 'BEFORE :: \
                                 <input value="{{name}}" onkeyup="javascript:a.name=this.value;window.c.update(a);">\
-                                <span class="{{name}} {{name}}">{{#if name}}\
+                                <span class="{{name}} {{name}}">{{#if namke}}\
                                 NAME={{name}}\
                                 (helper: {{?helper name name}})\
                             {{else}}\
                                 noname\
-                            {{/if}}</span> :: ({{>partial}})',
+                            {{/if}}</span> :: ({{>partial}})';
+template = 'm \n {{#if name}}\n    {{name}}\n {{else}}\n    noname\n {{else}}\n {{/ifm}}\n';
                 // partial = 'AFTER (PARTIAL - {{name}})',
                 // template = '<div class="{{name}}">--<p>Hi, {{name}}!</p><input>--</div>';
 

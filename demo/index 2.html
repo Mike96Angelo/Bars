@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title></title>
+    </head>
+    <body>
+        <script type="text/template"></script>
+        <script src="bars.js"></script>
+        <script type="text/javascript">
+            function test(testName, func, expects) {
+                document.body.innerText = '';
+
+                func();
+
+                if (document.body.innerHTML === expects) {
+                    console.debug('TEST: ' + testName, 'PASS');
+                } else {
+                    console.error('TEST: ' + testName, 'FAIL', '-', 'Actual: "' + document.body.innerHTML + '"', 'Expected: "' + expects + '"');
+                }
+            }
+        </script>
+        <script type="text/javascript">
+            var bars = window.Bars.create();
+
+            test('Empty Undefined', function() {
+                var template = '{{a}} : {{b}} : {{c}} : {{d}} : {{e/f}}';
+                window.b = bars.compile(template);
+                window.c = window.b.render();
+                window.c.appendTo(document.body);
+                window.c.update({ a: undefined, b: null, c: void(0), d: 0 });
+            }, ' :  :  : 0 : ');
+
+            test('Bars Transfrom', function() {
+                var template = '{{@upperCase(name)}} - {{@lowerCase(name)}}';
+                window.b = bars.compile(template);
+                window.c = window.b.render();
+                window.c.appendTo(document.body);
+                window.c.update({ name: 'John'});
+            }, 'JOHN - john');
+
+            test('Loops In Loops', function() {
+                var template = '{{#each a}}{{#each b}}{{.}}{{/each}}{{/each}}';
+                window.b = bars.compile(template);
+                window.c = window.b.render();
+                window.c.appendTo(document.body);
+                window.c.update({ a: { 0: { b: { 0: 'a', 1: 'b', 2: 'c' } }, 1: { b: { 0: 'a', 1: 'b', 2: 'c' } }, 2: { b: { 0: 'a', 1: 'b', 2: 'c' } }, 3: { b: { 0: 'a', 1: 'b', 2: 'c' } } } });
+            }, 'abcabcabcabc');
+
+            // test('HTML Escape', function() {
+            //     var template = '{{#if a}}{{{a}}}{{/if}}';
+            //     window.b = bars.compile(template);
+            //     window.c = window.b.render();
+            //     window.c.appendTo(document.body);
+            //     window.c.update({ a: '<h1>This is an H1 tag!</h1>' });
+            //     window.c.update({});
+            //     window.c.update({ a: '<h3>This is an H3 tag!</h3>' });
+            // }, '<h3>This is an H3 tag!</h3>');
+
+            test('Array Update', function() {
+                var cats = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }],
+                    template = '<ul>{{#each cats}}<li>{{name}}</li>{{/each}}</ul>',
+                    data = { cats: cats };
+
+                window.b = bars.compile(template);
+                window.c = window.b.render();
+                window.c.appendTo(document.body);
+                window.c.update(data);
+
+                delete cats[1];
+                delete cats[3];
+
+                window.c.update(data);
+            }, '<ul><li>A</li><li>C</li></ul>');
+
+            test('Insert Logic', function() {
+                var template = '{{a - 1}} : {{\'test\' + b}} : {{c * 3}} : {{d / b}} : {{ !e/f}}';
+                window.b = bars.compile(template);
+                window.c = window.b.render();
+                window.c.appendTo(document.body);
+                window.c.update({ a: 1, b: 2, c: 3, d: 4 });
+            }, '0 : test2 : 9 : 2 : true');
+
+            test('Bars If', function() {
+                var template = '{{#if a < 2}}true{{else}}false{{/if}}';
+                window.b = bars.compile(template);
+                window.c = window.b.render();
+                window.c.appendTo(document.body);
+                window.c.update({ a: 1, b: 2, c: 3, d: 4 });
+            }, 'true');
+
+            // test('Partial Variables', function() {
+            //     bars.registerPartial('partialVariables', 'My name is {{a/first}}{{a/last}}.');
+            //     var template = '{{>partialVariables a=me/name}}';
+            //     window.b = bars.compile(template);
+            //     window.c = window.b.render();
+            //     window.c.appendTo(document.body);
+            //     window.c.update({ me: { name: { first: 'D', last: 'R' } } });
+            // }, 'My name is DR.');
+            //
+            // test('Partial Variables', function() {
+            //     var template = '{{#each people}}{{>partialVariables root=/people fullName=name initial=name/initial}}{{/each}}',
+            //         people = [{ name: { first: 'O', initial: 'D', last: 'R' } }];
+            //
+            //     bars.registerPartial('partialVariables', '{{root/length}} People - My name is {{fullName/first}}{{initial}}{{fullName/last}}.');
+            //
+            //     window.b = bars.compile(template);
+            //     window.c = window.b.render();
+            //     window.c.appendTo(document.body);
+            //     window.c.update({ people: [1] });
+            //     window.c.update({ people: people });
+            // }, '1 People - My name is ODR.');
+            //
+            // test('Helper in Partial', function() {
+            //     var template = '{{>p name=name}}';
+            //
+            //     bars.registerPartial('p', '{{?count name}}');
+            //     bars.registerHelper('count', function(str) { return str.length; });
+            //
+            //     window.b = bars.compile(template);
+            //     window.c = window.b.render();
+            //     window.c.appendTo(document.body);
+            //     window.c.update({ name: 'dallas' });
+            // }, '6');
+            //
+            // test('Partial With No Variables', function() {
+            //     var template = '{{>part}}';
+            //
+            //     bars.registerPartial('part', '{{name}}');
+            //
+            //     window.b = bars.compile(template);
+            //     window.c = window.b.render();
+            //     window.c.appendTo(document.body);
+            //     window.c.update({ name: 'dallas' });
+            // }, 'PARTIAL');
+
+            test('Bars Insert Property', function() {
+                var template = '{{#each a}}{{@Number(@index) + 1}}{{/each}}';
+                window.b = bars.compile(template);
+                window.c = window.b.render();
+                window.c.appendTo(document.body);
+                window.c.update({ a: [1,2,3,4,5]});
+            }, '12345');
+
+            // BLARGH...
+            // bars.registerHelper('helper', function(a) {
+            //     return 'HELPER';
+            // });
+
+            // bars.registerPartial('partial', 'PARTIAL');
+
+            // bars.registerBlock('block', function (a) {
+            //     return 'BLOCK';
+            // });
+            // var template = 'BEFORE :: \
+            //     <input value="{{name}}" onkeyup="javascript:a.name=this.value;window.c.update(a);">\
+            //     <span class="{{name}} {{name}}">{{#if name}}\
+            //     NAME={{name}}\
+            //     (helper: {{?helper name name}})\
+            // {{else}}\
+            //     noname\
+            // {{/if}}</span> :: ({{>partial}})';
+            // window.a = {name:'My Name'};
+            // window.b = bars.compile(template);
+            // window.c = window.b.render();
+            // window.c.appendTo(document.body);
+            // window.c.update(window.a);
+            // setInterval(function() {
+            //     var n = Math.random();
+            //     window.c.update({
+            //         name: n < 0.8 ? n : null
+            //     });
+            // }, 1000);
+        </script>
+    </body>
+</html>

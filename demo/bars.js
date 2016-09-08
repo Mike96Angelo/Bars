@@ -1,12 +1,13 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 module.exports = require('./lib');
 
-},{"./lib":6}],2:[function(require,module,exports){
+},{"./lib":11}],2:[function(require,module,exports){
 var Generator = require('generate-js'),
-    Parser = require('./parser'),
+    // Parser = require('./parser'),
+    Parser = require('./compiler/compiler'),
     Renderer = require('./renderer'),
     Blocks = require('./blocks'),
-    Helpers = require('./helpers');
+    Transform = require('./transforms');
 
 var Bars = Generator.generate(function Bars() {
     var _ = this;
@@ -14,7 +15,7 @@ var Bars = Generator.generate(function Bars() {
     _.defineProperties({
         blocks: Blocks.create(),
         partials: {},
-        helpers: Helpers.create()
+        transforms: Transform.create()
     });
 });
 
@@ -45,16 +46,16 @@ Bars.definePrototype({
         _.partials[name] = _.compile(template);
     },
 
-    registerHelper: function registerHelper(name, func) {
+    registerTransform: function registerTransform(name, func) {
         var _ = this;
 
-        _.helpers[name] = func;
+        _.transforms[name] = func;
     },
 });
 
 module.exports = window.Bars = Bars;
 
-},{"./blocks":3,"./helpers":5,"./parser":7,"./renderer":8,"generate-js":9}],3:[function(require,module,exports){
+},{"./blocks":3,"./compiler/compiler":5,"./renderer":12,"./transforms":15,"generate-js":16}],3:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -72,7 +73,7 @@ Blocks.definePrototype({
         var _ = this;
 
         if (data && typeof data === 'object') {
-            _.context = _.context.getContext(_.args);
+            _.context = _.context.getContext(_.arg.path);
 
             return true;
         }
@@ -87,15 +88,17 @@ Blocks.definePrototype({
         if (data && typeof data === 'object') {
             var keys = Object.keys(data);
 
-            _.context = _.context.getContext(_.args);
+            _.context = _.context.getContext(_.arg.path);
 
             if (keys.length) {
-                for (i = _.nodes.length; i < keys.length; i++) {
-                    _.createFragment(keys[i]);
+                // TODO: This should be smarter.
+
+                for (var i = _.nodes.length - 1; i >= 0; i--) {
+                    _.nodes[i].remove();
                 }
 
-                for (i = keys.length; i < _.nodes.length; i++) {
-                    _.nodes[i].remove();
+                for (var i = 0; i < keys.length; i++) {
+                    _.createFragment(keys[i]);
                 }
 
                 return true;
@@ -112,15 +115,17 @@ Blocks.definePrototype({
         if (data && typeof data === 'object') {
             var keys = Object.keys(data).reverse();
 
-            _.context = _.context.getContext(_.args);
+            _.context = _.context.getContext(_.arg.path);
 
             if (keys.length) {
-                for (i = _.nodes.length; i < keys.length; i++) {
-                    _.createFragment(keys[i]);
+                // TODO: This should be smarter.
+
+                for (var i = _.nodes.length - 1; i >= 0; i--) {
+                    _.nodes[i].remove();
                 }
 
-                for (i = keys.length; i < _.nodes.length; i++) {
-                    _.nodes[i].remove();
+                for (var i = 0; i < keys.length; i++) {
+                    _.createFragment(keys[i]);
                 }
 
                 return true;
@@ -133,10 +138,1934 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":9}],4:[function(require,module,exports){
+},{"generate-js":16}],4:[function(require,module,exports){
+function CodeBuffer(str, file) {
+    this.reset();
+    this._buffer = str;
+    this._file = file;
+}
+
+CodeBuffer.prototype = {
+    reset: function reset() {
+        this.line   = 1;
+        this.column = 1;
+        this._index = 0;
+        this._currentLine = 0;
+    },
+    get currentLine() {
+        var lineText = '',
+            i = this._currentLine;
+
+        while (i < this.length) {
+            lineText += this._buffer[i];
+            if (this._buffer.codePointAt(i) === 10) {
+                break;
+            }
+            i++;
+        }
+
+        return lineText;
+    },
+
+    get buffer() {
+        return this._buffer;
+    },
+
+
+    get index() {
+        return this._index;
+    },
+
+    set index(val) {
+        var i = this._index,
+            update = false;
+
+        val = Math.min(this.length, val);
+        val = Math.max(0, val);
+
+        if (i == val) return;
+
+        if (i > val) {
+            // throw new Error('========' + val + ' < ' +i+'=======');
+            this.reset();
+            i = this._index;
+        }
+
+        if (this.buffer.codePointAt(i) === 10) {
+            update = true;
+            i++;
+        }
+
+        for (; i <= val; i++) {
+            if (update) {
+                this._currentLine = i;
+                this.line++;
+                update = false;
+            } else {
+                this.column++;
+            }
+
+            if (this.buffer.codePointAt(i) === 10) {
+                update = true;
+            }
+        }
+        this.column = val - this._currentLine + 1;
+        this._index = val;
+    },
+
+    get length() {
+        return this._buffer.length;
+    },
+
+    next: function next() {
+        this.index++;
+        return this.charAt(this.index);
+    },
+
+    get left() {
+        return this._index < this.length;
+    },
+
+    charAt: function charAt(i) {
+        return this._buffer[i] || 'EOF';
+    },
+
+    codePointAt: function codePointAt(i) {
+        return this._buffer.codePointAt(i);
+    },
+
+    slice: function slice(startIndex, endIndex) {
+        return this._buffer.slice(startIndex, endIndex);
+    },
+
+    makeError: function makeError (message, tokenLength) {
+        tokenLength = tokenLength || 1;
+
+        var currentLine = this.currentLine,
+            tokenIdentifier =
+                currentLine[currentLine.length - 1] === '\n' ? '' : '\n',
+            i;
+
+        for (i = 1; i < this.column; i++) {
+            tokenIdentifier += ' ';
+        }
+
+        tokenLength = Math.min(
+            tokenLength,
+            currentLine.length - tokenIdentifier.length
+        ) || 1;
+
+        for (i = 0; i < tokenLength; i++) {
+            tokenIdentifier += '^';
+        }
+
+        return 'Syntax Error: ' +
+            message +
+            ' at ' +
+            (this._file ? this._file + ':' : '') +
+            this.line +
+            ':' +
+            this.column +
+            ' index ' +
+            this.index +
+            '\n\n' +
+            currentLine +
+            tokenIdentifier +
+            '\n' ;
+    }
+};
+
+module.exports = CodeBuffer;
+
+},{}],5:[function(require,module,exports){
+var CodeBuffer = require('./code-buffer'),
+    Token      = require('./token');
+
+function bufferSlice(code, range) {
+    return JSON.stringify(
+        code.slice(Math.max(0, code.index-range), code.index)
+    ).slice(1, -1) +
+    JSON.stringify(code.charAt(code.index) || 'EOF')
+    .slice(1, -1).green.underline +
+    JSON.stringify(
+        code.slice(
+            code.index + 1,
+            Math.min(code.length, code.index + 1 + range)
+        )
+    ).slice(1, -1);
+}
+
+
+var SELF_CLOSEING_TAGS = require('./self-closing-tags');
+var ENTITIES           = require('./html-entities');
+var TYPES              = require('./token-types');
+
+
+function HTML_IDENTIFIER(ch) {
+    /* ^[_A-Za-z0-9-]$ */
+    return (ch === 45) ||
+           (48 <= ch && ch <= 57) ||
+           (65 <= ch && ch <= 90) ||
+           (ch === 95) ||
+           (97 <= ch && ch <= 122);
+}
+
+function WHITESPACE(ch) {
+    /* ^\s$ */
+    return (9 <= ch && ch <= 13) ||
+            ch === 32 ||
+            ch === 160 ||
+            ch === 5760 ||
+            ch === 6158 ||
+            ch === 8192 ||
+            ch === 8193 ||
+            ch === 8194 ||
+            ch === 8195 ||
+            ch === 8196 ||
+            ch === 8197 ||
+            ch === 8198 ||
+            ch === 8199 ||
+            ch === 8200 ||
+            ch === 8201 ||
+            ch === 8202 ||
+            ch === 8232 ||
+            ch === 8233 ||
+            ch === 8239 ||
+            ch === 8287 ||
+            ch === 12288 ||
+            ch === 65279;
+}
+
+function HTML_ENTITY(ch) {
+    /* ^[A-Za-z0-9]$ */
+    return (48 <= ch && ch <= 57) ||
+           (65 <= ch && ch <= 90) ||
+           (97 <= ch && ch <= 122);
+}
+
+function getHTMLUnEscape(str) {
+    var code;
+
+    code = ENTITIES[str.slice(1, -1)];
+
+    if (typeof code !== 'number' && str[1] === '#') {
+        code = parseInt( str.slice(2, -1), 10);
+    }
+
+    if (typeof code === 'number' && !isNaN(code)){
+        return String.fromCharCode(code);
+    }
+
+    return str;
+}
+
+/////////
+// DOM //
+/////////
+
+function HTML_COMMENT(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        comment;
+
+    if ( /* <!-- */
+        code.codePointAt(index)   === 60 &&
+        code.codePointAt(++index) === 33 &&
+        code.codePointAt(++index) === 45 &&
+        code.codePointAt(++index) === 45
+    ) {
+        comment = new Token(code, TYPES.HTML_COMMENT);
+        index++;
+
+        for (; index < length; index++) {
+            if ( /* --> */
+                code.codePointAt(index)     === 45 &&
+                code.codePointAt(index + 1) === 45 &&
+                code.codePointAt(index + 2) === 62
+            ) {
+                index += 3;
+                code.index = index;
+                comment.close(code);
+
+                comment.value = comment.source(code);
+
+                return comment;
+            }
+        }
+
+        throw code.makeError(
+            'Unclosed Comment: Expected "-->" to fallow "<!--".',
+            4
+        );
+    }
+
+    return null;
+}
+
+function HTML_CLOSE_TAG(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        tag;
+
+    if ( /* </ */
+        code.codePointAt(index) === 60 &&
+        code.codePointAt(++index) === 47
+    ) {
+        tag = new Token(code, TYPES.HTML_TAG);
+        tag.name = '';
+
+        index++;
+
+        for (; index < length; index++) {
+            ch = code.codePointAt(index);
+
+            if (HTML_IDENTIFIER(ch)) {
+                tag.name += code.charAt(index);
+            } else if (ch === 62) { /* > */
+                index++;
+                code.index = index;
+                tag.close(code);
+
+                if (!close || close.type !== tag.type) {
+                    code.index = tag.range[0];
+                    throw code.makeError(
+                        'Unexpected Closing Tag: ' +
+                        JSON.stringify(tag.source(code)) +
+                        '.',
+                        tag.length
+                    );
+                }
+
+                if (close.name !== tag.name) {
+                    code.index = tag.range[0];
+                    throw code.makeError(
+                        'Mismatch Closing Tag: Expected ' +
+                        JSON.stringify('</' + close.name + '>') +
+                        ' but found ' +
+                        JSON.stringify(tag.source(code)) +
+                        '.',
+                        tag.length
+                    );
+                }
+
+                close.close(code);
+                return true;
+            } else {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: Expected ' +
+                    JSON.stringify('>') +
+                    ' but found ' +
+                    JSON.stringify(code.charAt(index)) +
+                    '.'
+                );
+            }
+        }
+    }
+
+    return null;
+}
+
+function HTML_OPEN_TAG(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        tag;
+    if ( /* < */
+        code.codePointAt(index) === 60
+    ) {
+        tag = new Token(code, TYPES.HTML_TAG);
+        tag.name = '';
+        tag.attrs = [];
+        tag.nodes = [];
+
+        index++;
+
+        for (; index < length; index++) {
+            ch = code.codePointAt(index);
+
+            if (HTML_IDENTIFIER(ch)) {
+                tag.name += code.charAt(index);
+            } else {
+                break;
+            }
+        }
+
+        code.index = index;
+
+        parseTokens('ATTR', code, tag.attrs, tag);
+
+        if (!tag.closed) {
+            throw code.makeError(
+                'Unclosed Tag: Expected ' +
+                JSON.stringify('>') +
+                ' but found ' +
+                JSON.stringify(code.charAt(code.index)) +
+                '.',
+                tag.length
+            );
+        }
+
+        if (SELF_CLOSEING_TAGS.indexOf(tag.name) !== -1) {
+            tag.selfClosing = true;
+        }
+
+        if (tag.selfClosing || tag.selfClosed) {
+            tag.close(code);
+
+            return tag;
+        }
+
+        delete tag.closed;
+
+        parseTokens('DOM', code, tag.nodes, tag);
+
+        if (!tag.closed) {
+            code.index = tag.range[0];
+
+            throw code.makeError(
+                'Unclosed Tag: Expected ' +
+                JSON.stringify('</' + tag.name + '>') +
+                ' to fallow ' +
+                JSON.stringify(tag.source(code)) +
+                '.',
+                tag.length
+            );
+        }
+
+        return tag;
+    }
+
+    return null;
+}
+
+function HTML_TEXT(mode, code, tokens, close) {
+    var ch,
+        index = code.index,
+        isEntity = false,
+        entityStr = '',
+        text = new Token(code, TYPES.HTML_TEXT);
+
+    text.value = '';
+
+    for (; index < code.length; index++) {
+        ch = code.codePointAt(index);
+
+        if (
+            ch === 60 /* < */ ||
+            ch === 123 /* { */ &&
+            code.codePointAt(index + 1) === 123 /* { */
+        ) {
+            text.value += entityStr;
+            break;
+        }
+
+        if (ch === 38 /* & */) {
+            isEntity = true;
+            entityStr = code.charAt(index);
+
+            continue;
+        } else if (isEntity && ch === 59 /* ; */) {
+            entityStr += code.charAt(index);
+
+            text.value += getHTMLUnEscape(entityStr);
+
+            isEntity = false;
+            entityStr = '';
+
+            continue;
+        }
+
+        if (isEntity && HTML_ENTITY(ch)) {
+            entityStr += code.charAt(index);
+        } else {
+            text.value += entityStr;
+            isEntity = false;
+            entityStr = '';
+
+            text.value += code.charAt(index);
+        }
+    }
+
+    if (text.value) {
+        code.index = index;
+
+        text.close(code);
+
+        return text;
+    }
+
+    return null;
+}
+
+function HTML_OPEN_TAG_END(mode, code, tokens, close) {
+    var ch = code.codePointAt(code.index);
+        /* > */
+    if (ch === 62) {
+        code.index++;
+        close.close(code);
+        return true;
+    } else if ( /* /> */
+        ch === 47 &&
+        code.codePointAt(code.index + 1) === 62
+    ) {
+        code.index += 2;
+        close.close(code);
+        close.selfClosed = true;
+        return true;
+    }
+
+    return null;
+}
+
+function HTML_ATTR(mode, code, tokens, close) {
+
+    var index = code.index,
+        length = code.length,
+        attr = new Token(code, TYPES.HTML_ATTR);
+        attr.name = '';
+        attr.nodes = [];
+
+    for (; index < length; index++) {
+
+        if (!HTML_IDENTIFIER(code.codePointAt(index))) {
+            break;
+        }
+
+        attr.name += code.charAt(index);
+    }
+
+    if (attr.name) {
+        /* = */
+        if (code.codePointAt(index) === 61) {
+            index++;
+            /* " */
+            if (code.codePointAt(index) === 34) {
+                index++;
+                code.index = index;
+
+                parseTokens('VALUE', code, attr.nodes, attr);
+            } else {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: Expected "\"" but found ' +
+                    JSON.stringify(code.charAt(index))
+                );
+            }
+        } else {
+            code.index = index;
+            attr.close(code);
+        }
+
+        if (!attr.closed) {
+            code.index = attr.range[0] + attr.name.length + 1;
+            throw code.makeError(
+                'Unclosed String: Expected "\"" to fallow "\""'
+            );
+        }
+
+        return attr;
+    }
+
+    return null;
+}
+
+
+//////////
+// ATTR //
+//////////
+
+function STRING_END(mode, code, tokens, close) {
+    if (code.codePointAt(code.index) === 34 /* " */) {
+        code.index++;
+        close.close(code);
+        return true;
+    }
+
+    return null;
+}
+
+function STRING_TEXT(mode, code, tokens, close) {
+    var ch,
+        index = code.index,
+        length = code.length,
+        text = new Token(code, TYPES.STRING_TEXT);
+
+        text.value = '';
+
+    for (; index < length; index++) {
+        ch = code.codePointAt(index);
+
+        if (ch === 10) {
+            code.index = index;
+            return null;
+        }
+
+        if ( /* " but not \" */
+            ch === 34 &&
+            code.codePointAt(index - 1) !== 92
+        ) {
+            break;
+        }
+
+        if ( /* {{ */
+            ch === 123 &&
+            code.codePointAt(index + 1) === 123
+        ) {
+            break;
+        }
+    }
+
+    if (index > code.index) {
+        code.index = index;
+        text.close(code);
+        text.value = text.source(code);
+        return text;
+    }
+
+    return null;
+}
+
+function WHITE_SPACE(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        whitespace = 0;
+
+    for (; index < length; index++) {
+        if (!WHITESPACE(code.codePointAt(index))) {
+            break;
+        }
+        whitespace++;
+    }
+
+    if (whitespace) {
+        code.index = index;
+        return true;
+    }
+
+    return null;
+}
+
+//////////
+// BARS //
+//////////
+
+function BARS_COMMENT(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        comment;
+
+    if ( /* {{! */
+        code.codePointAt(index)   === 123 &&
+        code.codePointAt(++index) === 123 &&
+        code.codePointAt(++index) === 33
+    ) {
+        comment = new Token(code, TYPES.BARS_COMMENT);
+        index++;
+
+        for (; index < length; index++) {
+            if ( /* }} */
+                code.codePointAt(index) === 125 &&
+                code.codePointAt(index + 1) === 125
+            ) {
+                index += 2;
+                code.index = index;
+                comment.close(code);
+
+                comment.value = comment.source(code);
+
+                return comment;
+            }
+        }
+
+        throw code.makeError(
+            'Unclosed Comment: Expected "}}" to fallow "{{!".',
+            3
+        );
+    }
+
+    return null;
+}
+
+function BARS_CLOSE_BLOCK(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        block;
+
+    if ( /* {{/ */
+        code.codePointAt(index)   === 123 &&
+        code.codePointAt(++index) === 123 &&
+        code.codePointAt(++index) === 47
+    ) {
+        block = new Token(code, TYPES.BARS_BLOCK);
+        block.name = '';
+
+        index++;
+
+        for (; index < length; index++) {
+            ch = code.codePointAt(index);
+
+            if (HTML_IDENTIFIER(ch)) {
+                block.name += code.charAt(index);
+            } else if ( /* }} */
+                ch === 125 &&
+                code.codePointAt(index + 1) === 125
+            ) {
+                index+=2;
+                code.index = index;
+                block.close(code);
+
+                if (!close || close.type !== block.type) {
+                    code.index = block.range[0];
+                    throw code.makeError(
+                        'Unexpected Closing Block: ' +
+                        JSON.stringify(block.source(code)) +
+                        '.',
+                        block.length
+                    );
+                }
+
+                if (close.name !== block.name) {
+                    code.index = block.range[0];
+                    throw code.makeError(
+                        'Mismatch Closing Block: Expected ' +
+                        JSON.stringify('{{/' + close.name + '}}') +
+                        ' but found ' +
+                        JSON.stringify(block.source(code)) +
+                        '.',
+                        block.length
+                    );
+                }
+
+                close.close(code);
+                return true;
+            } else {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: Expected ' +
+                    JSON.stringify('}}') +
+                    ' but found ' +
+                    JSON.stringify(code.charAt(index)) +
+                    '.'
+                );
+            }
+        }
+    }
+
+    return null;
+}
+
+function BARS_ELSE_BLOCK(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        block;
+
+    if ( /* {{else}} */
+        code.codePointAt(index)   === 123 &&
+        code.codePointAt(++index) === 123 &&
+        code.codePointAt(++index) === 101 &&
+        code.codePointAt(++index) === 108 &&
+        code.codePointAt(++index) === 115 &&
+        code.codePointAt(++index) === 101 &&
+        code.codePointAt(++index) === 125 &&
+        code.codePointAt(++index) === 125
+    ) {
+        block = new Token(code, TYPES.BARS_ELSE);
+        index++;
+        code.index = index;
+        block.close(code);
+
+        if (!close) {
+            code.index = block.range[0];
+            throw code.makeError(
+                'Unexpected Token: ' +
+                JSON.stringify(block.source(code)) +
+                '.',
+                block.length
+            );
+        }
+
+        close.elsed = block;
+
+        close.close(code);
+
+        return true;
+    }
+
+    return null;
+}
+
+function BARS_OPEN_BLOCK(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        block;
+    if ( /* {{# */
+        code.codePointAt(index) === 123 &&
+        code.codePointAt(++index) === 123 &&
+        code.codePointAt(++index) === 35
+    ) {
+        block = new Token(code, TYPES.BARS_BLOCK);
+        block.name = '';
+        block.arguments = [];
+
+        index++;
+
+        for (; index < length; index++) {
+            ch = code.codePointAt(index);
+
+            if (HTML_IDENTIFIER(ch)) {
+                block.name += code.charAt(index);
+            } else {
+                break;
+            }
+        }
+
+        code.index = index;
+
+        parseTokens('LOGIC', code, block.arguments, block);
+
+        block.argument = block.arguments[0];
+
+        if (block.arguments.length > 1) {
+            code.index = block.arguments[1].range[0];
+            throw code.makeError(
+                'Unexpected Token: ' +
+                JSON.stringify(block.arguments[1].source(code)) + '.',
+                block.arguments[1].length
+            );
+        }
+        delete block.arguments;
+
+        if (!block.closed) {
+            throw code.makeError(
+                'Unclosed Block: Expected ' +
+                JSON.stringify('}}') +
+                ' but found ' +
+                JSON.stringify(code.charAt(code.index)) +
+                '.',
+                block.length
+            );
+        }
+
+        if (!block.argument) {
+            code.index -= 2;
+            throw code.makeError('Missing <arg>.');
+        }
+
+        delete block.closed;
+
+        block.consequent = new Token(code, TYPES.FRAGMENT);
+        block.consequent.nodes = [];
+
+        parseTokens(mode, code, block.consequent.nodes, block);
+        index = code.index;
+        code.index = block.consequent.nodes[
+            block.consequent.nodes.length - 1
+        ].range[1];
+        block.consequent.close(code);
+        code.index = index;
+        if (block.elsed) {
+
+            delete block.elsed;
+            delete block.closed;
+
+            block.alternate = new Token(code, TYPES.FRAGMENT);
+            block.alternate.nodes = [];
+
+            parseTokens(mode, code, block.alternate.nodes, block);
+            index = code.index;
+            code.index = block.alternate.nodes[
+                block.alternate.nodes.length - 1
+            ].range[1];
+            block.alternate.close(code);
+            code.index = index;
+            if (block.elsed) {
+                code.index = block.elsed.range[0];
+                throw code.makeError(
+                    'Unexpected Token: ' +
+                    JSON.stringify(block.elsed.source(code)),
+                    block.elsed.length
+                );
+            }
+        }
+
+        if (!block.closed) {
+            code.index = block.range[0];
+
+            throw code.makeError(
+                'Unclosed Block: Expected ' +
+                JSON.stringify('{{/' + block.name + '}}') +
+                ' to fallow ' +
+                JSON.stringify(block.source(code)) +
+                '.',
+                block.length
+            );
+        }
+
+        return block;
+    }
+
+    return null;
+}
+
+function BARS_OPEN_INSERT(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        block;
+    if ( /* {{ */
+        code.codePointAt(index) === 123 &&
+        code.codePointAt(++index) === 123
+    ) {
+        block = new Token(code, TYPES.BARS_INSERT);
+        block.arguments = [];
+
+        index++;
+
+        code.index = index;
+
+        parseTokens('LOGIC', code, block.arguments, block);
+
+        block.argument = block.arguments[0];
+
+        if (block.arguments.length > 1) {
+            code.index = block.arguments[1].range[0];
+            throw code.makeError(
+                'Unexpected Token: ' +
+                JSON.stringify(block.arguments[1].source(code)) + '.',
+                block.arguments[1].length
+            );
+        }
+        delete block.arguments;
+
+        if (!block.closed) {
+            throw code.makeError(
+                'Unclosed Block: Expected ' +
+                JSON.stringify('}}') +
+                ' but found ' +
+                JSON.stringify(code.charAt(code.index)) +
+                '.',
+                block.length
+            );
+        }
+
+        if (!block.argument) {
+            code.index -= 2;
+            throw code.makeError('Missing <arg>.');
+        }
+
+        return block;
+    }
+
+    return null;
+}
+
+function BARS_OPEN_PARTIAL(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        block;
+    if ( /* {{> */
+        code.codePointAt(index) === 123 &&
+        code.codePointAt(++index) === 123 &&
+        code.codePointAt(++index) === 62
+    ) {
+        block = new Token(code, TYPES.BARS_PARTIAL);
+        block.name = '';
+        block.arguments = [];
+
+        index++;
+
+        for (; index < length; index++) {
+            ch = code.codePointAt(index);
+
+            if (HTML_IDENTIFIER(ch)) {
+                block.name += code.charAt(index);
+            } else {
+                break;
+            }
+        }
+
+        code.index = index;
+
+        parseTokens('LOGIC', code, block.arguments, block);
+
+        block.argument = block.arguments[0];
+
+        if (block.arguments.length > 1) {
+            code.index = block.arguments[1].range[0];
+            throw code.makeError(
+                'Unexpected Token: ' +
+                JSON.stringify(block.arguments[1].source(code)) + '.',
+                block.arguments[1].length
+            );
+        }
+        delete block.arguments;
+
+        if (!block.closed) {
+            throw code.makeError(
+                'Unclosed Block: Expected ' +
+                JSON.stringify('}}') +
+                ' but found ' +
+                JSON.stringify(code.charAt(code.index)) +
+                '.',
+                block.length
+            );
+        }
+
+        // if (!block.argument) {
+        //     code.index -= 2;
+        //     throw code.makeError('Missing <arg>.');
+        // }
+
+        return block;
+    }
+
+    return null;
+}
+
+function BARS_LOGIC_END(mode, code, tokens, close) {
+    if ( /* }} */
+        code.codePointAt(code.index) === 125 &&
+        code.codePointAt(code.index + 1) === 125
+    ) {
+        code.index += 2;
+        close.close(code);
+        return true;
+    }
+
+    return null;
+}
+
+function STRING(mode, code, tokens, close) {
+    var ch,
+        index = code.index,
+        length = code.length,
+        text;
+
+    if (code.codePointAt(index) !== 39) {
+        return null;
+    }
+
+    index++;
+
+    text = new Token(code, TYPES.STRING);
+    text.value = '';
+
+    for (; index < length; index++) {
+        ch = code.codePointAt(index);
+
+        if (ch === 10) {
+            code.index = index;
+            return null;
+        }
+
+        if ( /* ' but not \' */
+            ch === 39 &&
+            code.codePointAt(index - 1) !== 92
+        ) {
+            index++;
+            break;
+        }
+
+        text.value += code.charAt(index);
+    }
+
+    if (index > code.index) {
+        code.index = index;
+        text.close(code);
+
+        if (
+            close &&
+            (
+                close.type === TYPES.UNARY_EXPRESSION ||
+                close.type === TYPES.BINARY_EXPRESSION
+            )
+        ) {
+            close.close(code);
+        }
+
+        return text;
+    }
+
+    return null;
+}
+
+function NUMBER(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        ch = code.codePointAt(index),
+        nextCh = code.codePointAt(index + 1),
+        dot,
+        Ee;
+
+    if (
+        (ch === 45 && 48 <= nextCh && nextCh <= 57) || /* -[0-9] */
+        (48 <= ch && ch <= 57) /* [0-9] */
+    ) {
+        index++;
+
+        number = new Token(code, TYPES.NUMBER);
+
+        for (; index < length; index++) {
+            ch = code.codePointAt(index);
+
+            if (48 <= ch && ch <= 57) {
+                continue;
+            } else if (ch === 69 || ch === 101) { /* [Ee] */
+                index++;
+
+                ch = code.codePointAt(index);
+                nextCh = code.codePointAt(index + 1);
+
+                if ( /* [+-]?[0-9] */
+                    Ee ||
+                    !(
+                        (
+                            (ch === 43 || ch === 45) &&
+                            (48 <= nextCh && nextCh <= 57)
+                        ) ||
+                        (48 <= ch && ch <= 57)
+                    )
+                ) {
+                    code.index = index - 1;
+                    throw code.makeError(
+                        'Unexpected Token: ' +
+                        JSON.stringify(code.charAt(index - 1)) +
+                        '.'
+                    );
+                }
+
+                Ee = true;
+            } else if (ch === 46) { /* . */
+                index++;
+                ch = code.codePointAt(index);
+                if ( /* [+-]?[0-9] */
+                    Ee ||
+                    dot ||
+                    !(48 <= ch && ch <= 57)
+                ) {
+                    code.index = index - 1;
+                    throw code.makeError(
+                        'Unexpected Token: ".".'
+                    );
+                }
+
+                dot = true;
+            } else {
+                break;
+            }
+        }
+        code.index = index;
+        number.close(code);
+        number.value = Number.parseFloat(number.source(code));
+
+        if (
+            close &&
+            (
+                close.type === TYPES.UNARY_EXPRESSION ||
+                close.type === TYPES.BINARY_EXPRESSION
+            )
+        ) {
+            close.close(code);
+        }
+
+        return number;
+    }
+
+    return null;
+}
+
+function BOOLEAN(mode, code, tokens, close) {
+    var index = code.index,
+        bool = new Token(code, TYPES.BOOLEAN);
+
+    if ( /* true */
+        code.codePointAt(index)   === 116 &&
+        code.codePointAt(++index) === 114 &&
+        code.codePointAt(++index) === 117 &&
+        code.codePointAt(++index) === 101
+    ) {
+        bool.value = true;
+    } else if ( /* false */
+        code.codePointAt(index)   === 102 &&
+        code.codePointAt(++index) === 97 &&
+        code.codePointAt(++index) === 108 &&
+        code.codePointAt(++index) === 115 &&
+        code.codePointAt(++index) === 101
+    ) {
+        bool.value = false;
+    } else {
+        return null;
+    }
+
+    index++;
+    code.index = index;
+    bool.close(code);
+
+    if (
+        close &&
+        (
+            close.type === TYPES.UNARY_EXPRESSION ||
+            close.type === TYPES.BINARY_EXPRESSION
+        )
+    ) {
+        close.close(code);
+    }
+
+    return bool;
+}
+
+function INSERT_VAL(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        ch = code.codePointAt(index),
+        nextCh,
+        value = new Token(code, TYPES.INSERT_VAL),
+        style,
+        name = ch === 47,
+        at,
+        dot,
+        devider;
+
+    for (; index < length; index++) {
+        ch = code.codePointAt(index);
+        nextCh = code.codePointAt(index + 1);
+        if (HTML_IDENTIFIER(ch)) {
+            if (dot) {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: ' +
+                    JSON.stringify(code.charAt(index)) +
+                    '.'
+                );
+            }
+            name = true;
+            devider = false;
+            continue;
+        } else if (!at && ch === 47) { /* / */
+            if (dot || style === 0 || devider) {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: ' +
+                    JSON.stringify(code.charAt(index)) +
+                    '.'
+                );
+            }
+            style = 1;
+            devider = true;
+        } else if (!at && !name && ch === 46 && nextCh === 46) { /* .. */
+            index++;
+            if (dot || style === 0) {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: ' +
+                    JSON.stringify(code.charAt(index)) +
+                    '.'
+                );
+            }
+            style = 1;
+            devider = false;
+        } else if (!at && ch === 46) { /* . */
+            if (style === 1 || devider) {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: ' +
+                    JSON.stringify(code.charAt(index)) +
+                    '.'
+                );
+            }
+            style = 0;
+            devider = true;
+            if (!name) {
+                dot = true;
+            }
+        } else if (ch === 64) { /* @ */
+            if (at || dot) {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: ' +
+                    JSON.stringify(code.charAt(index)) +
+                    '.'
+                );
+            }
+            at = true;
+        } else {
+            break;
+        }
+    }
+
+    if (index > code.index) {
+        code.index = index;
+        value.close(code);
+        value.path = value.source(code);
+
+        if (
+            close &&
+            (
+                close.type === TYPES.UNARY_EXPRESSION ||
+                close.type === TYPES.BINARY_EXPRESSION
+            )
+        ) {
+            close.close(code);
+        }
+
+        return value;
+    }
+
+    return null;
+}
+
+function EXPRESSION(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        originalIndex = index,
+        oldIndex,
+        ch = code.codePointAt(index),
+        ch2, ch3,
+        expression,
+        binary_fail;
+
+    oldIndex = index;
+    for (; index < length; index++) {
+        ch = code.codePointAt(index);
+
+        if (!WHITESPACE(ch)) break;
+
+        if (ch === 10) {
+            code.index = index;
+            return null;
+        }
+    }
+    if (index === oldIndex) {
+        binary_fail = true;
+    }
+
+    ch = code.codePointAt(index);
+    ch2 = code.codePointAt(index + 1);
+    ch3 = code.codePointAt(index + 2);
+
+    if ( /* handle BINARY-EXPRESSION */
+        (ch === 61 && ch2 === 61 && ch3 === 61) || /* === */
+        (ch === 33 && ch2 === 61 && ch3 === 61)    /* !== */
+    ) {
+        code.index = index;
+        expression = new Token(code, TYPES.BINARY_EXPRESSION);
+        expression.opperator = code.slice(index, index + 3);
+        index += 2;
+    } else if ( /* handle BINARY-EXPRESSION */
+        (ch === 61 && ch2 === 61) || /* == */
+        (ch === 33 && ch2 === 61) || /* != */
+        (ch === 60 && ch2 === 61) || /* <= */
+        (ch === 62 && ch2 === 61) || /* >= */
+        (ch === 38 && ch2 === 38) || /* && */
+        (ch === 124 && ch2 === 124)  /* || */
+    ) {
+        code.index = index;
+        expression = new Token(code, TYPES.BINARY_EXPRESSION);
+        expression.opperator = code.slice(index, index + 2);
+        index++;
+    } else if ( /* handle BINARY-EXPRESSION */
+        (ch === 43) || /* + */
+        (ch === 45) || /* - */
+        (ch === 42) || /* * */
+        (ch === 47) || /* / */
+        (ch === 37) || /* % */
+        (ch === 60) || /* < */
+        (ch === 62)    /* > */
+    ) {
+        code.index = index;
+        expression = new Token(code, TYPES.BINARY_EXPRESSION);
+        expression.opperator = code.charAt(index);
+    } else if ( /* handle UNARY-EXPRESSION */
+        ch === 33 /* ! */
+    ) {
+        code.index = index;
+        expression = new Token(code, TYPES.UNARY_EXPRESSION);
+        expression.opperator = code.charAt(index);
+        index++;
+    }
+
+    if (!expression || !expression.opperator) {
+        if (binary_fail) {
+            return null;
+        }
+        code.index = index;
+        return true;
+    }
+
+    if (expression.type === TYPES.BINARY_EXPRESSION) {
+        if (binary_fail) {
+            code.index = originalIndex;
+            throw code.makeError(
+                'Unexpected Token: ' +
+                JSON.stringify(expression.opperator) +
+                ' missing whitespace before opperator.',
+                expression.opperator.length
+            );
+        }
+        expression.left = tokens.pop();
+
+        if (!expression.left) {
+            code.index = index;
+            throw code.makeError(
+                'Missing left-hand <arg>.',
+                expression.opperator.length
+            );
+        }
+
+        if (
+            expression.left.type !== TYPES.STRING &&
+            expression.left.type !== TYPES.NUMBER &&
+            expression.left.type !== TYPES.BOOLEAN &&
+            expression.left.type !== TYPES.INSERT_VAL &&
+            expression.left.type !== TYPES.UNARY_EXPRESSION &&
+            expression.left.type !== TYPES.BINARY_EXPRESSION &&
+            expression.left.type !== TYPES.TRANSFORM
+        ) {
+            code.index = expression.left.range[0];
+            throw code.makeError(
+                'Unexpected left-hand <arg>: ' +
+                JSON.stringify(expression.left.source(code)) +
+                '.',
+                expression.left.length
+            );
+        }
+
+        expression.range[0] = expression.left.range[0];
+        expression.loc.start = expression.left.loc.start;
+
+        index++;
+        oldIndex = index;
+        ch = code.codePointAt(index);
+        for (; index < length; index++) {
+            ch = code.codePointAt(index);
+
+            if (!WHITESPACE(ch)) break;
+
+            if (ch === 10) {
+                code.index = index;
+                return null;
+            }
+        }
+        if (index === oldIndex) {
+            code.index = index;
+            throw code.makeError(
+                'Unexpected Token: Expected <whitespace> but found ' +
+                JSON.stringify(code.charAt(index)) +
+                '.'
+            );
+        }
+    }
+
+    expression.arguments = [];
+    code.index = index;
+    parseTokens('LOGIC', code, expression.arguments, expression);
+
+    expression.right = expression.arguments[0];
+
+    if (expression.arguments.length > 1) {
+        code.index = expression.arguments[1].range[0];
+        throw code.makeError(
+            'Unexpected Token: ' +
+            JSON.stringify(expression.arguments[1].source(code)) + '.',
+            expression.arguments[1].length
+        );
+    }
+    delete expression.arguments;
+
+    if (!expression.closed || !expression.right) {
+        code.index = index;
+        throw code.makeError(
+            'Missing right-hand <arg>.',
+            expression.opperator.length
+        );
+    }
+
+    if (
+        expression.right.type !== TYPES.STRING &&
+        expression.right.type !== TYPES.NUMBER &&
+        expression.right.type !== TYPES.BOOLEAN &&
+        expression.right.type !== TYPES.INSERT_VAL &&
+        expression.right.type !== TYPES.UNARY_EXPRESSION &&
+        expression.right.type !== TYPES.TRANSFORM
+
+    ) {
+        code.index = expression.right.range[0];
+        throw code.makeError(
+            'Unexpected right-hand <arg>: ' +
+            JSON.stringify(expression.right.source(code)) +
+            '.',
+            expression.right.length
+        );
+    }
+
+    if (expression.type === TYPES.UNARY_EXPRESSION) {
+        expression.argument = expression.right;
+        delete expression.right;
+
+        if (
+            close &&
+            (
+                close.type === TYPES.UNARY_EXPRESSION ||
+                close.type === TYPES.BINARY_EXPRESSION
+            )
+        ) {
+            close.close(code);
+        }
+    }
+
+    return expression;
+}
+
+function TRANSFORM_END(mode, code, tokens, close) {
+    if ( /* ) */
+        code.codePointAt(code.index) === 41
+    ) {
+        code.index++;
+        close.close(code);
+        return true;
+    }
+
+    if ( /* , */
+        code.codePointAt(code.index) === 44
+    ) {
+        code.index++;
+        close.close(code);
+        close.nextArg = true;
+        return true;
+    }
+
+    return null;
+}
+
+function TRANSFORM(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        transform,
+        ch = code.codePointAt(index);
+
+    if (ch !== 64) { /* @ */
+        return null;
+    }
+
+    transform = new Token(code, TYPES.TRANSFORM);
+
+    transform.name = '';
+    transform.arguments = [];
+
+    index++;
+
+    for (; index < length; index++) {
+        ch = code.codePointAt(index);
+
+        if (HTML_IDENTIFIER(ch)) {
+            transform.name += code.charAt(index);
+        } else {
+            break;
+        }
+    }
+
+    ch = code.codePointAt(index);
+    if (ch === 40) { /* ( */
+        index++;
+        code.index = index;
+        while (code.left) {
+            var args = [];
+            parseTokens('LOGIC-ARGS', code, args, transform);
+
+            if (args.length > 1) {
+                code.index = args[1].range[0];
+                throw code.makeError(
+                    'Unexpected Token: ' +
+                    JSON.stringify(args[1].source(code)) + '.',
+                    args[1].length
+                );
+            }
+
+            transform.arguments.push(args[0]);
+
+            if (transform.nextArg) {
+                delete transform.nextArg;
+                delete transform.closed;
+            }
+
+            if (transform.closed) {
+                break;
+            }
+        }
+    } else {
+        return null;
+    }
+
+    if (
+        close &&
+        (
+            close.type === TYPES.UNARY_EXPRESSION ||
+            close.type === TYPES.BINARY_EXPRESSION
+        )
+    ) {
+        close.close(code);
+    }
+
+    return transform;
+}
+
+/* Parse Modes */
+
+var parseTokenFuncs = {
+    'DOM': [
+        HTML_COMMENT,
+        HTML_CLOSE_TAG,
+        HTML_OPEN_TAG,
+        BARS_COMMENT,
+        BARS_CLOSE_BLOCK,
+        BARS_ELSE_BLOCK,
+        BARS_OPEN_BLOCK,
+        BARS_OPEN_PARTIAL,
+        BARS_OPEN_INSERT,
+        HTML_TEXT
+    ],
+    'ATTR': [
+        HTML_OPEN_TAG_END,
+        BARS_COMMENT,
+        BARS_CLOSE_BLOCK,
+        BARS_ELSE_BLOCK,
+        BARS_OPEN_BLOCK,
+        WHITE_SPACE,
+        HTML_ATTR,
+    ],
+    'VALUE': [
+        STRING_END,
+        BARS_COMMENT,
+        BARS_CLOSE_BLOCK,
+        BARS_ELSE_BLOCK,
+        BARS_OPEN_BLOCK,
+        BARS_OPEN_INSERT,
+        STRING_TEXT
+    ],
+    'LOGIC': [
+        BARS_LOGIC_END,
+        STRING,
+        NUMBER,
+        BOOLEAN,
+        TRANSFORM,
+        INSERT_VAL,
+        EXPRESSION,
+        // WHITE_SPACE
+    ],
+    'LOGIC-ARGS': [
+        TRANSFORM_END,
+        STRING,
+        NUMBER,
+        BOOLEAN,
+        TRANSFORM,
+        INSERT_VAL,
+        EXPRESSION,
+        // WHITE_SPACE
+    ]
+};
+
+function repeat(a, b) {
+    var c = '';
+    for (var i = 0; i < b; i++) {
+        c+=a;
+    }
+    return c;
+}
+function parseTokens(mode, code, tokens, close) {
+    var token,
+        index = code.index;
+
+    parseTokens.level++;
+
+    loop: while (code.left) {
+
+        for (var i = 0; i < parseTokenFuncs[mode].length; i++) {
+            // console.log(
+            //     repeat(' ', parseTokens.level) + mode.green + ' '+
+            //     parseTokenFuncs[mode][i].name + '\n' +
+            //     repeat(' ', parseTokens.level + 1) + bufferSlice(code, 5)
+            // );
+
+            token = parseTokenFuncs[mode][i](mode, code, tokens, close);
+
+            if (token) {
+                if (token instanceof Token) {
+                    tokens.push(token);
+                }
+                if (close && close.closed) {
+                    break loop;
+                }
+                break;
+            }
+        }
+
+        if (index === code.index) {
+            token = new Token(code, 'ILLEGAL');
+            token.close(code);
+            token.value = token.source(code);
+            code.index = token.range[0];
+            throw code.makeError(
+                'ILLEGAL Token: ' +
+                JSON.stringify(token.source(code))
+            );
+            // tokens.push(token);
+        }
+
+        index = code.index;
+    }
+
+    // if (close && !close.closed) {
+    //     throw code.makeError(
+    //         'Unexpected End Of Input.'
+    //     );
+    // }
+
+    parseTokens.level--;
+}
+parseTokens.level = -1;
+
+function compile (str, file) {
+    var code = new CodeBuffer(str, file),
+        frag = new Token(code, TYPES.FRAGMENT);
+        frag.nodes = [];
+
+    parseTokens('DOM', code, frag.nodes);
+    // parseTokens('LOGIC', code, frag.nodes);
+
+    frag.close(code);
+
+    return frag;
+}
+
+module.exports = compile;
+
+},{"./code-buffer":4,"./html-entities":6,"./self-closing-tags":7,"./token":9,"./token-types":8}],6:[function(require,module,exports){
+module.exports={
+    "quot":      34,
+    "amp":       38,
+    "lt":        60,
+    "gt":        62,
+    "nbsp":      160,
+    "iexcl":     161,
+    "cent":      162,
+    "pound":     163,
+    "curren":    164,
+    "yen":       165,
+    "brvbar":    166,
+    "sect":      167,
+    "uml":       168,
+    "copy":      169,
+    "ordf":      170,
+    "not":       172,
+    "shy":       173,
+    "reg":       174,
+    "macr":      175,
+    "deg":       176,
+    "plusmn":    177,
+    "sup2":      178,
+    "sup3":      179,
+    "acute":     180,
+    "micro":     181,
+    "para":      182,
+    "middot":    183,
+    "cedil":     184,
+    "sup1":      185,
+    "ordm":      186,
+    "raquo":     187,
+    "frac14":    188,
+    "frac12":    189,
+    "frac34":    190,
+    "iquest":    191,
+    "Agrave":    192,
+    "Aacute":    193,
+    "Acirc":     194,
+    "Atilde":    195,
+    "Auml":      196,
+    "Aring":     197,
+    "AElig":     198,
+    "Ccedil":    199,
+    "Egrave":    200,
+    "Eacute":    201,
+    "Ecirc":     202,
+    "Euml":      203,
+    "Igrave":    204,
+    "Iacute":    205,
+    "Icirc":     206,
+    "Iuml":      207,
+    "ETH":       208,
+    "Ntilde":    209,
+    "Ograve":    210,
+    "Oacute":    211,
+    "Ocirc":     212,
+    "Otilde":    213,
+    "Ouml":      214,
+    "times":     215,
+    "Oslash":    216,
+    "Ugrave":    217,
+    "Uacute":    218,
+    "Ucirc":     219,
+    "Uuml":      220,
+    "Yacute":    221,
+    "THORN":     222,
+    "szlig":     223,
+    "agrave":    224,
+    "aacute":    225,
+    "acirc":     226,
+    "atilde":    227,
+    "auml":      228,
+    "aring":     229,
+    "aelig":     230,
+    "ccedil":    231,
+    "egrave":    232,
+    "eacute":    233,
+    "ecirc":     234,
+    "euml":      235,
+    "igrave":    236,
+    "iacute":    237,
+    "icirc":     238,
+    "iuml":      239,
+    "eth":       240,
+    "ntilde":    241,
+    "ograve":    242,
+    "oacute":    243,
+    "ocirc":     244,
+    "otilde":    245,
+    "ouml":      246,
+    "divide":    247,
+    "oslash":    248,
+    "ugrave":    249,
+    "uacute":    250,
+    "ucirc":     251,
+    "uuml":      252,
+    "yacute":    253,
+    "thorn":     254,
+    "euro":      8364
+}
+
+},{}],7:[function(require,module,exports){
+module.exports=[
+    "area",
+    "base",
+    "br",
+    "col",
+    "command",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "keygen",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr"
+]
+
+},{}],8:[function(require,module,exports){
+module.exports={
+    "FRAGMENT":          "FRAGMENT",
+    "HTML_COMMENT":      "HTML-COMMENT",
+    "HTML_TAG":          "HTML-TAG",
+    "HTML_TEXT":         "HTML-TEXT",
+    "HTML_ATTR":         "HTML-ATTR",
+    "STRING_TEXT":       "STRING-TEXT",
+    "BARS_COMMENT":      "BARS-COMMENT",
+    "BARS_BLOCK":        "BARS-BLOCK",
+    "BARS_ELSE":         "BARS-ELSE",
+    "BARS_INSERT":       "BARS-INSERT",
+    "BARS_PARTIAL":      "BARS-PARTIAL",
+    "STRING":            "STRING",
+    "NUMBER":            "NUMBER",
+    "BOOLEAN":           "BOOLEAN",
+    "INSERT_VAL":        "INSERT-VAL",
+    "UNARY_EXPRESSION":  "UNARY-EXPRESSION",
+    "BINARY_EXPRESSION": "BINARY-EXPRESSION",
+    "TRANSFORM":         "TRANSFORM"
+}
+
+},{}],9:[function(require,module,exports){
+
+function Token(code, type) {
+
+    this.type = type;
+    this.range = [code.index, code.index + 1];
+    this.loc = {
+        start: {
+            line: code.line,
+            column: code.column
+        },
+        end: {
+            line: code.line,
+            column: code.column + 1
+        }
+    };
+    // console.log('TOKEN: '+this.type.red+' `' + this.source(code).green.underline+'` at ' + this.loc.start.line+ ':' + this.loc.start.column);
+}
+
+Token.prototype = {
+    get length() {
+        return this.range[1] - this.range[0];
+    },
+    source: function source(code) {
+        return code.slice(this.range[0], this.range[1]);
+    },
+    close: function close(code) {
+        this.closed = true;
+
+        if (code.index > this.range[1]) {
+            this.range[1] = code.index;
+            // this.value = code.slice(this.range[0], this.range[1]);
+            this.loc.end = {
+                line: code.line,
+                column: code.column
+            };
+        }
+
+        // console.log('TOKEN: '+this.type.red+' `' + this.source(code).green.underline+'` at ' + this.loc.start.line+ ':' + this.loc.start.column);
+    },
+    // toJSON: function toJSON() {
+    //     return {
+    //         type: this.type,
+    //         value: this.value,
+    //         range: this.range,
+    //         loc: this.loc,
+    //     };
+    // },
+    toJSON: function toJSON() {
+        delete this.range;
+        delete this.loc;
+        delete this.closed;
+        return this;
+    }
+};
+
+module.exports = Token;
+
+},{}],10:[function(require,module,exports){
 var Generator = require('generate-js'),
+    execute = require('./runtime/execute'),
     Nodes = {},
-    ARRAY = [];
+    ARRAY = [],
+    MAP = {
+        'FRAGMENT':          'FRAG',
+        // 'HTML-COMMENT':      '',
+        'HTML-TAG':          'TAG',
+        'HTML-TEXT':         'TEXT',
+        'HTML-ATTR':         'ATTR',
+        'STRING-TEXT':       'TEXT',
+        // 'BARS-COMMENT':      '',
+        'BARS-BLOCK':        'BLOCK',
+        // 'BARS-ELSE':         '',
+        'BARS-INSERT':       'TEXT',
+        'BARS-PARTIAL':      'PARTIAL',
+        // 'STRING':            '',
+        // 'NUMBER':            '',
+        // 'BOOLEAN':           '',
+        // 'INSERT-VAL':        '',
+        // 'UNARY-EXPRESSION':  '',
+        // 'BINARY-EXPRESSION': '',
+        // 'TRANSFORM':         ''
+    };
 
 function parseArgs(args, context) {
     return args.split(/\s+/).map(function(item) {
@@ -187,10 +2116,10 @@ var BarsNode = Generator.generate(function BarsNode(bars, struct) {
         },
         type: struct.type,
         name: struct.name,
-        text: struct.text,
-        args: struct.args,
-        conFrag: struct.conFrag,
-        altFrag: struct.altFrag,
+        value: struct.value,
+        arg: struct.argument,
+        conFrag: struct.consequent,
+        altFrag: struct.alternate,
     });
 });
 
@@ -273,16 +2202,12 @@ BarsNode.definePrototype({
         if (!parent) return;
         if (_.$el.parentElement) return;
 
-        if (parent instanceof Element && _.isDOM) {
-            parent.appendChild(_.$el);
-        } else if (_.isDOM) {
-            var prev = _.prevDom;
+        var prev = _.prevDom;
 
-            if (prev) {
-                parent.insertBefore(_.$el, prev.$el.nextSibling);
-            } else {
-                parent.appendChild(_.$el);
-            }
+        if (prev) {
+            parent.insertBefore(_.$el, prev.$el.nextSibling);
+        } else {
+            parent.appendChild(_.$el);
         }
     },
 
@@ -307,7 +2232,7 @@ Nodes.TEXT = BarsNode.generate(function TextNode(bars, struct) {
     _.supercreate(bars, struct);
 
     _.defineProperties({
-        $el: document.createTextNode(struct.text)
+        $el: document.createTextNode(struct.value)
     });
 });
 
@@ -319,21 +2244,10 @@ Nodes.TEXT.definePrototype({
     },
 
     _update: function _update(context) {
-        var _ = this,
-            helper,
-            args;
+        var _ = this;
 
-        if (_.name) {
-            helper = _.bars.helpers[_.name];
-
-            if (typeof helper === 'function') {
-                args = parseArgs(_.args, context);
-                _.$el.textContent = helper.apply(_, args);
-            } else {
-                throw new Error('Helper not found: ' + _.name);
-            }
-        } else if (typeof _.args === 'string') {
-            _.$el.textContent = context(_.args);
+        if (_.arg) {
+            _.$el.textContent = execute(_.arg, _.bars.transforms, context);
         }
     },
 });
@@ -359,7 +2273,7 @@ Nodes.TAG = BarsNode.generate(function TagNode(bars, struct) {
 
     for (i = 0; i < nodes.length; i++) {
         var node = nodes[i];
-        _.appendChild(Nodes[node.type].create(bars, node));
+        _.appendChild(Nodes[MAP[node.type]].create(bars, node));
     }
 
     for (i = 0; i < attrs.length; i++) {
@@ -395,6 +2309,44 @@ Nodes.TAG.definePrototype({
 
 
 /**
+ * [HTMLNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+Nodes.HTML = BarsNode.generate(function HTMLNode(bars, struct) {
+    var _ = this;
+
+    _.supercreate(bars, struct);
+
+    _.defineProperties({
+        $el: document.createElement('div'),
+        path: struct.arg
+    });
+});
+
+Nodes.HTML.definePrototype({
+    isDOM: true,
+
+    _update: function _update(context) {
+        var _ = this,
+            $parent = _.parentTag.$el || _.parentTag.$parent;
+
+        $parent.innerHTML = context(_.path);
+    },
+
+    _elementAppendTo: function _elementAppendTo() {},
+    _elementRemove: function _elementRemove() {
+        var _ = this,
+            $parent = _.parentTag.$el || _.parentTag.$parent;
+
+        while ($parent.firstChild) {
+            $parent.removeChild($parent.firstChild);
+        }
+    }
+});
+
+
+/**
  * [AttrNode description]
  * @param {[type]} bars    [description]
  * @param {[type]} struct  [description]
@@ -411,7 +2363,7 @@ Nodes.ATTR = BarsNode.generate(function AttrNode(bars, struct) {
 
     for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
-        _.appendChild(Nodes[node.type].create(bars, node));
+        _.appendChild(Nodes[MAP[node.type]].create(bars, node));
     }
 });
 
@@ -454,6 +2406,7 @@ Nodes.BLOCK = BarsNode.generate(function BlockNode(bars, struct) {
     var _ = this;
 
     _.supercreate(bars, struct);
+    _.path = _.arg;
 });
 
 Nodes.BLOCK.definePrototype({
@@ -464,20 +2417,19 @@ Nodes.BLOCK.definePrototype({
             frag = Nodes.FRAG.create(_.bars, _.conFrag);
 
         frag.setPath(path);
-
         _.appendChild(frag);
     },
 
     _update: function _update(context) {
         var _ = this,
             con,
-            args,
+            arg,
             i;
 
         if (typeof _.bars.blocks[_.name] === 'function') {
-            args = parseArgs(_.args, context);
+            arg = execute(_.arg, _.bars.transforms, context);
             _.context = context;
-            con = _.bars.blocks[_.name].apply(_, args);
+            con = _.bars.blocks[_.name].call(_, arg);
         } else {
             throw new Error('Block helper not found: ' + _.name);
         }
@@ -498,8 +2450,9 @@ Nodes.BLOCK.definePrototype({
             for (i = 0; i < _.nodes.length; i++) {
                 _.nodes[i]._elementRemove();
             }
+
             if (!_.alternate) {
-                _.alternate = Nodes.FRAG.create(_.bars, _.altFrag);
+                _.alternate = Nodes.FRAG.create(_.bars, _.altFrag || {});
                 _.alternate.parent = _;
             }
 
@@ -533,6 +2486,17 @@ Nodes.PARTIAL = BarsNode.generate(function PartialNode(bars, struct) {
     _.supercreate(bars, struct);
 });
 
+function parentPath(_) {
+    var parent = _,
+        path = [];
+
+    while (parent = parent.parent) {
+        if (parent.path) path.unshift(parent.path);
+    }
+
+    return path.join('/');
+}
+
 Nodes.PARTIAL.definePrototype({
     _update: function _update(context) {
         var _ = this;
@@ -543,13 +2507,35 @@ Nodes.PARTIAL.definePrototype({
             if (partial && typeof partial === 'object') {
                 _.partial = Nodes.FRAG.create(_.bars, partial.struct);
                 _.partial.parent = _;
-                _.partial.setPath(_.args);
+                _.partial.setPath('');
             } else {
                 throw new Error('Partial not found: ' + _.name);
             }
         }
 
-        _.partial.update(context);
+        context = context.getContext('');
+
+        var newData = {},
+            path;
+
+        for (var key in _.arg) {
+            path = _.arg[key];
+
+            if (!path) continue;
+            if (path[0] !== '/') path = parentPath(_) + '/' + path;
+
+            newData[key] = context(path);
+        }
+
+        _.partial.update(newData);
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        if (_.partial) {
+            _.partial._elementRemove();
+        }
     }
 });
 
@@ -560,6 +2546,7 @@ Nodes.PARTIAL.definePrototype({
  * @param {[type]} struct  [description]
  */
 Nodes.FRAG = BarsNode.generate(function FragNode(bars, struct) {
+    // console.log('>>>>>', struct);
     var _ = this,
         nodes = struct.nodes || ARRAY;
 
@@ -567,8 +2554,8 @@ Nodes.FRAG = BarsNode.generate(function FragNode(bars, struct) {
 
     for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
-
-        _.appendChild(Nodes[node.type].create(bars, node));
+        if (MAP[node.type])
+            _.appendChild(Nodes[MAP[node.type]].create(bars, node));
     }
 });
 
@@ -604,10 +2591,9 @@ Nodes.FRAG.definePrototype({
 
         _.$parent = null;
     },
-    getValue: function getValue(splitPath) {
-        var _ = this;
 
-        var value = _.data;
+    getValue: function getValue(value, splitPath) {
+        var _ = this;
 
         for (var i = 0; i < splitPath.length; i++) {
             if (splitPath[i] === '@key' || splitPath[i] === '@index') {
@@ -615,21 +2601,32 @@ Nodes.FRAG.definePrototype({
             } else if (value !== null && value !== void(0)) {
                 value = value[splitPath[i]];
             } else {
-                return;
+                value = undefined;
             }
         }
 
-        return value;
+        return typeof value === 'undefined' ? '' : value;
     },
-    getContext: function getContext(basepath) {
+
+    getContext: function getContext(basepath, obj) {
         var _ = this;
 
         function context(path) {
-            return _.getValue(_.resolve(basepath, path));
+            if (obj) {
+                var newObj = {};
+
+                for (var key in obj) {
+                    newObj[key] = _.getValue(_.data, _.resolve(basepath, obj[key]));
+                }
+
+                return _.resolveObj(newObj, path) || '';
+            }
+
+            return _.getValue(_.data, _.resolve(basepath, path));
         }
 
-        context.getContext = function getContext(path) {
-            return _.getContext(_.resolve(basepath, path).join('/'));
+        context.getContext = function getContext(path, obj) {
+            return _.getContext(_.resolve(basepath, path).join('/'), obj);
         };
 
         return context;
@@ -646,14 +2643,16 @@ Nodes.FRAG.definePrototype({
     },
 
     resolve: function resolve(basepath, path) {
+        if (!path) return [];
+
         var newSplitpath;
 
+        if (path[0] === '~') path = path.replace(/^~/, '/');
         if (path[0] === '/') {
             newSplitpath = path.split('/');
         } else {
             newSplitpath = basepath.split('/').concat(path.split('/'));
         }
-
 
         for (var i = 0; i < newSplitpath.length; i++) {
             if (newSplitpath[i] === '.' || newSplitpath[i] === '') {
@@ -666,1345 +2665,27 @@ Nodes.FRAG.definePrototype({
         }
 
         return newSplitpath;
-    }
+    },
+
+    resolveObj: function resolveObj(obj, path) {
+        var _ = this,
+            splat = path.split('/');
+
+        for (var i = 0; i < splat.length; i++) {
+            obj = obj[splat[i]];
+            if (!obj) return;
+        }
+
+        return obj;
+    },
 });
 
 module.exports = Nodes.FRAG;
 
-},{"generate-js":9}],5:[function(require,module,exports){
-var Generator = require('generate-js');
-
-var Helpers = Generator.generate(function Helpers() {});
-
-Helpers.definePrototype({
-    log: function log() {
-        console.log.apply(console, arguments);
-    }
-});
-
-module.exports = Helpers;
-
-},{"generate-js":9}],6:[function(require,module,exports){
+},{"./runtime/execute":13,"generate-js":16}],11:[function(require,module,exports){
 module.exports = require('./bars');
 
-},{"./bars":2}],7:[function(require,module,exports){
-if (!String.prototype.codePointAt) {
-    String.prototype.codePointAt = function (pos) {
-        pos = isNaN(pos) ? 0 : pos;
-        var str = String(this),
-            code = str.charCodeAt(pos),
-            next = str.charCodeAt(pos + 1);
-        // If a surrogate pair
-        if (0xD800 <= code && code <= 0xDBFF && 0xDC00 <= next && next <= 0xDFFF) {
-            return ((code - 0xD800) * 0x400) + (next - 0xDC00) + 0x10000;
-        }
-        return code;
-    };
-}
-
-if (!Number.isNaN) {
-    Number.isNaN = function isNaN(value) {
-        return value !== value;
-    };
-}
-
-var LOGGING = false;
-
-var SELF_CLOSEING_TAGS = [
-    'area',
-    'base',
-    'br',
-    'col',
-    'command',
-    'embed',
-    'hr',
-    'img',
-    'input',
-    'keygen',
-    'link',
-    'meta',
-    'param',
-    'source',
-    'track',
-    'wbr'
-];
-
-var MODES = {
-    'DOM-MODE': [
-        60 /*'<'*/,  parseHTMLComment,
-        60 /*'<'*/,  parseTagClose,
-        60 /*'<'*/,  parseTag,
-        123 /*'{'*/, parseBarsHelperHTML,
-        123 /*'{'*/, parseBarsInsertHTML,
-        123 /*'{'*/, parseBarsComment,
-        123 /*'{'*/, parseBarsHelper,
-        123 /*'{'*/, parseBarsPartial,
-        123 /*'{'*/, parseBarsBlockElse,
-        123 /*'{'*/, parseBarsBlockClose,
-        123 /*'{'*/, parseBarsBlock,
-        123 /*'{'*/, parseBarsInsert,
-        null,        parseText
-    ],
-    'ATTR-MODE': [
-        47 /*'/'*/, parseTagEnd,
-        62 /*'>'*/, parseTagEnd,
-        123 /*'{'*/, parseBarsComment,
-        123 /*'{'*/, parseBarsBlockElse,
-        123 /*'{'*/, parseBarsBlockClose,
-        123 /*'{'*/, parseBarsBlock,
-        null,        parseWhiteSpace,
-        null,        parseAttr,
-        null,        parseError
-    ],
-    'VALUE-MODE': [
-        34 /*'"'*/,   parseStringClose,
-        39 /*'\''*/,  parseStringClose,
-        123 /*'{'*/,  parseBarsComment,
-        123 /*'{'*/,  parseBarsHelper,
-        123 /*'{'*/,  parseBarsBlockElse,
-        123 /*'{'*/,  parseBarsBlockClose,
-        123 /*'{'*/,  parseBarsBlock,
-        123 /*'{'*/,  parseBarsInsert,
-        null,         parseTextValue
-    ],
-};
-
-var HASH = {
-    '&quot;':      34,
-    '&amp;':       38,
-    '&lt;':        60,
-    '&gt;':        62,
-    '&nbsp;':      160,
-    '&iexcl;':     161,
-    '&cent;':      162,
-    '&pound;':     163,
-    '&curren;':    164,
-    '&yen;':       165,
-    '&brvbar;':    166,
-    '&sect;':      167,
-    '&uml;':       168,
-    '&copy;':      169,
-    '&ordf;':      170,
-    '&not;':       172,
-    '&shy;':       173,
-    '&reg;':       174,
-    '&macr;':      175,
-    '&deg;':       176,
-    '&plusmn;':    177,
-    '&sup2;':      178,
-    '&sup3;':      179,
-    '&acute;':     180,
-    '&micro;':     181,
-    '&para;':      182,
-    '&middot;':    183,
-    '&cedil;':     184,
-    '&sup1;':      185,
-    '&ordm;':      186,
-    '&raquo;':     187,
-    '&frac14;':    188,
-    '&frac12;':    189,
-    '&frac34;':    190,
-    '&iquest;':    191,
-    '&Agrave;':    192,
-    '&Aacute;':    193,
-    '&Acirc;':     194,
-    '&Atilde;':    195,
-    '&Auml;':      196,
-    '&Aring;':     197,
-    '&AElig;':     198,
-    '&Ccedil;':    199,
-    '&Egrave;':    200,
-    '&Eacute;':    201,
-    '&Ecirc;':     202,
-    '&Euml;':      203,
-    '&Igrave;':    204,
-    '&Iacute;':    205,
-    '&Icirc;':     206,
-    '&Iuml;':      207,
-    '&ETH;':       208,
-    '&Ntilde;':    209,
-    '&Ograve;':    210,
-    '&Oacute;':    211,
-    '&Ocirc;':     212,
-    '&Otilde;':    213,
-    '&Ouml;':      214,
-    '&times;':     215,
-    '&Oslash;':    216,
-    '&Ugrave;':    217,
-    '&Uacute;':    218,
-    '&Ucirc;':     219,
-    '&Uuml;':      220,
-    '&Yacute;':    221,
-    '&THORN;':     222,
-    '&szlig;':     223,
-    '&agrave;':    224,
-    '&aacute;':    225,
-    '&acirc;':     226,
-    '&atilde;':    227,
-    '&auml;':      228,
-    '&aring;':     229,
-    '&aelig;':     230,
-    '&ccedil;':    231,
-    '&egrave;':    232,
-    '&eacute;':    233,
-    '&ecirc;':     234,
-    '&euml;':      235,
-    '&igrave;':    236,
-    '&iacute;':    237,
-    '&icirc;':     238,
-    '&iuml;':      239,
-    '&eth;':       240,
-    '&ntilde;':    241,
-    '&ograve;':    242,
-    '&oacute;':    243,
-    '&ocirc;':     244,
-    '&otilde;':    245,
-    '&ouml;':      246,
-    '&divide;':    247,
-    '&oslash;':    248,
-    '&ugrave;':    249,
-    '&uacute;':    250,
-    '&ucirc;':     251,
-    '&uuml;':      252,
-    '&yacute;':    253,
-    '&thorn;':     254,
-    '&euro;':      8364,
-};
-
-function HTML_IDENTIFIER(ch) {
-    /* ^[_A-Za-z0-9-]$ */
-    return (ch === 45) ||
-           (48 <= ch && ch <= 57) ||
-           (65 <= ch && ch <= 90) ||
-           (ch === 95) ||
-           (97 <= ch && ch <= 122);
-}
-
-function WHITESPACE(ch) {
-    /* ^\s$ */
-    return (9 <= ch && ch <= 13) ||
-            ch === 32 ||
-            ch === 160 ||
-            ch === 5760 ||
-            ch === 6158 ||
-            ch === 8192 ||
-            ch === 8193 ||
-            ch === 8194 ||
-            ch === 8195 ||
-            ch === 8196 ||
-            ch === 8197 ||
-            ch === 8198 ||
-            ch === 8199 ||
-            ch === 8200 ||
-            ch === 8201 ||
-            ch === 8202 ||
-            ch === 8232 ||
-            ch === 8233 ||
-            ch === 8239 ||
-            ch === 8287 ||
-            ch === 12288 ||
-            ch === 65279;
-}
-
-function HTML_ENTITY(ch) {
-    /* ^[A-Za-z0-9]$ */
-    return (48 <= ch && ch <= 57) ||
-           (65 <= ch && ch <= 90) ||
-           (97 <= ch && ch <= 122);
-}
-
-function getHTMLUnEscape(str) {
-    var code;
-
-    code = HASH[str];
-
-    if (typeof code !== 'number') {
-        code = parseInt( str.slice(2, -1), 10);
-    }
-
-    if (typeof code === 'number' && !Number.isNaN(code)){
-        return String.fromCharCode(code);
-    }
-
-    return str;
-}
-
-function throwError(buffer, index, message) {
-    var lines = 1,
-        columns = 0;
-
-    for (var i = 0; i < index; i++) {
-        if (buffer.codePointAt(i) === 10 /*'\n'*/) {
-            lines++;
-            columns = 1;
-        } else {
-            columns++;
-        }
-    }
-
-    throw new SyntaxError(message + ' at ' + lines + ':' + columns);
-}
-
-function parseError(mode, tree, index, length, buffer, indent) {
-    throwError(buffer, index, 'Unexpected token: ' + JSON.stringify(buffer[index])+'.');
-}
-
-function parseTagEnd(mode, tree, index, length, buffer, indent, close) {
-    var ch = buffer.codePointAt(index);
-
-    if (ch === 62 /*'>'*/) {
-        LOGGING && console.log(indent + 'parseTagEnd');
-        close.closed = true;
-        return index;
-    }
-
-    if (ch === 47 /*'/'*/ && buffer.codePointAt(index + 1) === 62 /*'>'*/) {
-        LOGGING && console.log(indent + 'parseTagEnd');
-        index++;
-        close.selfClosed = true;
-        return index;
-    }
-
-    return null;
-}
-
-function parseAttr(mode, tree, index, length, buffer, indent) {
-    var ch,
-        token = {
-            type: 'ATTR',
-            name: '',
-            nodes: []
-        };
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (!HTML_IDENTIFIER(ch)) {
-            break;
-        }
-
-        token.name += buffer[index];
-    }
-
-    if (token.name) {
-        LOGGING && console.log(indent + 'parseAttr');
-
-        tree.push(token);
-        /* ch === '=' */
-        if (ch === 61) {
-            // move past =
-            index++;
-
-            ch = buffer.codePointAt(index);
-
-            /* ch === '"' || ch === '\'' */
-            if (ch === 34 || ch === 39) {
-                var stringToken = {
-                    type: 'STRING',
-                    name: ch
-                };
-
-                index++;
-                index = parse('VALUE-MODE', token.nodes, index, length, buffer, indent, stringToken);
-
-                if (!stringToken.closed) {
-                    throwError(buffer, index, 'Missing closing tag: expected \'' + stringToken + '\'.');
-                }
-            } else {
-                var textValueToken = {
-                    type: 'TEXT',
-                    text: ''
-                };
-                for (; index < length; index++) {
-                    ch = buffer.codePointAt(index);
-
-                    if (!HTML_IDENTIFIER(ch)) {
-                        break;
-                    }
-
-                    textValueToken.text += buffer[index];
-                }
-
-                if (textValueToken.text) {
-                    token.nodes.push(textValueToken);
-                    index--;
-                } else {
-                    throwError(buffer, index, 'Unexpected end of input.');
-                }
-            }
-        } else {
-            index--;
-        }
-
-        return index;
-    }
-
-    return null;
-}
-
-function parseWhiteSpace(mode, tree, index, length, buffer, indent) {
-    var ch,
-        whitespace = 0;
-
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (!WHITESPACE(ch)) {
-
-            break;
-        }
-        whitespace++;
-    }
-
-    if (whitespace) {
-        LOGGING && console.log(indent + 'parseWhiteSpace');
-        index--;
-        return index;
-    }
-
-    return null;
-}
-
-function parseStringClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
-    var token = {
-        type: 'STRING',
-        name: buffer.codePointAt(index)
-    };
-
-    if (token.type === close.type) {
-        if (token.name === close.name) {
-            close.closed = true;
-            return index;
-        }
-        return null;
-    }
-
-    throwError(buffer, index, 'Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
-}
-
-function parse(mode, tree, index, length, buffer, indent, close) {
-    LOGGING && console.log(indent + 'parse - ', mode);
-
-    // LOGGING && console.log({mode: mode, tree: tree, index: index, length: length, buffer: buffer, close: close, indent: indent});
-
-    var ch,
-        testCh,
-        oldIndex,
-        oldIndent = indent,
-        oldElsed,
-        newIndex,
-        parseFuncs = MODES[mode],
-        parseFuncsLength = parseFuncs.length,
-        parseFunc,
-        i;
-
-    indent += '  ';
-
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        for (i = 0; i < parseFuncsLength; i++) {
-            testCh = parseFuncs[i];
-            parseFunc = parseFuncs[++i];
-
-            if (ch === testCh || testCh === null) {
-                oldIndex = index;
-                oldElsed = close && close.elsed;
-
-                newIndex = parseFunc(mode, tree, index, length, buffer, indent, close);
-
-                if (typeof newIndex === 'number') {
-                    index = newIndex;
-                }
-
-                if (
-                    close &&
-                    (
-                        (close.closed) ||
-                        (close.elsed && !oldElsed)
-                    )
-                ) {
-                    break loop;
-                }
-
-                if (typeof newIndex === 'number') {
-                    break;
-                }
-            }
-        }
-    }
-
-    LOGGING && console.log(oldIndent + '<<<');
-
-    return index;
-}
-
-function parseTag(mode, tree, index, length, buffer, indent) {
-    LOGGING && console.log(indent+'parseTag');
-
-    var ch,
-        token = {
-            type: 'TAG',
-            name: '',
-            nodes: [],
-            attrs: []
-        };
-
-    index++; // move past <
-    /* Get Name */
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (!HTML_IDENTIFIER(ch)) {
-            break;
-        }
-
-        token.name += buffer[index];
-    }
-
-    if (!token.name) {
-        throwError(buffer, index, 'Missing tag name.');
-    }
-
-    index = parse('ATTR-MODE', token.attrs, index, length, buffer, indent, token);
-
-    if (!token.closed && !token.selfClosed) {
-        throwError(buffer, index, 'Unexpected end of input.');
-    }
-
-    delete token.closed;
-
-    if (token.selfClosed) {
-        delete token.selfClosed;
-        return index;
-    }
-
-    if (token.name === 'script' || token.name === 'style') {
-        var textToken = {
-            type: 'TEXT',
-            text: ''
-        };
-
-        for (; index < length; index++) {
-            ch = buffer.codePointAt(index);
-
-            if (ch === 60 /*'<'*/) {
-                index = parseTagClose(mode, tree, index, length, buffer, indent, token, true);
-
-                if (token.closed) {
-                    delete token.closed;
-                    break;
-                }
-            }
-
-            textToken.text += buffer[index];
-        }
-
-        if (textToken.text) {
-            token.nodes.push(textToken);
-        }
-    } else if (SELF_CLOSEING_TAGS.indexOf(token.name) === -1) {
-        index++;
-        index = parse(mode, token.nodes, index, length, buffer, indent, token);
-    } else {
-        token.closed = true;
-    }
-
-    if (token.closed) {
-        delete token.closed;
-        tree.push(token);
-    } else {
-        throwError(buffer, index, 'Missing closing tag: expected \'' + token.name + '\'.');
-    }
-
-    return index;
-}
-
-function parseTagClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
-
-    if (buffer.codePointAt(index + 1) !== 47 /*'/'*/) return null;
-
-    LOGGING && console.log(indent+'parseTagClose');
-
-    var ch,
-        token = {
-            type: 'TAG',
-            name: ''
-        },
-        nameDone = false,
-        end = false;
-
-    index+=2; // move past </
-    /* Get Name */
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (!nameDone && HTML_IDENTIFIER(ch)) {
-            token.name += buffer[index];
-        } else {
-            nameDone = true;
-        }
-
-        if (ch === 62 /*'>'*/) {
-            end = true;
-            break;
-        }
-    }
-
-    if (!end) {
-        throwError(buffer, index, 'Unexpected end of input.');
-    }
-
-    if (!close) {
-        throwError(buffer, index, 'Unexpected closing tag: \'' +token.name+ '\'.');
-    }
-
-    if (token.type === close.type && token.name === close.name) {
-        close.closed = true;
-    } else if (noErrorOnMismatch) {
-        /* Canceling Parse */
-        return null;
-    } else {
-        throwError(buffer, index, 'Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
-    }
-
-    return index;
-}
-
-function parseText(mode, tree, index, length, buffer, indent) {
-    var ch,
-        isEntity = false,
-        entityStr = '',
-        token = {
-            type: 'TEXT',
-            text: ''
-        };
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 60 /*'<'*/ || ch === 123 /*'{'*/ && buffer.codePointAt(index + 1) === 123 /*'{'*/) {
-            token.text += entityStr;
-            index--;
-            break;
-        }
-
-        if (ch === 38 /*'&'*/) {
-            isEntity = true;
-            entityStr = buffer[index];
-
-            continue;
-        } else if (isEntity && ch === 59 /*';'*/) {
-            entityStr += buffer[index];
-
-            token.text += getHTMLUnEscape(entityStr);
-
-            isEntity = false;
-            entityStr = '';
-
-            continue;
-        }
-
-        if (isEntity && HTML_ENTITY(ch)) {
-            entityStr += buffer[index];
-        } else {
-            token.text += entityStr;
-            isEntity = false;
-            entityStr = '';
-
-            token.text += buffer[index];
-        }
-    }
-
-    if (token.text) {
-        LOGGING && console.log(indent+'parseText');
-        tree.push(token);
-        return index;
-    }
-
-    return null;
-}
-
-function parseTextValue(mode, tree, index, length, buffer, indent, close) {
-    var ch,
-        token = {
-            type: 'TEXT',
-            text: ''
-        };
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 123 /*'{'*/ || (close && ch === close.name && buffer[index - 1] !== '\\')) {
-            index--;
-            break;
-        }
-
-        token.text += buffer[index];
-    }
-
-    if (token.text) {
-        LOGGING && console.log(indent+'parseText');
-        tree.push(token);
-        return index;
-    }
-
-    return null;
-}
-
-function parseBarsInsert(mode, tree, index, length, buffer, indent) {
-    LOGGING && console.log(indent+'parseBarsInsert');
-
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        return null;
-    }
-
-    var ch,
-        token = {
-            type: 'TEXT',
-            args: ''
-        }, endChars = 0;
-
-    // move past {{
-    index+=2;
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 2) {
-                    break loop;
-                }
-            }
-        }
-        token.args += buffer[index];
-    }
-
-    tree.push(token);
-
-    return index;
-}
-
-function parseBarsInsertHTML(mode, tree, index, length, buffer, indent) {
-    LOGGING && console.log(indent+'parseBarsInsert');
-
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        return null;
-    }
-
-    if (buffer.codePointAt(index + 2) !== 123 /*'{'*/) {
-        return null;
-    }
-
-    var ch,
-        token = {
-            type: 'FRAG',
-            args: ''
-        }, endChars = 0;
-
-    // move past {{{
-    index += 3;
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 3) {
-                    break loop;
-                }
-            }
-        }
-
-        token.args += buffer[index];
-    }
-
-    tree.push(token);
-
-    return index;
-}
-
-function parseBarsPartial(mode, tree, index, length, buffer, indent) {
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        return null;
-    }
-
-    if (buffer.codePointAt(index + 2) !== 62 /*'>'*/) {
-        /* Canceling Parse */
-        return null;
-    }
-    LOGGING && console.log(indent+'parseBarsPartial');
-
-    var ch,
-        token = {
-            type: 'PARTIAL',
-            name: '',
-            args: ''
-        }, endChars = 0;
-
-    // move past {{>
-    index += 3;
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (HTML_IDENTIFIER(ch)) {
-            token.name += buffer[index];
-        } else {
-            break;
-        }
-    }
-
-    if (!token.name) {
-        throwError(buffer, index, 'Missing partial name.');
-    }
-
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 2) {
-                    break loop;
-                }
-            }
-        }
-
-        token.args += buffer[index];
-    }
-
-    token.args = token.args.trim();
-
-    tree.push(token);
-
-    return index;
-}
-
-function parseBarsHelper(mode, tree, index, length, buffer, indent) {
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        return null;
-    }
-
-    if (buffer.codePointAt(index + 2) !== 63 /*'?'*/) {
-        /* Canceling Parse */
-        return null;
-    }
-    LOGGING && console.log(indent+'parseBarsHelper');
-
-    var ch,
-        token = {
-            type: 'TEXT',
-            name: '',
-            args: ''
-        }, endChars = 0;
-
-    // move past {{?
-    index += 3;
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (HTML_IDENTIFIER(ch)) {
-            token.name += buffer[index];
-        } else {
-            break;
-        }
-    }
-
-    if (!token.name) {
-        throwError(buffer, index, 'Missing helper name.');
-    }
-
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 2) {
-                    break loop;
-                }
-            }
-        }
-
-        token.args += buffer[index];
-    }
-
-    token.args = token.args.trim();
-
-    tree.push(token);
-
-    return index;
-}
-
-function parseBarsHelperHTML(mode, tree, index, length, buffer, indent) {
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        return null;
-    }
-
-    if (buffer.codePointAt(index + 2) !== 123 /*'{'*/) {
-        /* Canceling Parse */
-        return null;
-    }
-
-    if (buffer.codePointAt(index + 3) !== 63 /*'?'*/) {
-        /* Canceling Parse */
-        return null;
-    }
-    LOGGING && console.log(indent+'parseBarsHelperHTML');
-
-    var ch,
-        token = {
-            type: 'FRAG',
-            name: '',
-            args: ''
-        }, endChars = 0;
-
-    // move past {{{?
-    index += 4;
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (HTML_IDENTIFIER(ch)) {
-            token.name += buffer[index];
-        } else {
-            break;
-        }
-    }
-
-    if (!token.name) {
-        throwError(buffer, index, 'Missing helper name.');
-    }
-
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 3) {
-                    break loop;
-                }
-            }
-        }
-
-        token.args += buffer[index];
-    }
-
-    token.args = token.args.trim();
-
-    tree.push(token);
-
-    return index;
-}
-
-function parseBarsComment(mode, tree, index, length, buffer, indent) {
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        return null;
-    }
-
-    if (buffer.codePointAt(index + 2) !== 33 /*'!'*/) {
-        return null;
-    }
-
-    var ch,
-        token = {
-            type: 'COMMENT',
-            comment: ''
-        }, endChars = 0;
-
-    // move past {{!
-    index+=3;
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 2) {
-                    break loop;
-                }
-            }
-        }
-        token.comment += buffer[index];
-    }
-
-    // TODO: Maybe create comment node?
-    // if (token.comment) {
-        // LOGGING && console.log(indent+'parseBarsComment');
-
-    //     tree.push(token);
-
-    //     return index;
-    // }
-
-    return index;
-}
-
-function parseHTMLComment(mode, tree, index, length, buffer, indent) {
-    if (buffer.codePointAt(index + 1) !== 33 /*'!'*/) {
-        return null;
-    }
-
-    if (buffer.codePointAt(index + 2) !== 45 /*'-'*/) {
-        return null;
-    }
-
-    if (buffer.codePointAt(index + 3) !== 45 /*'-'*/) {
-        return null;
-    }
-
-    var ch,
-        token = {
-            type: 'COMMENT',
-            comment: ''
-        },
-        endChars = 0;
-
-    // move past <!--
-    index+=4;
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 45 /*'-'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 45 /*'-'*/) {
-                    endChars++;
-                } else {
-                    endChars = 0;
-                    break;
-                }
-
-                if (endChars >= 2) {
-                    if (buffer.codePointAt(index + 1) === 62 /*'>'*/) {
-                        index++;
-                        break loop;
-                    }
-                }
-            }
-        }
-        token.comment += buffer[index];
-    }
-
-    // TODO: Maybe create comment node?
-    // if (token.comment) {
-        // LOGGING && console.log(indent+'parseBarsComment');
-
-    //     tree.push(token);
-
-    //     return index;
-    // }
-
-    return index;
-}
-
-function parseBarsBlock(mode, tree, index, length, buffer, indent) {
-
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        throwError(buffer, index, 'Unexpected end of input.');
-    }
-
-    if (buffer.codePointAt(index + 2) !== 35 /*'#'*/) {
-        /* Canceling Parse */
-        return null;
-    }
-    LOGGING && console.log(indent+'parseBarsBlock');
-
-    var ch,
-        token = {
-            type: 'BLOCK',
-            name: '',
-            args: '',
-            conFrag: {
-                type: 'FRAG',
-                nodes: [],
-            },
-            altFrag: {
-                type: 'FRAG',
-                nodes: []
-            }
-        }, endChars = 0;
-
-    // move past {{#
-    index += 3;
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (HTML_IDENTIFIER(ch)) {
-            token.name += buffer[index];
-        } else {
-            break;
-        }
-    }
-
-    if (!token.name) {
-        throwError(buffer, index, 'Missing block name.');
-    }
-
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 2) {
-                    break loop;
-                }
-            }
-        }
-
-        token.args += buffer[index];
-    }
-
-    token.args = token.args.trim();
-
-    index++;
-    index = parse(mode, token.conFrag.nodes, index, length, buffer, indent, token);
-
-    if (token.elsed && !token.closed) {
-        index++;
-        index = parse(mode, token.altFrag.nodes, index, length, buffer, indent, token);
-    }
-
-    if (token.closed) {
-        delete token.closed;
-        delete token.elsed;
-        tree.push(token);
-    } else {
-        throwError(buffer, index, 'Missing closing tag: expected \'' + token.name + '\'.');
-    }
-
-    return index;
-}
-
-function parseBarsBlockClose(mode, tree, index, length, buffer, indent, close, noErrorOnMismatch) {
-
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        throwError(buffer, index, 'Unexpected end of input.');
-    }
-
-    if (buffer.codePointAt(index + 2) !== 47 /*'/'*/) {
-        return null;
-    }
-
-    LOGGING && console.log(indent+'parseBarsBlockClose');
-
-
-    var ch,
-        token = {
-            type: 'BLOCK',
-            name: ''
-        },
-        endChars = 0;
-
-    // move past {{#
-    index += 3;
-
-    for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (HTML_IDENTIFIER(ch)) {
-            token.name += buffer[index];
-        } else {
-            break;
-        }
-    }
-
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 2) {
-                    break loop;
-                }
-            }
-        }
-    }
-
-    if (!close) {
-        throwError(buffer, index, 'Unexpected closing tag: \'' +token.name+ '\'.');
-    }
-
-    if (token.type === close.type && token.name === close.name) {
-        close.closed = true;
-    } else if (noErrorOnMismatch) {
-        /* Canceling Parse */
-        return null;
-    } else {
-        throwError(buffer, index, 'Mismatched closing tag: expected \'' +close.name+ '\' but found \'' +token.name+ '\'.');
-    }
-
-    return index;
-}
-
-function parseBarsBlockElse(mode, tree, index, length, buffer, indent, close) {
-
-    if (buffer.codePointAt(index + 1) !== 123 /*'{'*/) {
-        throwError(buffer, index, 'Unexpected end of input.');
-    }
-
-    var ch,
-        name = '',
-        endChars = 0;
-
-    // move past {{
-    index += 2;
-
-    loop: for (; index < length; index++) {
-        ch = buffer.codePointAt(index);
-
-        if (ch === 125 /*'}'*/) {
-            endChars++;
-            index++;
-
-            for (; index < length; index++) {
-                ch = buffer.codePointAt(index);
-
-                if (ch === 125 /*'}'*/) {
-                    endChars++;
-                } else {
-                    throwError(buffer, index, 'Unexpected character: expected \'}\' but found \'' +buffer[index]+ '\'.');
-                }
-
-                if (endChars === 2) {
-                    break loop;
-                }
-            }
-        }
-        name += buffer[index];
-    }
-
-    if (close && close.type === 'BLOCK' && name === 'else') {
-        if (close.elsed) {
-            throwError(buffer, index, 'Unexpected else token.');
-        }
-
-        close.elsed = true;
-
-        LOGGING && console.log(indent+'parseBarsBlockElse');
-        return index;
-    } else if (!close && name === 'else') {
-        throwError(buffer, index, 'Unexpected else tag.');
-    } else {
-        /* Canceling Parse */
-        return null;
-    }
-}
-
-function compile(buffer) {
-    var n = Date.now();
-    var tree = {
-        type: 'FRAG',
-        nodes: []
-    };
-
-    LOGGING && console.log('compile');
-
-    parse('DOM-MODE', tree.nodes, 0, buffer.length, buffer, '  ', null);
-
-    LOGGING && console.log('compiled');
-    //
-    LOGGING && console.log(Date.now()-n);
-
-    return tree;
-    // return JSON.stringify(tree, null, 2);
-}
-
-module.exports = compile;
-
-},{}],8:[function(require,module,exports){
+},{"./bars":2}],12:[function(require,module,exports){
 var Generator = require('generate-js'),
     Frag = require('./frag');
 
@@ -2026,7 +2707,132 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./frag":4,"generate-js":9}],9:[function(require,module,exports){
+},{"./frag":10,"generate-js":16}],13:[function(require,module,exports){
+var TYPES = require('../compiler/token-types');
+var logic = require('./logic');
+
+function execute(syntaxTree, transforms, context) {
+    function run(token) {
+        var result,
+            args =  [];
+
+        if (
+            token.type === TYPES.STRING ||
+            token.type === TYPES.NUMBER ||
+            token.type === TYPES.BOOLEAN
+        ) {
+            result = token.value;
+        } else if (
+            token.type === TYPES.INSERT_VAL
+        ) {
+            result = context(token.path);
+        } else if (
+            token.type === TYPES.UNARY_EXPRESSION
+        ) {
+            result = logic[token.opperator](
+                run(token.argument)
+            );
+        } else if (
+            token.type === TYPES.BINARY_EXPRESSION
+        ) {
+            result = logic[token.opperator](
+                run(token.left),
+                run(token.right)
+            );
+        } else if (
+            token.type === TYPES.TRANSFORM
+        ) {
+            for (var i = 0; i < token.arguments.length; i++) {
+                args.push(run(token.arguments[i]));
+            }
+            if (transforms[token.name] instanceof Function) {
+                result = transforms[token.name].apply(null, args);
+            } else {
+                throw 'Missing Transfrom: "' + token.name +'".';
+            }
+        }
+
+        return result;
+    }
+
+    return run(syntaxTree);
+}
+
+module.exports = execute;
+
+},{"../compiler/token-types":8,"./logic":14}],14:[function(require,module,exports){
+/* Arithmetic */
+exports.add      = function add      (a, b) { return a + b; };
+exports.subtract = function subtract (a, b) { return a - b; };
+exports.multiply = function multiply (a, b) { return a * b; };
+exports.devide   = function devide   (a, b) { return a / b; };
+exports.mod      = function mod      (a, b) { return a % b; };
+
+exports['+'] = exports.add;
+exports['-'] = exports.subtract;
+exports['*'] = exports.multiply;
+exports['/'] = exports.devide;
+exports['%'] = exports.mod;
+
+/* Logic */
+
+exports.not = function not (a) { return !a; };
+
+exports['!'] = exports.not;
+
+exports.or        = function or         (a, b) { return a || b; };
+exports.and       = function and        (a, b) { return a && b; };
+
+exports['||'] = exports.or;
+exports['&&'] = exports.and;
+
+/* Comparison */
+
+exports.strictequals    = function strictequals     (a, b) { return a === b; };
+exports.strictnotequals = function strictnotequals  (a, b) { return a !== b; };
+
+exports['==='] = exports.strictequals;
+exports['!=='] = exports.strictnotequals;
+
+exports.equals    = function equals     (a, b) { return a == b; };
+exports.notequals = function notequals  (a, b) { return a != b; };
+exports.ltequals  = function ltequals   (a, b) { return a <= b; };
+exports.gtequals  = function gtequals   (a, b) { return a >= b; };
+
+exports['=='] = exports.equals;
+exports['!='] = exports.notequals;
+exports['<='] = exports.ltequals;
+exports['>='] = exports.gtequals;
+
+exports.lt = function lt (a, b) { return a < b; };
+exports.gt = function gt (a, b) { return a > b; };
+
+exports['<'] = exports.lt;
+exports['>'] = exports.gt;
+
+},{}],15:[function(require,module,exports){
+var Generator = require('generate-js');
+
+var Transfrom = Generator.generate(function Transfrom() {});
+
+Transfrom.definePrototype({
+    upperCase: function upperCase(a) {
+        return ('' + a).toUpperCase();
+    },
+    lowerCase: function lowerCase(a) {
+        return ('' + a).toLowerCase();
+    },
+    Number: function Number(a) {
+        return +a;
+    },
+    String: function String(a) {
+        return '' + a;
+    }
+});
+
+module.exports = Transfrom;
+
+},{"generate-js":16}],16:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -2110,13 +2916,16 @@ function defineObjectProperties(obj, descriptor, properties) {
     var setProperties = {},
         i,
         keys,
-        length,
+        length;
 
-        p = properties || descriptor,
-        d = properties && descriptor;
+    if (!descriptor || typeof descriptor !== 'object') {
+        descriptor = {};
+    }
 
-    properties = (p && typeof p === 'object') ? p : {};
-    descriptor = (d && typeof d === 'object') ? d : {};
+    if (!properties || typeof properties !== 'object') {
+        properties = descriptor;
+        descriptor = {};
+    }
 
     keys = Object.getOwnPropertyNames(properties);
     length = keys.length;
