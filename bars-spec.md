@@ -66,7 +66,7 @@
 
 ### String Literal - *implemented*
 
-```javascript
+```
 ^'[^\n']*'$
 ```
 
