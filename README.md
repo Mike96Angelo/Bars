@@ -55,7 +55,7 @@ $ npm install bars
 
 ### Output:
 ##### *text representation*
-```bars
+```handlebars
 <ul>
    <li>1 - John</li>
    <li>2 - Jane</li>
