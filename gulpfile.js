@@ -11,7 +11,10 @@ gulp.task('js', function() {
     return b.bundle()
         .pipe(source('bars.js'))
         .pipe(buffer())
-        .pipe(gulp.dest('./demo'));
+        .pipe(gulp.dest('./src'))
+        .pipe(gulp.dest('./demo'))
+        .pipe(gulp.dest('./benchmark'))
+        .pipe(gulp.dest('./test'));
 });
 
 gulp.task('watch', ['default'], function(){

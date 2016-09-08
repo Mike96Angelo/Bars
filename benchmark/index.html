@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Bars Benchmark</title>
+        <style type="text/css">
+            .box {
+                position: relative;
+                margin: 10px;
+                background: red;
+                height: 10px;
+                width: 10px;
+            }
+        </style>
+        <script id="bars-template" type="text/x-handlebars-template">
+            {{#each cats}}
+                <div class="box" style="top: {{y}}px; left: {{x}}px;"></div>
+            {{else}}
+                <h1>NO cats</h1>
+            {{/each}}
+        </script>
+        <script src="bars.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.2/handlebars.js"></script>
+    </head>
+    <body>
+        <div id="bars-output">
+            <div id="test"></div>
+            <div id="test2"></div>
+        </div>
+        <script type="text/javascript">
+            var bars = window.Bars.create(),
+                template = document.getElementById('bars-template').innerHTML;
+
+            arr1 = [1];
+            arr100 = [];
+            for (var i = 0; i < 10; i++) {
+                arr100[i] = {
+                    x: 0,
+                    y: 0
+                };
+            }
+            num = 0;
+
+            function move() {
+                num += 0.1;
+                var x = 10 * Math.sin(num);
+                var y = 10 * Math.sin(1+num);
+
+                for (var i = 0; i < 10; i++) {
+                    arr100[i].x = i%2===0? x: -x;
+                    arr100[i].y = i%2===0? y: -y;;
+                }
+            }
+            n = Date.now();
+            for (var i = 0; i < 100000; i++) {
+                hbs = Handlebars.compile(template);
+            }
+            console.log('hbs', Date.now()-n);
+
+            n = Date.now();
+            for (var i = 0; i < 100000; i++) {
+                b = bars.compile(template);
+            }
+            console.log('bars', Date.now()-n);
+
+            d = {
+                cats: arr100
+            };
+            c = b.render(d);
+
+            test = document.getElementById('test');
+            test2 = document.getElementById('test2');
+
+            c.appendTo(test);
+
+            function barsTest() {
+                n = Date.now();count=0;
+                t = setInterval(function () {
+                    // d.cats = d.cats.length === 1 ? arr100 : arr1;
+                    // d.cats = d.cats.reverse();
+                    move();
+                    c.update(d);
+                    count++;
+                    if ((time = Date.now()-n) >= 5000) {
+                        clearInterval(t);
+                        console.log('bars',count / (time/1000));
+                        handlebarsTest();
+                    }
+                }, 0);
+            }
+
+            function handlebarsTest() {
+                n = Date.now();count=0;
+                t = setInterval(function () {
+                    // d.cats = d.cats.length === 1 ? arr100 : arr1;
+                    // d.cats = d.cats.reverse();
+                    move();
+                    test2.innerHTML = hbs(d);
+                    count++;
+                    if ((time = Date.now()-n) >= 5000) {
+                        clearInterval(t);
+                        console.log('hbs', count / (time/1000));
+                    }
+                }, 0);
+            }
+
+
+            /*
+             * now open you Inspector
+             * and try changing barsData
+             * and updating the domFrag
+             */
+        </script>
+    </body>
+</html>

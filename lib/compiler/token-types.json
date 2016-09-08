@@ -1,4 +1,5 @@
 {
+    "TEXT":              "TEXT",
     "FRAGMENT":          "FRAGMENT",
     "HTML_COMMENT":      "HTML-COMMENT",
     "HTML_TAG":          "HTML-TAG",

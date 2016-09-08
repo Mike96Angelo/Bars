@@ -1,71 +1,50 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title></title>
+        <title>Bars Demo</title>
+        <script id="bars-template" type="text/x-handlebars-template">
+            <ul>
+            {{#each persons}}
+               <li>{{@number(@index) + 1}} - {{name}}</li>
+            {{/each}}
+            </ul>
+
+            {{#if x < 5}}
+               <span>x is less then 5</span>
+            {{else}}
+               <span>x is not less then 5</span>
+            {{/if}}
+            <br>
+            <br>
+            <span>{{@upperCase(title)}}</span>
+        </script>
+        <script src="bars.js"></script>
     </head>
     <body>
-        <script type="text/template"></script>
-        <script src="bars.js"></script>
+        <div id="bars-output"></div>
         <script type="text/javascript">
-            var bars = window.Bars.create();
+            var bars = window.Bars.create(),
+                template = document.getElementById('bars-template').innerHTML;
 
-            var template = '<span>hello, {{#if @name}}<h2>{{@name}}</h2>{{else}}Person{{/if}}.</span>';
-                template = '{{?helper .}}{{{?helper .}}}{{>partial .}}{{! comment }}{{!-- comment --}}{{#block .}}{{else}}{{/block}}';
-
-                template = 'BEFORE :: \
-                                <input value="{{name}}" onkeyup="javascript:a.name=this.value;window.c.update(a);">\
-                                <span class="{{name}} {{name}}">{{#if namke}}\
-                                NAME={{name}}\
-                                (helper: {{?helper name name}})\
-                            {{else}}\
-                                noname\
-                            {{/if}}</span> :: ({{>partial}})';
-template = 'm \n {{#if name}}\n    {{name}}\n {{else}}\n    noname\n {{else}}\n {{/ifm}}\n';
-                // partial = 'AFTER (PARTIAL - {{name}})',
-                // template = '<div class="{{name}}">--<p>Hi, {{name}}!</p><input>--</div>';
-
-            window.joey = {
-                name: 'Joey'
+            window.barsData = {
+               persons: [
+                  { name: 'John' },
+                  { name: 'Jane' },
+                  { name: 'Jim' },
+               ],
+               x: 2,
+               title: 'The Cat in the Hat'
             };
 
-            window.cats = [
-                {
-                    name: undefined
-                },
-                {
-                    name: false
-                },
-                window.joey,
-                {
-                    name: NaN
-                }
-            ];
+            window.domFrag = bars.compile(template).render();
+            window.domFrag.appendTo(document.getElementById('bars-output'));
+            window.domFrag.update(barsData);
 
-            bars.registerHelper('helper', function(a) {
-                return 'HELPER';
-            });
-
-            bars.registerPartial('partial', 'PARTIAL');
-
-            bars.registerBlock('block', function (a) {
-                return 'BLOCK';
-            });
-
-            window.a = {name:'My Name'};
-            window.b = bars.compile(template);
-            window.c = window.b.render();
-            window.c.appendTo(document.body);
-            window.c.update(a);
-
-            // setInterval(function() {
-            //     var n = Math.random();
-
-            //     window.c.update({
-            //         name: n < 0.8 ? n : null
-            //     });
-            // }, 1000);
-
-            // console.log(window.c)
+            /*
+             * now open you Inspector
+             * and try changing barsData
+             * and updating the domFrag
+             */
         </script>
     </body>
 </html>
