@@ -1981,11 +1981,11 @@ function parseTokens(mode, code, tokens, close) {
     loop: while (code.left) {
 
         for (var i = 0; i < parseTokenFuncs[mode].length; i++) {
-            console.log(
-                repeat(' ', parseTokens.level) + mode.green + ' '+
-                parseTokenFuncs[mode][i].name + '\n' +
-                repeat(' ', parseTokens.level + 1) + bufferSlice(code, 5)
-            );
+            // console.log(
+            //     repeat(' ', parseTokens.level) + mode.green + ' '+
+            //     parseTokenFuncs[mode][i].name + '\n' +
+            //     repeat(' ', parseTokens.level + 1) + bufferSlice(code, 5)
+            // );
 
             token = parseTokenFuncs[mode][i](mode, code, tokens, close);
 
@@ -2227,7 +2227,7 @@ Token.prototype = {
             };
         }
 
-        console.log('TOKEN: '+this.type.red+' `' + this.source(code).green.underline+'` at ' + this.loc.start.line+ ':' + this.loc.start.column);
+        // console.log('TOKEN: '+this.type.red+' `' + this.source(code).green.underline+'` at ' + this.loc.start.line+ ':' + this.loc.start.column);
     },
     // toJSON: function toJSON() {
     //     return {
