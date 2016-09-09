@@ -6,6 +6,7 @@
 
 ```handlebars
 {{!<comment>}}
+{{!--<comment>--}}
 ```
 
 ### Block - *implemented*
@@ -56,6 +57,8 @@
 <value> >= <value>
 <value> == <value>
 <value> != <value>
+<value> === <value>
+<value> !== <value>
 ```
 
 ### Number Literal - *implemented*
@@ -77,11 +80,17 @@ true
 false
 ```
 
+### Null Literal - *implemented*
+
+```handlebars
+null
+```
+
 ### Insert Value - *implemented*
 
 ```javascript
 <name>
-<path>/<to>/<value>
+~?/<path>/<to>/<value>
 <path>.<to>.<value>
 ```
 
