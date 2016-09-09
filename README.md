@@ -1,26 +1,6 @@
-# Pre-release v0.1.19
-
-## Table of Contents
-
-* [Bars](#bars)
-    * [Bars.compile(template)](#compile)
-    * [Bars.registerPartial(name, template)](#register-partial)
-    * [Class: Fragment](#class-fragment)
-        * [Fragment.render()](#frament-render)
-    * [Class: DomFrag](#class-dom-frag)
-        * [DomFrag.update(data)](#dom-update)
-        * [DomFrag.appendTo(element)](#dom-append-to)
-
-<a name="bars"></a>
-
-# Bars
+# Bars - *Pre-release v0.1.19*
 
 Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.
-
-### Install:
-```
-$ npm install bars
-```
 
 # What Bars Looks Like
 
@@ -71,6 +51,25 @@ THE CAT IN THE HAT
 
 For all features see [Bars Spec](bars-spec.md).
 For demos, tests and benckmarks see [Try Bars](http://mike96angelo.github.io/Bars/).
+
+### Install:
+```
+$ npm install bars
+```
+
+## Table of Contents
+
+* [Bars](#bars)
+    * [Bars.compile(template)](#compile)
+    * [Bars.registerPartial(name, template)](#register-partial)
+    * [Class: Fragment](#class-fragment)
+        * [Fragment.render()](#frament-render)
+    * [Class: DomFrag](#class-dom-frag)
+        * [DomFrag.update(data)](#dom-update)
+        * [DomFrag.appendTo(element)](#dom-append-to)
+
+<a name="bars"></a>
+
 
 <a name="compile"></a>
 ## Bars.compile(template)
