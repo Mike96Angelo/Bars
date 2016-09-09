@@ -1,10 +1,9 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 module.exports = require('./lib');
 
-},{"./lib":11}],2:[function(require,module,exports){
+},{"./lib":12}],2:[function(require,module,exports){
 var Generator = require('generate-js'),
-    // Parser = require('./parser'),
-    Parser = require('./compiler/compiler'),
+    compile = require('./compiler'),
     Renderer = require('./renderer'),
     Blocks = require('./blocks'),
     Transform = require('./transforms');
@@ -20,13 +19,13 @@ var Bars = Generator.generate(function Bars() {
 });
 
 Bars.definePrototype({
-    compile: function compile(template) {
+    compile: function compile(template, mode) {
         var _ = this;
-        return _.build( _.parse(template) );
+        return _.build( _.parse(template, mode) );
     },
 
-    parse: function parse(template) {
-        return Parser(template);
+    parse: function parse(template, mode) {
+        return compile(template, mode);
     },
 
     build: function build(parsedTemplate) {
@@ -55,7 +54,7 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"./blocks":3,"./compiler/compiler":5,"./renderer":12,"./transforms":15,"generate-js":16}],3:[function(require,module,exports){
+},{"./blocks":3,"./compiler":7,"./renderer":13,"./transforms":16,"generate-js":17}],3:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -93,11 +92,11 @@ Blocks.definePrototype({
             if (keys.length) {
                 // TODO: This should be smarter.
 
-                for (var i = _.nodes.length - 1; i >= 0; i--) {
+                for (i = _.nodes.length - 1; i >= 0; i--) {
                     _.nodes[i].remove();
                 }
 
-                for (var i = 0; i < keys.length; i++) {
+                for (i = 0; i < keys.length; i++) {
                     _.createFragment(keys[i]);
                 }
 
@@ -120,11 +119,11 @@ Blocks.definePrototype({
             if (keys.length) {
                 // TODO: This should be smarter.
 
-                for (var i = _.nodes.length - 1; i >= 0; i--) {
+                for (i = _.nodes.length - 1; i >= 0; i--) {
                     _.nodes[i].remove();
                 }
 
-                for (var i = 0; i < keys.length; i++) {
+                for (i = 0; i < keys.length; i++) {
                     _.createFragment(keys[i]);
                 }
 
@@ -138,7 +137,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":16}],4:[function(require,module,exports){
+},{"generate-js":17}],4:[function(require,module,exports){
 function CodeBuffer(str, file) {
     this.reset();
     this._buffer = str;
@@ -300,47 +299,40 @@ var SELF_CLOSEING_TAGS = require('./self-closing-tags');
 var ENTITIES           = require('./html-entities');
 var TYPES              = require('./token-types');
 
+function HTML_IDENTIFIER_START(ch) {
+    return  (0x0041 <= ch && ch <= 0x005a) ||
+            (0x0061 <= ch && ch <= 0x007a);
+}
+
+function HTML_ENTITY(ch) {
+    /* ^[0-9A-Za-z]$ */
+    return  (0x0030 <= ch && ch <= 0x0039) ||
+            (0x0041 <= ch && ch <= 0x005a) ||
+            (0x0061 <= ch && ch <= 0x007a);
+}
 
 function HTML_IDENTIFIER(ch) {
-    /* ^[_A-Za-z0-9-]$ */
-    return (ch === 45) ||
-           (48 <= ch && ch <= 57) ||
-           (65 <= ch && ch <= 90) ||
-           (ch === 95) ||
-           (97 <= ch && ch <= 122);
+    /* ^[0-9A-Z_a-z-]$ */
+    return  ch === 0x002d ||
+            (0x0030 <= ch && ch <= 0x0039) ||
+            (0x0041 <= ch && ch <= 0x005a) ||
+            ch === 0x005f ||
+            (0x0061 <= ch && ch <= 0x007a);
 }
 
 function WHITESPACE(ch) {
     /* ^\s$ */
-    return (9 <= ch && ch <= 13) ||
-            ch === 32 ||
-            ch === 160 ||
-            ch === 5760 ||
-            ch === 6158 ||
-            ch === 8192 ||
-            ch === 8193 ||
-            ch === 8194 ||
-            ch === 8195 ||
-            ch === 8196 ||
-            ch === 8197 ||
-            ch === 8198 ||
-            ch === 8199 ||
-            ch === 8200 ||
-            ch === 8201 ||
-            ch === 8202 ||
-            ch === 8232 ||
-            ch === 8233 ||
-            ch === 8239 ||
-            ch === 8287 ||
-            ch === 12288 ||
-            ch === 65279;
-}
-
-function HTML_ENTITY(ch) {
-    /* ^[A-Za-z0-9]$ */
-    return (48 <= ch && ch <= 57) ||
-           (65 <= ch && ch <= 90) ||
-           (97 <= ch && ch <= 122);
+    return  (0x0009 <= ch && ch <= 0x000d) ||
+            ch === 0x0020 ||
+            ch === 0x00a0 ||
+            ch === 0x1680 ||
+            ch === 0x180e ||
+            (0x2000 <= ch && ch <= 0x200a) ||
+            (0x2028 <= ch && ch <= 0x2029) ||
+            ch === 0x202f ||
+            ch === 0x205f ||
+            ch === 0x3000 ||
+            ch === 0xfeff;
 }
 
 function getHTMLUnEscape(str) {
@@ -349,7 +341,7 @@ function getHTMLUnEscape(str) {
     code = ENTITIES[str.slice(1, -1)];
 
     if (typeof code !== 'number' && str[1] === '#') {
-        code = parseInt( str.slice(2, -1), 10);
+        code = parseInt( str.slice(2, -1), 0x000a);
     }
 
     if (typeof code === 'number' && !isNaN(code)){
@@ -373,8 +365,8 @@ function TEXT(mode, code, tokens, close) {
         ch = code.codePointAt(index);
 
         if (
-            code.codePointAt(index) === 123 /* { */ &&
-            code.codePointAt(index + 1) === 123 /* { */
+            code.codePointAt(index)     === 0x007b /* { */ &&
+            code.codePointAt(index + 1) === 0x007b /* { */
         ) {
             break;
         }
@@ -404,19 +396,19 @@ function HTML_COMMENT(mode, code, tokens, close) {
         comment;
 
     if ( /* <!-- */
-        code.codePointAt(index)   === 60 &&
-        code.codePointAt(++index) === 33 &&
-        code.codePointAt(++index) === 45 &&
-        code.codePointAt(++index) === 45
+        code.codePointAt(index)   === 0x003c &&
+        code.codePointAt(++index) === 0x0021 &&
+        code.codePointAt(++index) === 0x002d &&
+        code.codePointAt(++index) === 0x002d
     ) {
         comment = new Token(code, TYPES.HTML_COMMENT);
         index++;
 
         for (; index < length; index++) {
             if ( /* --> */
-                code.codePointAt(index)     === 45 &&
-                code.codePointAt(index + 1) === 45 &&
-                code.codePointAt(index + 2) === 62
+                code.codePointAt(index)     === 0x002d &&
+                code.codePointAt(index + 1) === 0x002d &&
+                code.codePointAt(index + 2) === 0x003e
             ) {
                 index += 3;
                 code.index = index;
@@ -443,20 +435,29 @@ function HTML_CLOSE_TAG(mode, code, tokens, close) {
         tag;
 
     if ( /* </ */
-        code.codePointAt(index) === 60 &&
-        code.codePointAt(++index) === 47
+        code.codePointAt(index)   === 0x003c &&
+        code.codePointAt(++index) === 0x002f
     ) {
         tag = new Token(code, TYPES.HTML_TAG);
         tag.name = '';
 
         index++;
 
+        if (!HTML_IDENTIFIER_START(code.codePointAt(index))) {
+            code.index = index;
+            throw code.makeError(
+                'Unexpected Token: Expected <[A-Za-z]> but found ' +
+                JSON.stringify(code.charAt(index)) +
+                '.'
+            );
+        }
+
         for (; index < length; index++) {
             ch = code.codePointAt(index);
 
             if (HTML_IDENTIFIER(ch)) {
                 tag.name += code.charAt(index);
-            } else if (ch === 62) { /* > */
+            } else if (ch === 0x003e) { /* > */
                 index++;
                 code.index = index;
                 tag.close(code);
@@ -506,7 +507,7 @@ function HTML_OPEN_TAG(mode, code, tokens, close) {
         length = code.length,
         tag;
     if ( /* < */
-        code.codePointAt(index) === 60
+        code.codePointAt(index) === 0x003c
     ) {
         tag = new Token(code, TYPES.HTML_TAG);
         tag.name = '';
@@ -514,6 +515,15 @@ function HTML_OPEN_TAG(mode, code, tokens, close) {
         tag.nodes = [];
 
         index++;
+
+        if (!HTML_IDENTIFIER_START(code.codePointAt(index))) {
+            code.index = index;
+            throw code.makeError(
+                'Unexpected Token: Expected <[A-Za-z]> but found ' +
+                JSON.stringify(code.charAt(index)) +
+                '.'
+            );
+        }
 
         for (; index < length; index++) {
             ch = code.codePointAt(index);
@@ -586,20 +596,20 @@ function HTML_TEXT(mode, code, tokens, close) {
         ch = code.codePointAt(index);
 
         if (
-            ch === 60 /* < */ ||
-            ch === 123 /* { */ &&
-            code.codePointAt(index + 1) === 123 /* { */
+            ch === 0x003c /* < */ ||
+            ch === 0x007b /* { */ &&
+            code.codePointAt(index + 1) === 0x007b /* { */
         ) {
             text.value += entityStr;
             break;
         }
 
-        if (ch === 38 /* & */) {
+        if (ch === 0x0026 /* & */) {
             isEntity = true;
             entityStr = code.charAt(index);
 
             continue;
-        } else if (isEntity && ch === 59 /* ; */) {
+        } else if (isEntity && ch === 0x003b /* ; */) {
             entityStr += code.charAt(index);
 
             text.value += getHTMLUnEscape(entityStr);
@@ -635,13 +645,13 @@ function HTML_TEXT(mode, code, tokens, close) {
 function HTML_OPEN_TAG_END(mode, code, tokens, close) {
     var ch = code.codePointAt(code.index);
         /* > */
-    if (ch === 62) {
+    if (ch === 0x003e) {
         code.index++;
         close.close(code);
         return true;
     } else if ( /* /> */
-        ch === 47 &&
-        code.codePointAt(code.index + 1) === 62
+        ch === 0x002f &&
+        code.codePointAt(code.index + 1) === 0x003e
     ) {
         code.index += 2;
         close.close(code);
@@ -660,6 +670,10 @@ function HTML_ATTR(mode, code, tokens, close) {
         attr.name = '';
         attr.nodes = [];
 
+    if (!HTML_IDENTIFIER_START(code.codePointAt(index))) {
+        return null;
+    }
+
     for (; index < length; index++) {
 
         if (!HTML_IDENTIFIER(code.codePointAt(index))) {
@@ -671,10 +685,10 @@ function HTML_ATTR(mode, code, tokens, close) {
 
     if (attr.name) {
         /* = */
-        if (code.codePointAt(index) === 61) {
+        if (code.codePointAt(index) === 0x003d) {
             index++;
             /* " */
-            if (code.codePointAt(index) === 34) {
+            if (code.codePointAt(index) === 0x0022) {
                 index++;
                 code.index = index;
 
@@ -710,7 +724,7 @@ function HTML_ATTR(mode, code, tokens, close) {
 //////////
 
 function STRING_END(mode, code, tokens, close) {
-    if (code.codePointAt(code.index) === 34 /* " */) {
+    if (code.codePointAt(code.index) === 0x0022 /* " */) {
         code.index++;
         close.close(code);
         return true;
@@ -730,21 +744,21 @@ function STRING_TEXT(mode, code, tokens, close) {
     for (; index < length; index++) {
         ch = code.codePointAt(index);
 
-        if (ch === 10) {
+        if (ch === 0x000a) {
             code.index = index;
             return null;
         }
 
         if ( /* " but not \" */
-            ch === 34 &&
-            code.codePointAt(index - 1) !== 92
+            ch === 0x0022 &&
+            code.codePointAt(index - 1) !== 0x005c
         ) {
             break;
         }
 
         if ( /* {{ */
-            ch === 123 &&
-            code.codePointAt(index + 1) === 123
+            ch === 0x007b &&
+            code.codePointAt(index + 1) === 0x007b
         ) {
             break;
         }
@@ -789,20 +803,34 @@ function BARS_COMMENT(mode, code, tokens, close) {
         length = code.length,
         comment;
 
+    // if ( /* {{!-- */
+    //     code.codePointAt(index)   === 0x007b &&
+    //     code.codePointAt(++index) === 0x007b &&
+    //     code.codePointAt(++index) === 0x0021 &&
+    //     code.codePointAt(++index) === 0x002d &&
+    //     code.codePointAt(++index) === 0x002d
+    // ) {
     if ( /* {{! */
-        code.codePointAt(index)   === 123 &&
-        code.codePointAt(++index) === 123 &&
-        code.codePointAt(++index) === 33
+        code.codePointAt(index)   === 0x007b &&
+        code.codePointAt(++index) === 0x007b &&
+        code.codePointAt(++index) === 0x0021
     ) {
         comment = new Token(code, TYPES.BARS_COMMENT);
         index++;
 
         for (; index < length; index++) {
+            // if ( /* --}} */
+            //     code.codePointAt(index)     === 0x002d &&
+            //     code.codePointAt(index + 1) === 0x002d &&
+            //     code.codePointAt(index + 2) === 0x007d &&
+            //     code.codePointAt(index + 3) === 0x007d
+            // ) {
             if ( /* }} */
-                code.codePointAt(index) === 125 &&
-                code.codePointAt(index + 1) === 125
+                code.codePointAt(index) === 0x007d &&
+                code.codePointAt(index + 1) === 0x007d
             ) {
-                index += 2;
+                // index += 4; /* for --}} */
+                index += 2; /* for }} */
                 code.index = index;
                 comment.close(code);
 
@@ -827,14 +855,23 @@ function BARS_CLOSE_BLOCK(mode, code, tokens, close) {
         block;
 
     if ( /* {{/ */
-        code.codePointAt(index)   === 123 &&
-        code.codePointAt(++index) === 123 &&
-        code.codePointAt(++index) === 47
+        code.codePointAt(index)   === 0x007b &&
+        code.codePointAt(++index) === 0x007b &&
+        code.codePointAt(++index) === 0x002f
     ) {
         block = new Token(code, TYPES.BARS_BLOCK);
         block.name = '';
 
         index++;
+
+        if (!HTML_IDENTIFIER_START(code.codePointAt(index))) {
+            code.index = index;
+            throw code.makeError(
+                'Unexpected Token: Expected <[A-Za-z]> but found ' +
+                JSON.stringify(code.charAt(index)) +
+                '.'
+            );
+        }
 
         for (; index < length; index++) {
             ch = code.codePointAt(index);
@@ -842,8 +879,8 @@ function BARS_CLOSE_BLOCK(mode, code, tokens, close) {
             if (HTML_IDENTIFIER(ch)) {
                 block.name += code.charAt(index);
             } else if ( /* }} */
-                ch === 125 &&
-                code.codePointAt(index + 1) === 125
+                ch === 0x007d &&
+                code.codePointAt(index + 1) === 0x007d
             ) {
                 index+=2;
                 code.index = index;
@@ -895,14 +932,14 @@ function BARS_ELSE_BLOCK(mode, code, tokens, close) {
         block;
 
     if ( /* {{else}} */
-        code.codePointAt(index)   === 123 &&
-        code.codePointAt(++index) === 123 &&
-        code.codePointAt(++index) === 101 &&
-        code.codePointAt(++index) === 108 &&
-        code.codePointAt(++index) === 115 &&
-        code.codePointAt(++index) === 101 &&
-        code.codePointAt(++index) === 125 &&
-        code.codePointAt(++index) === 125
+        code.codePointAt(index)   === 0x007b &&
+        code.codePointAt(++index) === 0x007b &&
+        code.codePointAt(++index) === 0x0065 &&
+        code.codePointAt(++index) === 0x006c &&
+        code.codePointAt(++index) === 0x0073 &&
+        code.codePointAt(++index) === 0x0065 &&
+        code.codePointAt(++index) === 0x007d &&
+        code.codePointAt(++index) === 0x007d
     ) {
         block = new Token(code, TYPES.BARS_ELSE);
         index++;
@@ -934,15 +971,24 @@ function BARS_OPEN_BLOCK(mode, code, tokens, close) {
         length = code.length,
         block;
     if ( /* {{# */
-        code.codePointAt(index) === 123 &&
-        code.codePointAt(++index) === 123 &&
-        code.codePointAt(++index) === 35
+        code.codePointAt(index)   === 0x007b &&
+        code.codePointAt(++index) === 0x007b &&
+        code.codePointAt(++index) === 0x0023
     ) {
         block = new Token(code, TYPES.BARS_BLOCK);
         block.name = '';
         block.arguments = [];
 
         index++;
+
+        if (!HTML_IDENTIFIER_START(code.codePointAt(index))) {
+            code.index = index;
+            throw code.makeError(
+                'Unexpected Token: Expected <[A-Za-z]> but found ' +
+                JSON.stringify(code.charAt(index)) +
+                '.'
+            );
+        }
 
         for (; index < length; index++) {
             ch = code.codePointAt(index);
@@ -1047,8 +1093,8 @@ function BARS_OPEN_INSERT(mode, code, tokens, close) {
         length = code.length,
         block;
     if ( /* {{ */
-        code.codePointAt(index) === 123 &&
-        code.codePointAt(++index) === 123
+        code.codePointAt(index)   === 0x007b &&
+        code.codePointAt(++index) === 0x007b
     ) {
         block = new Token(code, TYPES.BARS_INSERT);
         block.arguments = [];
@@ -1098,15 +1144,24 @@ function BARS_OPEN_PARTIAL(mode, code, tokens, close) {
         length = code.length,
         block;
     if ( /* {{> */
-        code.codePointAt(index) === 123 &&
-        code.codePointAt(++index) === 123 &&
-        code.codePointAt(++index) === 62
+        code.codePointAt(index)   === 0x007b &&
+        code.codePointAt(++index) === 0x007b &&
+        code.codePointAt(++index) === 0x003e
     ) {
         block = new Token(code, TYPES.BARS_PARTIAL);
         block.name = '';
         block.arguments = [];
 
         index++;
+
+        if (!HTML_IDENTIFIER_START(code.codePointAt(index))) {
+            code.index = index;
+            throw code.makeError(
+                'Unexpected Token: Expected <[A-Za-z]> but found ' +
+                JSON.stringify(code.charAt(index)) +
+                '.'
+            );
+        }
 
         for (; index < length; index++) {
             ch = code.codePointAt(index);
@@ -1158,8 +1213,8 @@ function BARS_OPEN_PARTIAL(mode, code, tokens, close) {
 
 function BARS_LOGIC_END(mode, code, tokens, close) {
     if ( /* }} */
-        code.codePointAt(code.index) === 125 &&
-        code.codePointAt(code.index + 1) === 125
+        code.codePointAt(code.index) === 0x007d &&
+        code.codePointAt(code.index + 1) === 0x007d
     ) {
         code.index += 2;
         close.close(code);
@@ -1175,7 +1230,8 @@ function STRING(mode, code, tokens, close) {
         length = code.length,
         text;
 
-    if (code.codePointAt(index) !== 39) {
+        /* ' */
+    if (code.codePointAt(index) !== 0x0027) {
         return null;
     }
 
@@ -1187,14 +1243,14 @@ function STRING(mode, code, tokens, close) {
     for (; index < length; index++) {
         ch = code.codePointAt(index);
 
-        if (ch === 10) {
+        if (ch === 0x000a) {
             code.index = index;
             return null;
         }
 
         if ( /* ' but not \' */
-            ch === 39 &&
-            code.codePointAt(index - 1) !== 92
+            ch === 0x0027 &&
+            code.codePointAt(index - 1) !== 0x005c
         ) {
             index++;
             break;
@@ -1232,8 +1288,8 @@ function NUMBER(mode, code, tokens, close) {
         Ee;
 
     if (
-        (ch === 45 && 48 <= nextCh && nextCh <= 57) || /* -[0-9] */
-        (48 <= ch && ch <= 57) /* [0-9] */
+        (ch === 0x002d && 0x0030 <= nextCh && nextCh <= 0x0039) || /* -[0-9] */
+        (0x0030 <= ch && ch <= 0x0039) /* [0-9] */
     ) {
         index++;
 
@@ -1242,9 +1298,9 @@ function NUMBER(mode, code, tokens, close) {
         for (; index < length; index++) {
             ch = code.codePointAt(index);
 
-            if (48 <= ch && ch <= 57) {
+            if (0x0030 <= ch && ch <= 0x0039) {
                 continue;
-            } else if (ch === 69 || ch === 101) { /* [Ee] */
+            } else if (ch === 0x0045 || ch === 0x0065) { /* [Ee] */
                 index++;
 
                 ch = code.codePointAt(index);
@@ -1254,10 +1310,10 @@ function NUMBER(mode, code, tokens, close) {
                     Ee ||
                     !(
                         (
-                            (ch === 43 || ch === 45) &&
-                            (48 <= nextCh && nextCh <= 57)
+                            (ch === 0x002b || ch === 0x002d) &&
+                            (0x0030 <= nextCh && nextCh <= 0x0039)
                         ) ||
-                        (48 <= ch && ch <= 57)
+                        (0x0030 <= ch && ch <= 0x0039)
                     )
                 ) {
                     code.index = index - 1;
@@ -1269,13 +1325,13 @@ function NUMBER(mode, code, tokens, close) {
                 }
 
                 Ee = true;
-            } else if (ch === 46) { /* . */
+            } else if (ch === 0x002e) { /* . */
                 index++;
                 ch = code.codePointAt(index);
                 if ( /* [+-]?[0-9] */
                     Ee ||
                     dot ||
-                    !(48 <= ch && ch <= 57)
+                    !(0x0030 <= ch && ch <= 0x0039)
                 ) {
                     code.index = index - 1;
                     throw code.makeError(
@@ -1313,18 +1369,18 @@ function BOOLEAN(mode, code, tokens, close) {
         bool = new Token(code, TYPES.BOOLEAN);
 
     if ( /* true */
-        code.codePointAt(index)   === 116 &&
-        code.codePointAt(++index) === 114 &&
-        code.codePointAt(++index) === 117 &&
-        code.codePointAt(++index) === 101
+        code.codePointAt(index)   === 0x0074 &&
+        code.codePointAt(++index) === 0x0072 &&
+        code.codePointAt(++index) === 0x0075 &&
+        code.codePointAt(++index) === 0x0065
     ) {
         bool.value = true;
     } else if ( /* false */
-        code.codePointAt(index)   === 102 &&
-        code.codePointAt(++index) === 97 &&
-        code.codePointAt(++index) === 108 &&
-        code.codePointAt(++index) === 115 &&
-        code.codePointAt(++index) === 101
+        code.codePointAt(index)   === 0x0066 &&
+        code.codePointAt(++index) === 0x0061 &&
+        code.codePointAt(++index) === 0x006c &&
+        code.codePointAt(++index) === 0x0073 &&
+        code.codePointAt(++index) === 0x0065
     ) {
         bool.value = false;
     } else {
@@ -1348,23 +1404,72 @@ function BOOLEAN(mode, code, tokens, close) {
     return bool;
 }
 
+function NULL(mode, code, tokens, close) {
+    var index = code.index,
+        nul = new Token(code, TYPES.NULL);
+
+    if ( /* true */
+        code.codePointAt(index)   === 0x006e &&
+        code.codePointAt(++index) === 0x0075 &&
+        code.codePointAt(++index) === 0x006c &&
+        code.codePointAt(++index) === 0x006c
+    ) {
+        nul.value = null;
+    } else {
+        return null;
+    }
+
+    index++;
+    code.index = index;
+    nul.close(code);
+
+    if (
+        close &&
+        (
+            close.type === TYPES.UNARY_EXPRESSION ||
+            close.type === TYPES.BINARY_EXPRESSION
+        )
+    ) {
+        close.close(code);
+    }
+
+    return nul;
+}
+
 function INSERT_VAL(mode, code, tokens, close) {
     var index = code.index,
         length = code.length,
         ch = code.codePointAt(index),
         nextCh,
-        value = new Token(code, TYPES.INSERT_VAL),
+        value,
         style,
-        name = ch === 47,
+        name = ch === 0x007e, /* ~ */
         at,
         dot,
-        devider;
+        devider,
+        dotdot;
+
+    if (
+        !HTML_IDENTIFIER_START(ch) &&
+        ch !== 0x007e && /* ~ */
+        ch !== 0x002e && /* . */
+        ch !== 0x0040    /* @ */
+    ) {
+        return null;
+    }
+
+    value = new Token(code, TYPES.INSERT_VAL);
+
+    if (name) {
+        index++;
+    }
 
     for (; index < length; index++) {
         ch = code.codePointAt(index);
         nextCh = code.codePointAt(index + 1);
+
         if (HTML_IDENTIFIER(ch)) {
-            if (dot) {
+            if (dot || dotdot) {
                 code.index = index;
                 throw code.makeError(
                     'Unexpected Token: ' +
@@ -1372,10 +1477,18 @@ function INSERT_VAL(mode, code, tokens, close) {
                     '.'
                 );
             }
+            if (devider && !HTML_IDENTIFIER_START(ch)) {
+                code.index = index;
+                throw code.makeError(
+                    'Unexpected Token: Expected <[A-Za-z]> but found ' +
+                    JSON.stringify(code.charAt(index)) +
+                    '.'
+                );
+            }
             name = true;
             devider = false;
             continue;
-        } else if (!at && ch === 47) { /* / */
+        } else if (!at && ch === 0x002f) { /* / */
             if (dot || style === 0 || devider) {
                 code.index = index;
                 throw code.makeError(
@@ -1385,8 +1498,9 @@ function INSERT_VAL(mode, code, tokens, close) {
                 );
             }
             style = 1;
+            dotdot = false;
             devider = true;
-        } else if (!at && !name && ch === 46 && nextCh === 46) { /* .. */
+        } else if (!at && !name && ch === 0x002e && nextCh === 0x002e) { /* .. */
             index++;
             if (dot || style === 0) {
                 code.index = index;
@@ -1397,8 +1511,9 @@ function INSERT_VAL(mode, code, tokens, close) {
                 );
             }
             style = 1;
+            dotdot = true;
             devider = false;
-        } else if (!at && ch === 46) { /* . */
+        } else if (!at && ch === 0x002e) { /* . */
             if (style === 1 || devider) {
                 code.index = index;
                 throw code.makeError(
@@ -1412,8 +1527,8 @@ function INSERT_VAL(mode, code, tokens, close) {
             if (!name) {
                 dot = true;
             }
-        } else if (ch === 64) { /* @ */
-            if (at || dot) {
+        } else if (ch === 0x0040) { /* @ */
+            if (at || dot || (style = 0 && devider)) {
                 code.index = index;
                 throw code.makeError(
                     'Unexpected Token: ' +
@@ -1464,7 +1579,7 @@ function EXPRESSION(mode, code, tokens, close) {
 
         if (!WHITESPACE(ch)) break;
 
-        if (ch === 10) {
+        if (ch === 0x000a) {
             code.index = index;
             return null;
         }
@@ -1478,39 +1593,39 @@ function EXPRESSION(mode, code, tokens, close) {
     ch3 = code.codePointAt(index + 2);
 
     if ( /* handle BINARY-EXPRESSION */
-        (ch === 61 && ch2 === 61 && ch3 === 61) || /* === */
-        (ch === 33 && ch2 === 61 && ch3 === 61)    /* !== */
+        (ch === 0x003d && ch2 === 0x003d && ch3 === 0x003d) || /* === */
+        (ch === 0x0021 && ch2 === 0x003d && ch3 === 0x003d)    /* !== */
     ) {
         code.index = index;
         expression = new Token(code, TYPES.BINARY_EXPRESSION);
         expression.opperator = code.slice(index, index + 3);
         index += 2;
     } else if ( /* handle BINARY-EXPRESSION */
-        (ch === 61 && ch2 === 61) || /* == */
-        (ch === 33 && ch2 === 61) || /* != */
-        (ch === 60 && ch2 === 61) || /* <= */
-        (ch === 62 && ch2 === 61) || /* >= */
-        (ch === 38 && ch2 === 38) || /* && */
-        (ch === 124 && ch2 === 124)  /* || */
+        (ch === 0x003d && ch2 === 0x003d) || /* == */
+        (ch === 0x0021 && ch2 === 0x003d) || /* != */
+        (ch === 0x003c && ch2 === 0x003d) || /* <= */
+        (ch === 0x003e && ch2 === 0x003d) || /* >= */
+        (ch === 0x0026 && ch2 === 0x0026) || /* && */
+        (ch === 0x007c && ch2 === 0x007c)    /* || */
     ) {
         code.index = index;
         expression = new Token(code, TYPES.BINARY_EXPRESSION);
         expression.opperator = code.slice(index, index + 2);
         index++;
     } else if ( /* handle BINARY-EXPRESSION */
-        (ch === 43) || /* + */
-        (ch === 45) || /* - */
-        (ch === 42) || /* * */
-        (ch === 47) || /* / */
-        (ch === 37) || /* % */
-        (ch === 60) || /* < */
-        (ch === 62)    /* > */
+        (ch === 0x002b) || /* + */
+        (ch === 0x002d) || /* - */
+        (ch === 0x002a) || /* * */
+        (ch === 0x002f) || /* / */
+        (ch === 0x0025) || /* % */
+        (ch === 0x003c) || /* < */
+        (ch === 0x003e)    /* > */
     ) {
         code.index = index;
         expression = new Token(code, TYPES.BINARY_EXPRESSION);
         expression.opperator = code.charAt(index);
     } else if ( /* handle UNARY-EXPRESSION */
-        ch === 33 /* ! */
+        ch === 0x0021 /* ! */
     ) {
         code.index = index;
         expression = new Token(code, TYPES.UNARY_EXPRESSION);
@@ -1575,7 +1690,7 @@ function EXPRESSION(mode, code, tokens, close) {
 
             if (!WHITESPACE(ch)) break;
 
-            if (ch === 10) {
+            if (ch === 0x000a) {
                 code.index = index;
                 return null;
             }
@@ -1652,7 +1767,7 @@ function EXPRESSION(mode, code, tokens, close) {
 
 function TRANSFORM_END(mode, code, tokens, close) {
     if ( /* ) */
-        code.codePointAt(code.index) === 41
+        code.codePointAt(code.index) === 0x0029
     ) {
         code.index++;
         close.close(code);
@@ -1660,7 +1775,7 @@ function TRANSFORM_END(mode, code, tokens, close) {
     }
 
     if ( /* , */
-        code.codePointAt(code.index) === 44
+        code.codePointAt(code.index) === 0x002c
     ) {
         code.index++;
         close.close(code);
@@ -1677,7 +1792,7 @@ function TRANSFORM(mode, code, tokens, close) {
         transform,
         ch = code.codePointAt(index);
 
-    if (ch !== 64) { /* @ */
+    if (ch !== 0x0040) { /* @ */
         return null;
     }
 
@@ -1687,6 +1802,15 @@ function TRANSFORM(mode, code, tokens, close) {
     transform.arguments = [];
 
     index++;
+
+    if (!HTML_IDENTIFIER_START(code.codePointAt(index))) {
+        code.index = index;
+        throw code.makeError(
+            'Unexpected Token: Expected <[A-Za-z]> but found ' +
+            JSON.stringify(code.charAt(index)) +
+            '.'
+        );
+    }
 
     for (; index < length; index++) {
         ch = code.codePointAt(index);
@@ -1699,7 +1823,7 @@ function TRANSFORM(mode, code, tokens, close) {
     }
 
     ch = code.codePointAt(index);
-    if (ch === 40) { /* ( */
+    if (ch === 0x0028) { /* ( */
         index++;
         code.index = index;
         while (code.left) {
@@ -1790,6 +1914,7 @@ var parseTokenFuncs = {
         STRING,
         NUMBER,
         BOOLEAN,
+        NULL,
         TRANSFORM,
         INSERT_VAL,
         EXPRESSION,
@@ -1800,6 +1925,7 @@ var parseTokenFuncs = {
         STRING,
         NUMBER,
         BOOLEAN,
+        NULL,
         TRANSFORM,
         INSERT_VAL,
         EXPRESSION,
@@ -1823,11 +1949,11 @@ function parseTokens(mode, code, tokens, close) {
     loop: while (code.left) {
 
         for (var i = 0; i < parseTokenFuncs[mode].length; i++) {
-            // console.log(
-            //     repeat(' ', parseTokens.level) + mode.green + ' '+
-            //     parseTokenFuncs[mode][i].name + '\n' +
-            //     repeat(' ', parseTokens.level + 1) + bufferSlice(code, 5)
-            // );
+            console.log(
+                repeat(' ', parseTokens.level) + mode.green + ' '+
+                parseTokenFuncs[mode][i].name + '\n' +
+                repeat(' ', parseTokens.level + 1) + bufferSlice(code, 5)
+            );
 
             token = parseTokenFuncs[mode][i](mode, code, tokens, close);
 
@@ -1881,7 +2007,7 @@ function compile (str, file, mode) {
 
 module.exports = compile;
 
-},{"./code-buffer":4,"./html-entities":6,"./self-closing-tags":7,"./token":9,"./token-types":8}],6:[function(require,module,exports){
+},{"./code-buffer":4,"./html-entities":6,"./self-closing-tags":8,"./token":10,"./token-types":9}],6:[function(require,module,exports){
 module.exports={
     "quot":      34,
     "amp":       38,
@@ -1985,6 +2111,9 @@ module.exports={
 }
 
 },{}],7:[function(require,module,exports){
+module.exports = require('./compiler');
+
+},{"./compiler":5}],8:[function(require,module,exports){
 module.exports=[
     "area",
     "base",
@@ -2004,7 +2133,7 @@ module.exports=[
     "wbr"
 ]
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 module.exports={
     "TEXT":              "TEXT",
     "FRAGMENT":          "FRAGMENT",
@@ -2021,13 +2150,14 @@ module.exports={
     "STRING":            "STRING",
     "NUMBER":            "NUMBER",
     "BOOLEAN":           "BOOLEAN",
+    "NULL":              "NULL",
     "INSERT_VAL":        "INSERT-VAL",
     "UNARY_EXPRESSION":  "UNARY-EXPRESSION",
     "BINARY_EXPRESSION": "BINARY-EXPRESSION",
     "TRANSFORM":         "TRANSFORM"
 }
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 
 function Token(code, type) {
 
@@ -2065,7 +2195,7 @@ Token.prototype = {
             };
         }
 
-        // console.log('TOKEN: '+this.type.red+' `' + this.source(code).green.underline+'` at ' + this.loc.start.line+ ':' + this.loc.start.column);
+        console.log('TOKEN: '+this.type.red+' `' + this.source(code).green.underline+'` at ' + this.loc.start.line+ ':' + this.loc.start.column);
     },
     // toJSON: function toJSON() {
     //     return {
@@ -2085,30 +2215,20 @@ Token.prototype = {
 
 module.exports = Token;
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 var Generator = require('generate-js'),
     execute = require('./runtime/execute'),
     Nodes = {},
     ARRAY = [],
     MAP = {
-        'FRAGMENT':          'FRAG',
-        // 'HTML-COMMENT':      '',
-        'HTML-TAG':          'TAG',
-        'HTML-TEXT':         'TEXT',
-        'HTML-ATTR':         'ATTR',
-        'STRING-TEXT':       'TEXT',
-        // 'BARS-COMMENT':      '',
-        'BARS-BLOCK':        'BLOCK',
-        // 'BARS-ELSE':         '',
-        'BARS-INSERT':       'TEXT',
-        'BARS-PARTIAL':      'PARTIAL',
-        // 'STRING':            '',
-        // 'NUMBER':            '',
-        // 'BOOLEAN':           '',
-        // 'INSERT-VAL':        '',
-        // 'UNARY-EXPRESSION':  '',
-        // 'BINARY-EXPRESSION': '',
-        // 'TRANSFORM':         ''
+        'FRAGMENT':     'FRAG',
+        'HTML-TAG':     'TAG',
+        'HTML-TEXT':    'TEXT',
+        'HTML-ATTR':    'ATTR',
+        'STRING-TEXT':  'TEXT',
+        'BARS-BLOCK':   'BLOCK',
+        'BARS-INSERT':  'TEXT',
+        'BARS-PARTIAL': 'PARTIAL'
     };
 
 function parseArgs(args, context) {
@@ -2726,10 +2846,10 @@ Nodes.FRAG.definePrototype({
 
 module.exports = Nodes.FRAG;
 
-},{"./runtime/execute":13,"generate-js":16}],11:[function(require,module,exports){
+},{"./runtime/execute":14,"generate-js":17}],12:[function(require,module,exports){
 module.exports = require('./bars');
 
-},{"./bars":2}],12:[function(require,module,exports){
+},{"./bars":2}],13:[function(require,module,exports){
 var Generator = require('generate-js'),
     Frag = require('./frag');
 
@@ -2751,7 +2871,7 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./frag":10,"generate-js":16}],13:[function(require,module,exports){
+},{"./frag":11,"generate-js":17}],14:[function(require,module,exports){
 var TYPES = require('../compiler/token-types');
 var logic = require('./logic');
 
@@ -2763,7 +2883,8 @@ function execute(syntaxTree, transforms, context) {
         if (
             token.type === TYPES.STRING ||
             token.type === TYPES.NUMBER ||
-            token.type === TYPES.BOOLEAN
+            token.type === TYPES.BOOLEAN ||
+            token.type === TYPES.NULL
         ) {
             result = token.value;
         } else if (
@@ -2779,10 +2900,16 @@ function execute(syntaxTree, transforms, context) {
         } else if (
             token.type === TYPES.BINARY_EXPRESSION
         ) {
-            result = logic[token.opperator](
-                run(token.left),
-                run(token.right)
-            );
+            if (token.opperator === '||') {
+                result = run(token.left) || run(token.right);
+            } else if (token.opperator === '&&') {
+                result = run(token.left) && run(token.right);
+            } else {
+                result = logic[token.opperator](
+                    run(token.left),
+                    run(token.right)
+                );
+            }
         } else if (
             token.type === TYPES.TRANSFORM
         ) {
@@ -2804,7 +2931,7 @@ function execute(syntaxTree, transforms, context) {
 
 module.exports = execute;
 
-},{"../compiler/token-types":8,"./logic":14}],14:[function(require,module,exports){
+},{"../compiler/token-types":9,"./logic":15}],15:[function(require,module,exports){
 /* Arithmetic */
 exports.add      = function add      (a, b) { return a + b; };
 exports.subtract = function subtract (a, b) { return a - b; };
@@ -2854,7 +2981,7 @@ exports.gt = function gt (a, b) { return a > b; };
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Transfrom = Generator.generate(function Transfrom() {});
@@ -2876,7 +3003,7 @@ Transfrom.definePrototype({
 
 module.exports = Transfrom;
 
-},{"generate-js":16}],16:[function(require,module,exports){
+},{"generate-js":17}],17:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong

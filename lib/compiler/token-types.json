@@ -14,6 +14,7 @@
     "STRING":            "STRING",
     "NUMBER":            "NUMBER",
     "BOOLEAN":           "BOOLEAN",
+    "NULL":              "NULL",
     "INSERT_VAL":        "INSERT-VAL",
     "UNARY_EXPRESSION":  "UNARY-EXPRESSION",
     "BINARY_EXPRESSION": "BINARY-EXPRESSION",
