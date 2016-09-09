@@ -803,13 +803,6 @@ function BARS_COMMENT(mode, code, tokens, close) {
         length = code.length,
         comment;
 
-    // if ( /* {{!-- */
-    //     code.codePointAt(index)   === 0x007b &&
-    //     code.codePointAt(++index) === 0x007b &&
-    //     code.codePointAt(++index) === 0x0021 &&
-    //     code.codePointAt(++index) === 0x002d &&
-    //     code.codePointAt(++index) === 0x002d
-    // ) {
     if ( /* {{! */
         code.codePointAt(index)   === 0x007b &&
         code.codePointAt(++index) === 0x007b &&
@@ -819,17 +812,10 @@ function BARS_COMMENT(mode, code, tokens, close) {
         index++;
 
         for (; index < length; index++) {
-            // if ( /* --}} */
-            //     code.codePointAt(index)     === 0x002d &&
-            //     code.codePointAt(index + 1) === 0x002d &&
-            //     code.codePointAt(index + 2) === 0x007d &&
-            //     code.codePointAt(index + 3) === 0x007d
-            // ) {
             if ( /* }} */
                 code.codePointAt(index) === 0x007d &&
                 code.codePointAt(index + 1) === 0x007d
             ) {
-                // index += 4; /* for --}} */
                 index += 2; /* for }} */
                 code.index = index;
                 comment.close(code);
@@ -843,6 +829,48 @@ function BARS_COMMENT(mode, code, tokens, close) {
         throw code.makeError(
             'Unclosed Comment: Expected "}}" to fallow "{{!".',
             3
+        );
+    }
+
+    return null;
+}
+
+function BARS_CODE_COMMENT(mode, code, tokens, close) {
+    var index = code.index,
+        length = code.length,
+        comment;
+
+    if ( /* {{!-- */
+        code.codePointAt(index)   === 0x007b &&
+        code.codePointAt(++index) === 0x007b &&
+        code.codePointAt(++index) === 0x0021 &&
+        code.codePointAt(++index) === 0x002d &&
+        code.codePointAt(++index) === 0x002d
+    ) {
+        comment = new Token(code, TYPES.BARS_COMMENT);
+        comment.more = true;
+        index++;
+
+        for (; index < length; index++) {
+            if ( /* --}} */
+                code.codePointAt(index)     === 0x002d &&
+                code.codePointAt(index + 1) === 0x002d &&
+                code.codePointAt(index + 2) === 0x007d &&
+                code.codePointAt(index + 3) === 0x007d
+            ) {
+                index += 4; /* for --}} */
+                code.index = index;
+                comment.close(code);
+
+                comment.value = comment.source(code);
+
+                return comment;
+            }
+        }
+
+        throw code.makeError(
+            'Unclosed Comment: Expected "--}}" to fallow "{{!--".',
+            5
         );
     }
 
@@ -1872,6 +1900,7 @@ function TRANSFORM(mode, code, tokens, close) {
 var parseTokenFuncs = {
     'TEXT': [
         TEXT,
+        BARS_CODE_COMMENT,
         BARS_COMMENT,
         BARS_CLOSE_BLOCK,
         BARS_ELSE_BLOCK,
@@ -1883,6 +1912,7 @@ var parseTokenFuncs = {
         HTML_COMMENT,
         HTML_CLOSE_TAG,
         HTML_OPEN_TAG,
+        BARS_CODE_COMMENT,
         BARS_COMMENT,
         BARS_CLOSE_BLOCK,
         BARS_ELSE_BLOCK,
@@ -1893,6 +1923,7 @@ var parseTokenFuncs = {
     ],
     'ATTR': [
         HTML_OPEN_TAG_END,
+        BARS_CODE_COMMENT,
         BARS_COMMENT,
         BARS_CLOSE_BLOCK,
         BARS_ELSE_BLOCK,
@@ -1902,6 +1933,7 @@ var parseTokenFuncs = {
     ],
     'VALUE': [
         STRING_END,
+        BARS_CODE_COMMENT,
         BARS_COMMENT,
         BARS_CLOSE_BLOCK,
         BARS_ELSE_BLOCK,
