@@ -18,14 +18,14 @@
 
 {{/<name>}}
 ```
-*context-map not implemented*
+NOTE: *context-map not implemented*
 
 ### Partial - *implemented*
 
 ```handlebars
 {{><name> <arg | context-map>?}}
 ```
-*context-map not implemented*
+NOTE: *context-map not implemented*
 
 ### Insert - *implemented*
 
