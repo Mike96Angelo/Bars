@@ -12,7 +12,7 @@
 ### Block - *implemented*
 
 ```handlebars
-{{#<name> <arg>}}
+{{#<name> <arg> <context-map>?}}
 
 {{else}}
 
@@ -22,7 +22,7 @@
 ### Partial - *implemented*
 
 ```handlebars
-{{><name> <arg>?}}
+{{><name> <arg | context-map>?}}
 ```
 
 ### Insert - *implemented*
@@ -104,4 +104,10 @@ null
 
 ```javascript
 @<transform>(<arg>, <arg>, ...)
+```
+
+## Bars Context Map
+
+```javascript
+<name>=<arg> <name>=<arg> ...
 ```
