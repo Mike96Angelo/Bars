@@ -2,6 +2,9 @@
 <html>
     <head>
         <title>Bars Demo</title>
+        <script id="bars-template-title" type="text/x-handlebars-template">
+            <span>{{@upperCase(title)}}</span>
+        </script>
         <script id="bars-template" type="text/x-handlebars-template">
             <ul>
             {{#each persons}}
@@ -16,7 +19,7 @@
             {{/if}}
             <br>
             <br>
-            <span>{{@upperCase(title)}}</span>
+            {{>title}}
         </script>
         <script src="bars.js"></script>
     </head>
@@ -25,6 +28,7 @@
         <script type="text/javascript">
             var bars = window.Bars.create(),
                 template = document.getElementById('bars-template').innerHTML;
+                templateTitle = document.getElementById('bars-template-title').innerHTML;
 
             window.barsData = {
                persons: [
@@ -35,6 +39,8 @@
                x: 2,
                title: 'The Cat in the Hat'
             };
+
+            bars.registerPartial('title', templateTitle);
 
             window.domFrag = bars.compile(template).render();
             window.domFrag.appendTo(document.getElementById('bars-output'));

@@ -2709,21 +2709,23 @@ Nodes.PARTIAL.definePrototype({
             }
         }
 
-        context = context.getContext('');
+        // context = context.getContext('');
+        //
+        // var newData = {},
+        //     path;
+        //
+        // for (var key in _.arg) {
+        //     path = _.arg[key];
+        //
+        //     if (!path) continue;
+        //     if (path[0] !== '/') path = parentPath(_) + '/' + path;
+        //
+        //     newData[key] = context(path);
+        // }
+        //
+        // _.partial.update(newData);
 
-        var newData = {},
-            path;
-
-        for (var key in _.arg) {
-            path = _.arg[key];
-
-            if (!path) continue;
-            if (path[0] !== '/') path = parentPath(_) + '/' + path;
-
-            newData[key] = context(path);
-        }
-
-        _.partial.update(newData);
+        _.partial.update(execute(_.arg, _.bars.transforms, context));
     },
 
     _elementRemove: function _elementRemove() {
@@ -2958,7 +2960,11 @@ function execute(syntaxTree, transforms, context) {
         return result;
     }
 
-    return run(syntaxTree);
+    if (syntaxTree) {
+        return run(syntaxTree);
+    } else {
+        return context('.');
+    }
 }
 
 module.exports = execute;
