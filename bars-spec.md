@@ -6,7 +6,7 @@
 
 ```handlebars
 {{!<comment>}}
-{{!--<comment>--}}
+{{!--<code-comment>--}}
 ```
 
 ### Block - *implemented*
