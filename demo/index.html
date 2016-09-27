@@ -7,8 +7,8 @@
         </script>
         <script id="bars-template" type="text/x-handlebars-template">
             <ul>
-            {{#each @sbl(persons)}}
-               <li>{{@number(@index) + 1}} - {{name}}</li>
+            {{#each @sort(persons, 'length')}}
+               <li>{{@number(@index) + 1}} - {{.}}</li>
             {{/each}}
             </ul>
 
@@ -32,9 +32,12 @@
 
             window.barsData = {
                persons: [
-                  { name: 'John' },
-                  { name: 'Jane' },
-                  { name: 'Jim' },
+                //   { name: 'John' },
+                //   { name: 'Jane' },
+                //   { name: 'Jim' },
+                'John',
+                'Jane',
+                'Jim'
                ],
                x: 2,
                title: 'The Cat in the Hat'

@@ -2802,7 +2802,16 @@ Context_.definePrototype({
         if (path instanceof Array) {
             splitPath = path;
         } else if (typeof path === 'string') {
-            splitPath = path.split('/');
+            if (path.match(/[/]/)) {
+                splitPath = path.split('/');
+            } else {
+                splitPath = path.split('.');
+            }
+
+            if (!splitPath[0] && !splitPath[1]) {
+                splitPath = ['.'];
+            }
+
             var barsProp = splitPath.pop().split('@');
             if (barsProp[0]) {
                 splitPath.push(barsProp[0]);
@@ -2824,7 +2833,12 @@ Context_.definePrototype({
             return _.parentContext.lookup(splitPath);
         }
 
-        if (splitPath[0] === '.' || splitPath[0] === '~' || splitPath[0] === '..') {
+        if (
+            splitPath[0] === 'this' ||
+            splitPath[0] === '.' ||
+            splitPath[0] === '~' ||
+            splitPath[0] === '..'
+        ) {
             splitPath.shift();
         }
 
@@ -2984,6 +2998,19 @@ Transfrom.definePrototype({
     },
     string: function string(a) {
         return String(a);
+    },
+    sort: function sort(arr, key) {
+        return arr.sort(function (a, b) {
+            if (key) {
+                if (a[key] < b[key]) return -1;
+                if (a[key] > b[key]) return  1;
+                return 0;
+            }
+
+            if (a < b) return -1;
+            if (a > b) return  1;
+            return 0;
+        });
     }
 });
 
