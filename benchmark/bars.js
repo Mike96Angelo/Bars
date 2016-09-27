@@ -3,6 +3,7 @@ module.exports = require('./lib');
 
 },{"./lib":12}],2:[function(require,module,exports){
 var Generator = require('generate-js'),
+    context = require('./runtime/context'),
     compile = require('./compiler'),
     Renderer = require('./renderer'),
     Blocks = require('./blocks'),
@@ -19,6 +20,7 @@ var Bars = Generator.generate(function Bars() {
 });
 
 Bars.definePrototype({
+    context:context,
     compile: function compile(template, mode) {
         var _ = this;
         return _.build( _.parse(template, mode) );
@@ -54,7 +56,7 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"./blocks":3,"./compiler":7,"./renderer":13,"./transforms":16,"generate-js":17}],3:[function(require,module,exports){
+},{"./blocks":3,"./compiler":7,"./renderer":13,"./runtime/context":14,"./transforms":17,"generate-js":18}],3:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -72,7 +74,7 @@ Blocks.definePrototype({
         var _ = this;
 
         if (data && typeof data === 'object') {
-            _.context = _.context.getContext(_.arg.path);
+            _.context = _.context.newContext(data);
 
             return true;
         }
@@ -87,7 +89,7 @@ Blocks.definePrototype({
         if (data && typeof data === 'object') {
             var keys = Object.keys(data);
 
-            _.context = _.context.getContext(_.arg.path);
+            _.context = _.context.newContext(data);
 
             if (keys.length) {
                 // TODO: This should be smarter.
@@ -114,7 +116,7 @@ Blocks.definePrototype({
         if (data && typeof data === 'object') {
             var keys = Object.keys(data).reverse();
 
-            _.context = _.context.getContext(_.arg.path);
+            _.context = _.context.newContext(data);
 
             if (keys.length) {
                 // TODO: This should be smarter.
@@ -137,7 +139,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":17}],4:[function(require,module,exports){
+},{"generate-js":18}],4:[function(require,module,exports){
 function CodeBuffer(str, file) {
     this.reset();
     this._buffer = str;
@@ -2250,6 +2252,7 @@ module.exports = Token;
 },{}],11:[function(require,module,exports){
 var Generator = require('generate-js'),
     execute = require('./runtime/execute'),
+    Context = require('./runtime/context'),
     Nodes = {},
     ARRAY = [],
     MAP = {
@@ -2262,36 +2265,6 @@ var Generator = require('generate-js'),
         'BARS-INSERT':  'TEXT',
         'BARS-PARTIAL': 'PARTIAL'
     };
-
-function parseArgs(args, context) {
-    return args.split(/\s+/).map(function(item) {
-        if (item === 'null') {
-            return null;
-        }
-
-        if (item === 'undefined') {
-            return void(0);
-        }
-
-        if (item === 'true') {
-            return true;
-        }
-
-        if (item === 'false') {
-            return false;
-        }
-
-        if (/("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)')/.test(item)) {
-            return item.slice(1, -1);
-        }
-
-        if (/^\-?\d*\.?\d+$/.test(item)) {
-            return parseFloat(item);
-        }
-
-        return context(item);
-    });
-}
 
 /**
  * [BarsNode description]
@@ -2324,6 +2297,17 @@ BarsNode.definePrototype({
         var _ = this;
 
         _.previousDom = null;
+
+        if (!Context.isCreation(context)) {
+            context = Context.create(context);
+        }
+
+        if (_.path) {
+            context = context.newContext(context.lookup(_.path), {
+                key: _.path,
+                index: _.path
+            });
+        }
 
         _._update(context);
 
@@ -2516,7 +2500,6 @@ Nodes.HTML = BarsNode.generate(function HTMLNode(bars, struct) {
 
     _.defineProperties({
         $el: document.createElement('div'),
-        path: struct.arg
     });
 });
 
@@ -2602,7 +2585,6 @@ Nodes.BLOCK = BarsNode.generate(function BlockNode(bars, struct) {
     var _ = this;
 
     _.supercreate(bars, struct);
-    _.path = _.arg;
 });
 
 Nodes.BLOCK.definePrototype({
@@ -2612,7 +2594,8 @@ Nodes.BLOCK.definePrototype({
         var _ = this,
             frag = Nodes.FRAG.create(_.bars, _.conFrag);
 
-        frag.setPath(path);
+        frag.path = path;
+
         _.appendChild(frag);
     },
 
@@ -2625,6 +2608,7 @@ Nodes.BLOCK.definePrototype({
         if (typeof _.bars.blocks[_.name] === 'function') {
             arg = execute(_.arg, _.bars.transforms, context);
             _.context = context;
+            // console.log('>>>>', arg);
             con = _.bars.blocks[_.name].call(_, arg);
         } else {
             throw new Error('Block helper not found: ' + _.name);
@@ -2682,17 +2666,6 @@ Nodes.PARTIAL = BarsNode.generate(function PartialNode(bars, struct) {
     _.supercreate(bars, struct);
 });
 
-function parentPath(_) {
-    var parent = _,
-        path = [];
-
-    while (parent = parent.parent) {
-        if (parent.path) path.unshift(parent.path);
-    }
-
-    return path.join('/');
-}
-
 Nodes.PARTIAL.definePrototype({
     _update: function _update(context) {
         var _ = this;
@@ -2703,7 +2676,6 @@ Nodes.PARTIAL.definePrototype({
             if (partial && typeof partial === 'object') {
                 _.partial = Nodes.FRAG.create(_.bars, partial.struct);
                 _.partial.parent = _;
-                _.partial.setPath('');
             } else {
                 throw new Error('Partial not found: ' + _.name);
             }
@@ -2761,15 +2733,6 @@ Nodes.FRAG.definePrototype({
     _update: function _update(context) {
         var _ = this;
 
-        if (typeof context !== 'function') {
-            _.data = context;
-            context = _.getContext('');
-        }
-
-        if (_.path) {
-            context = context.getContext(_.path);
-        }
-
         for (var i = 0; i < _.nodes.length; i++) {
             _.nodes[i].update(context);
         }
@@ -2788,99 +2751,12 @@ Nodes.FRAG.definePrototype({
         }
 
         _.$parent = null;
-    },
-
-    getValue: function getValue(value, splitPath) {
-        var _ = this;
-
-        for (var i = 0; i < splitPath.length; i++) {
-            if (splitPath[i] === '@key' || splitPath[i] === '@index') {
-                value = splitPath[i - 1];
-            } else if (value !== null && value !== void(0)) {
-                value = value[splitPath[i]];
-            } else {
-                value = undefined;
-            }
-        }
-
-        return typeof value === 'undefined' ? '' : value;
-    },
-
-    getContext: function getContext(basepath, obj) {
-        var _ = this;
-
-        function context(path) {
-            if (obj) {
-                var newObj = {};
-
-                for (var key in obj) {
-                    newObj[key] = _.getValue(_.data, _.resolve(basepath, obj[key]));
-                }
-
-                return _.resolveObj(newObj, path) || '';
-            }
-
-            return _.getValue(_.data, _.resolve(basepath, path));
-        }
-
-        context.getContext = function getContext(path, obj) {
-            return _.getContext(_.resolve(basepath, path).join('/'), obj);
-        };
-
-        return context;
-    },
-
-    setPath: function setPath(path) {
-        var _ = this;
-
-        if (path) {
-            _.defineProperties({
-                path: path.toString()
-            });
-        }
-    },
-
-    resolve: function resolve(basepath, path) {
-        if (!path) return [];
-
-        var newSplitpath;
-
-        if (path[0] === '~') path = path.replace(/^~/, '/');
-        if (path[0] === '/') {
-            newSplitpath = path.split('/');
-        } else {
-            newSplitpath = basepath.split('/').concat(path.split('/'));
-        }
-
-        for (var i = 0; i < newSplitpath.length; i++) {
-            if (newSplitpath[i] === '.' || newSplitpath[i] === '') {
-                newSplitpath.splice(i, 1);
-                i--;
-            } else if (newSplitpath[i] === '..') {
-                newSplitpath.splice(i - 1, 2);
-                i -= 2;
-            }
-        }
-
-        return newSplitpath;
-    },
-
-    resolveObj: function resolveObj(obj, path) {
-        var _ = this,
-            splat = path.split('/');
-
-        for (var i = 0; i < splat.length; i++) {
-            obj = obj[splat[i]];
-            if (!obj) return;
-        }
-
-        return obj;
-    },
+    }
 });
 
 module.exports = Nodes.FRAG;
 
-},{"./runtime/execute":14,"generate-js":17}],12:[function(require,module,exports){
+},{"./runtime/context":14,"./runtime/execute":15,"generate-js":18}],12:[function(require,module,exports){
 module.exports = require('./bars');
 
 },{"./bars":2}],13:[function(require,module,exports){
@@ -2905,7 +2781,79 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./frag":11,"generate-js":17}],14:[function(require,module,exports){
+},{"./frag":11,"generate-js":18}],14:[function(require,module,exports){
+var Generator = require('generate-js');
+
+var Context_ = Generator.generate(function Context(data, parentContext, barsProps) {
+    var _ = this;
+
+    _.defineProperties({
+        data: data,
+        barsProps: barsProps || {},
+        parentContext: Context_.isCreation(parentContext) ? parentContext : null
+    });
+});
+
+Context_.definePrototype({
+    lookup: function lookup(path) {
+        var _ = this,
+            splitPath;
+
+        if (path instanceof Array) {
+            splitPath = path;
+        } else if (typeof path === 'string') {
+            splitPath = path.split('/');
+            var barsProp = splitPath.pop().split('@');
+            if (barsProp[0]) {
+                splitPath.push(barsProp[0]);
+            }
+            if (barsProp[1]) {
+                splitPath.push('@' + barsProp[1]);
+            }
+        } else {
+            console.log(path)
+            throw 'bad arrgument: expected String | Array<String>.';
+        }
+
+        if (splitPath[0] === '~' && _.parentContext) {
+            return _.parentContext.lookup(splitPath);
+        }
+
+        if (splitPath[0] === '..' && _.parentContext) {
+            splitPath.shift();
+            return _.parentContext.lookup(splitPath);
+        }
+
+        if (splitPath[0] === '.' || splitPath[0] === '~' || splitPath[0] === '..') {
+            splitPath.shift();
+        }
+
+        var value = _.data;
+
+        for (var i = 0; value && i < splitPath.length; i++) {
+
+            if (splitPath[i][0] === '@') {
+                value =  _.barsProps[splitPath[i].slice(1)];
+            } else if (value !== null && value !== void(0)) {
+                value = value[splitPath[i]];
+            } else {
+                value = undefined;
+            }
+        }
+
+        return value;
+    },
+
+    newContext: function newContext(obj, barsProps) {
+        var _ = this;
+
+        return Context_.create(obj, _, barsProps);
+    }
+});
+
+module.exports = Context_;
+
+},{"generate-js":18}],15:[function(require,module,exports){
 var TYPES = require('../compiler/token-types');
 var logic = require('./logic');
 
@@ -2924,7 +2872,7 @@ function execute(syntaxTree, transforms, context) {
         } else if (
             token.type === TYPES.INSERT_VAL
         ) {
-            result = context(token.path);
+            result = context.lookup(token.path);
         } else if (
             token.type === TYPES.UNARY_EXPRESSION
         ) {
@@ -2963,13 +2911,13 @@ function execute(syntaxTree, transforms, context) {
     if (syntaxTree) {
         return run(syntaxTree);
     } else {
-        return context('.');
+        return context.lookup('.');
     }
 }
 
 module.exports = execute;
 
-},{"../compiler/token-types":9,"./logic":15}],15:[function(require,module,exports){
+},{"../compiler/token-types":9,"./logic":16}],16:[function(require,module,exports){
 /* Arithmetic */
 exports.add      = function add      (a, b) { return a + b; };
 exports.subtract = function subtract (a, b) { return a - b; };
@@ -3019,7 +2967,7 @@ exports.gt = function gt (a, b) { return a > b; };
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Transfrom = Generator.generate(function Transfrom() {});
@@ -3041,7 +2989,7 @@ Transfrom.definePrototype({
 
 module.exports = Transfrom;
 
-},{"generate-js":17}],17:[function(require,module,exports){
+},{"generate-js":18}],18:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong

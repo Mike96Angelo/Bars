@@ -7,7 +7,7 @@
         </script>
         <script id="bars-template" type="text/x-handlebars-template">
             <ul>
-            {{#each persons}}
+            {{#each @sbl(persons)}}
                <li>{{@number(@index) + 1}} - {{name}}</li>
             {{/each}}
             </ul>
@@ -41,6 +41,11 @@
             };
 
             bars.registerPartial('title', templateTitle);
+            bars.registerTransform('sbl', function (arr) {
+                return arr.sort(function (a,b){
+                    return a.name.length - b.name.length;
+                });
+            });
 
             window.domFrag = bars.compile(template).render();
             window.domFrag.appendTo(document.getElementById('bars-output'));

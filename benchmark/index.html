@@ -58,7 +58,7 @@
 
             n = Date.now();
             for (var i = 0; i < 100000; i++) {
-                b = bars.compile(template);
+                b = bars.compile(template, null, 'TEXT');
             }
             console.log('bars', Date.now()-n);
 
