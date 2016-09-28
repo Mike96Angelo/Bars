@@ -50,7 +50,7 @@ THE CAT IN THE HAT
 ```
 
 For all features see [Bars Spec](bars-spec.md).
-For demos, tests and benckmarks see [Try Bars](http://mike96angelo.github.io/Bars/).
+For demos, tests and benckmarks see [Try Bars](https://jsfiddle.net/2dtrd36e/9/).
 
 ### Install:
 ```
