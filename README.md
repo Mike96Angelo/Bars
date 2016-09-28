@@ -1,4 +1,4 @@
-# Bars - *Pre-release v0.1.19*
+# Bars - *Pre-release v0.2.0*
 
 Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.
 
@@ -50,7 +50,7 @@ THE CAT IN THE HAT
 ```
 
 For all features see [Bars Spec](bars-spec.md).
-For demos, tests and benckmarks see [Try Bars](http://mike96angelo.github.io/Bars/).
+[Try Bars](http://mike96angelo.github.io/Bars/).
 
 ### Install:
 ```
@@ -61,7 +61,9 @@ $ npm install bars
 
 * [Bars](#bars)
     * [Bars.compile(template)](#compile)
+    * [Bars.registerBlock(name, func)](#register-block)
     * [Bars.registerPartial(name, template)](#register-partial)
+    * [Bars.registerTransform(name, func)](#register-transform)
     * [Class: Fragment](#class-fragment)
         * [Fragment.render()](#frament-render)
     * [Class: DomFrag](#class-dom-frag)
@@ -87,11 +89,32 @@ var frag = bars.compile('<h1>Hello, {{name}}.</h1>');
 
 ```
 
+<a name="register-block"></a>
+## Bars.registerBlock(name, func)
+
+* *name* `String` The name of the partial.
+* *func* `Function` The partial template.
+* *return*: `Bars` *This* [Bars](#bars).
+
+Returns *this* [Bars](#bars).
+
+Example:
+```javascript
+bars.registerPartial('unless', function unlessBlock(con) {
+    return !con;
+});
+
+/**
+ * To use the `unless` block in a template
+ * use this {{#unless <arg>}} {{else}} {{/unless}}.
+ */
+```
+
 <a name="register-partial"></a>
 ## Bars.registerPartial(name, template)
 
 * *name* `String` The name of the partial.
-* *template* `Function` The partial template.
+* *template* `String` The partial template.
 * *return*: `Bars` *This* [Bars](#bars).
 
 Returns *this* [Bars](#bars).
@@ -103,6 +126,27 @@ bars.registerPartial('person', '<h2>{{name}}</h2>{{#if age}} - {{age}}{{/if}}');
 /**
  * To use the `person` partial in another
  * template use this {{>person <arg>}}.
+ */
+```
+
+<a name="register-transform"></a>
+## Bars.registerTransform(name, func)
+
+* *name* `String` The name of the partial.
+* *func* `Function` The partial template.
+* *return*: `Bars` *This* [Bars](#bars).
+
+Returns *this* [Bars](#bars).
+
+Example:
+```javascript
+bars.registerPartial('upperCase', function upperCase(a) {
+    return String(a).toUpperCase();
+});
+
+/**
+ * To use the `upperCase` transform in a
+ * template use this {{@upperCase(<arg>)}}.
  */
 ```
 
