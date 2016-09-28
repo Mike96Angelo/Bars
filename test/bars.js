@@ -94,13 +94,29 @@ Blocks.definePrototype({
             if (keys.length) {
                 // TODO: This should be smarter.
 
-                for (i = _.nodes.length - 1; i >= 0; i--) {
+                // remove extra nodes
+                for (i = _.nodes.length - 1; i >= keys.length; i--) {
                     _.nodes[i].remove();
+                    var r = true;
                 }
 
-                for (i = 0; i < keys.length; i++) {
-                    _.createFragment(keys[i]);
+                // console.log('remove', r, keys.length, _.nodes.length)
+
+                // update node paths
+                for (i = 0; i < keys.length && i < _.nodes.length; i++) {
+                    _.nodes[i].path = keys[i];
+                    var u = true;
                 }
+
+                // console.log('update', u, keys.length, _.nodes.length)
+
+                // add needed nodes
+                for (i = _.nodes.length; i < keys.length; i++) {
+                    _.createFragment(keys[i]);
+                    var a = true;
+                }
+
+                // console.log('add', a, keys.length, _.nodes.length)
 
                 return true;
             }
@@ -121,12 +137,22 @@ Blocks.definePrototype({
             if (keys.length) {
                 // TODO: This should be smarter.
 
-                for (i = _.nodes.length - 1; i >= 0; i--) {
+                // remove extra nodes
+                for (i = _.nodes.length - 1; i >= keys.length; i--) {
                     _.nodes[i].remove();
+                    var r = true;
                 }
 
-                for (i = 0; i < keys.length; i++) {
+                // update node paths
+                for (i = 0; i < keys.length && i < _.nodes.length; i++) {
+                    _.nodes[i].path = keys[i];
+                    var u = true;
+                }
+
+                // add needed nodes
+                for (i = _.nodes.length; i < keys.length; i++) {
                     _.createFragment(keys[i]);
+                    var a = true;
                 }
 
                 return true;
@@ -2820,7 +2846,6 @@ Context_.definePrototype({
                 splitPath.push('@' + barsProp[1]);
             }
         } else {
-            console.log(path)
             throw 'bad arrgument: expected String | Array<String>.';
         }
 
