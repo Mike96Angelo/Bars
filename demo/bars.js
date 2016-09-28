@@ -2810,14 +2810,14 @@ module.exports = Renderer;
 },{"./frag":11,"generate-js":18}],14:[function(require,module,exports){
 var Generator = require('generate-js');
 
-var Context_ = Generator.generate(function Context(data, parentContext, barsProps) {
+var Context_ = Generator.generate(function Context(data, parentContext,
+    barsProps) {
     var _ = this;
 
-    _.defineProperties({
-        data: data,
-        barsProps: barsProps || {},
-        parentContext: Context_.isCreation(parentContext) ? parentContext : null
-    });
+    _.data = data;
+    _.barsProps = barsProps || {};
+    _.parentContext = Context_.isCreation(parentContext) ?
+        parentContext : null;
 });
 
 Context_.definePrototype({
@@ -2838,7 +2838,8 @@ Context_.definePrototype({
                 splitPath = ['.'];
             }
 
-            var barsProp = splitPath.pop().split('@');
+            var barsProp = splitPath.pop()
+                .split('@');
             if (barsProp[0]) {
                 splitPath.push(barsProp[0]);
             }
@@ -2872,7 +2873,7 @@ Context_.definePrototype({
         for (var i = 0; value && i < splitPath.length; i++) {
 
             if (splitPath[i][0] === '@') {
-                value =  _.barsProps[splitPath[i].slice(1)];
+                value = _.barsProps[splitPath[i].slice(1)];
             } else if (value !== null && value !== void(0)) {
                 value = value[splitPath[i]];
             } else {
