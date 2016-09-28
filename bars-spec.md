@@ -21,11 +21,11 @@
 NOTE: *context-map not implemented*
 
 #### Built in Block helpers:
-- if <condition>
-- unless <condition>
-- with <object>
-- each <array | object>
-- reverse <array | object>
+- if `<condition>`
+- unless `<condition>`
+- with `<object>`
+- each `<array | object>`
+- reverse `<array | object>`
 
 ### Partial - *implemented*
 
