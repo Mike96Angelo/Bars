@@ -1,4 +1,4 @@
-# Bars - *Pre-release v0.2.0*
+# Bars - *v0.2.0*
 
 Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.
 
@@ -50,7 +50,7 @@ THE CAT IN THE HAT
 ```
 
 For all features see [Bars Spec](bars-spec.md).
-[Try Bars](http://mike96angelo.github.io/Bars/).
+[Try Bars](https://jsfiddle.net/bba4kk3d/).
 
 ### Install:
 ```
