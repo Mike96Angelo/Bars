@@ -20,6 +20,13 @@
 ```
 NOTE: *context-map not implemented*
 
+#### Built in Block helpers:
+- if <condition>
+- unless <condition>
+- with <object>
+- each <array | object>
+- reverse <array | object>
+
 ### Partial - *implemented*
 
 ```handlebars
@@ -102,11 +109,18 @@ null
 <insert-value>@<property>
 ```
 
-### Bars Transfrom Function - *implemented*
+### Bars Transform Function - *implemented*
 
 ```javascript
 @<transform>(<arg>, <arg>, ...)
 ```
+
+#### Built in Transform functions:
+- number(rag)
+- string(arg)
+- upperCase(str)
+- lowerCase(str)
+- sort(arr[, prop])
 
 ## Bars Context Map
 
