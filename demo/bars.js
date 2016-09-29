@@ -13,17 +13,17 @@ var Bars = Generator.generate(function Bars() {
     var _ = this;
 
     _.defineProperties({
-        blocks: Blocks.create(),
+        blocks: new Blocks(),
         partials: {},
-        transforms: Transform.create()
+        transforms: new Transform()
     });
 });
 
 Bars.definePrototype({
-    context:context,
+    context: context,
     compile: function compile(template, mode) {
         var _ = this;
-        return _.build( _.parse(template, mode) );
+        return _.build(_.parse(template, mode));
     },
 
     parse: function parse(template, mode) {
@@ -32,7 +32,7 @@ Bars.definePrototype({
 
     build: function build(parsedTemplate) {
         var _ = this;
-        return Renderer.create( _, parsedTemplate );
+        return new Renderer(_, parsedTemplate);
     },
 
     registerBlock: function registerBlock(name, block) {
@@ -2325,7 +2325,7 @@ BarsNode.definePrototype({
         _.previousDom = null;
 
         if (!Context.isCreation(context)) {
-            context = Context.create(context);
+            context = new Context(context);
         }
 
         if (_.path) {
@@ -2435,7 +2435,7 @@ BarsNode.definePrototype({
 Nodes.TEXT = BarsNode.generate(function TextNode(bars, struct) {
     var _ = this;
 
-    _.supercreate(bars, struct);
+    BarsNode.call(this, bars, struct);
 
     _.defineProperties({
         $el: document.createTextNode(struct.value)
@@ -2471,7 +2471,7 @@ Nodes.TAG = BarsNode.generate(function TagNode(bars, struct) {
         attrs = struct.attrs || ARRAY,
         i;
 
-    _.supercreate(bars, struct);
+    BarsNode.call(this, bars, struct);
 
     _.defineProperties({
         $el: document.createElement(struct.name),
@@ -2480,12 +2480,12 @@ Nodes.TAG = BarsNode.generate(function TagNode(bars, struct) {
 
     for (i = 0; i < nodes.length; i++) {
         var node = nodes[i];
-        _.appendChild(Nodes[MAP[node.type]].create(bars, node));
+        _.appendChild(new Nodes[MAP[node.type]](bars, node));
     }
 
     for (i = 0; i < attrs.length; i++) {
         var attr = attrs[i];
-        _.addAttr(Nodes[MAP[attr.type]].create(bars, attr));
+        _.addAttr(new Nodes[MAP[attr.type]](bars, attr));
     }
 
 });
@@ -2523,7 +2523,7 @@ Nodes.TAG.definePrototype({
 Nodes.HTML = BarsNode.generate(function HTMLNode(bars, struct) {
     var _ = this;
 
-    _.supercreate(bars, struct);
+    BarsNode.call(this, bars, struct);
 
     _.defineProperties({
         $el: document.createElement('div'),
@@ -2561,7 +2561,7 @@ Nodes.ATTR = BarsNode.generate(function AttrNode(bars, struct) {
     var _ = this,
         nodes = struct.nodes || ARRAY;
 
-    _.supercreate(bars, struct);
+    BarsNode.call(this, bars, struct);
 
     _.defineProperties({
         $el: document.createElement('div'),
@@ -2569,7 +2569,7 @@ Nodes.ATTR = BarsNode.generate(function AttrNode(bars, struct) {
 
     for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
-        _.appendChild(Nodes[MAP[node.type]].create(bars, node));
+        _.appendChild(new Nodes[MAP[node.type]](bars, node));
     }
 });
 
@@ -2611,7 +2611,7 @@ Nodes.ATTR.definePrototype({
 Nodes.BLOCK = BarsNode.generate(function BlockNode(bars, struct) {
     var _ = this;
 
-    _.supercreate(bars, struct);
+    BarsNode.call(this, bars, struct);
 });
 
 Nodes.BLOCK.definePrototype({
@@ -2619,7 +2619,7 @@ Nodes.BLOCK.definePrototype({
 
     createFragment: function createFragment(path) {
         var _ = this,
-            frag = Nodes.FRAG.create(_.bars, _.conFrag);
+            frag = new Nodes.FRAG(_.bars, _.conFrag);
 
         frag.path = path;
 
@@ -2659,7 +2659,7 @@ Nodes.BLOCK.definePrototype({
             }
 
             if (!_.alternate) {
-                _.alternate = Nodes.FRAG.create(_.bars, _.altFrag ||
+                _.alternate = new Nodes.FRAG(_.bars, _.altFrag ||
                     {});
                 _.alternate.parent = _;
             }
@@ -2691,7 +2691,7 @@ Nodes.BLOCK.definePrototype({
 Nodes.PARTIAL = BarsNode.generate(function PartialNode(bars, struct) {
     var _ = this;
 
-    _.supercreate(bars, struct);
+    BarsNode.call(this, bars, struct);
 });
 
 Nodes.PARTIAL.definePrototype({
@@ -2702,7 +2702,7 @@ Nodes.PARTIAL.definePrototype({
             var partial = _.bars.partials[_.name];
 
             if (partial && typeof partial === 'object') {
-                _.partial = Nodes.FRAG.create(_.bars, partial.struct);
+                _.partial = new Nodes.FRAG(_.bars, partial.struct);
                 _.partial.parent = _;
             } else {
                 throw new Error('Partial not found: ' + _.name);
@@ -2748,12 +2748,12 @@ Nodes.FRAG = BarsNode.generate(function FragNode(bars, struct) {
     var _ = this,
         nodes = struct.nodes || ARRAY;
 
-    _.supercreate(bars, struct);
+    BarsNode.call(this, bars, struct);
 
     for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
         if (MAP[node.type])
-            _.appendChild(Nodes[MAP[node.type]].create(bars, node));
+            _.appendChild(new Nodes[MAP[node.type]](bars, node));
     }
 });
 
@@ -2803,7 +2803,7 @@ var Renderer = Generator.generate(function Renderer(bars, struct) {
 Renderer.definePrototype({
     render: function render() {
         var _ = this;
-        return Frag.create(_.bars, _.struct);
+        return new Frag(_.bars, _.struct);
     },
 });
 
@@ -2889,7 +2889,7 @@ Context_.definePrototype({
     newContext: function newContext(obj, barsProps) {
         var _ = this;
 
-        return Context_.create(obj, _, barsProps);
+        return new Context_(obj, _, barsProps);
     }
 });
 
@@ -3051,14 +3051,6 @@ module.exports = Transfrom;
  */
 
 (function GeneratorScope() {
-
-    // Variables
-    var Creation = {},
-        Generation = {},
-        Generator = {};
-
-    // Helper Methods
-
     /**
      * Assert Error function.
      * @param  {Boolean} condition Whether or not to throw error.
@@ -3078,7 +3070,8 @@ module.exports = Transfrom;
     function assertTypeError(test, type) {
         if (typeof test !== type) {
             throw new TypeError('Expected \'' + type +
-                '\' but instead found \'' + typeof test + '\'');
+                '\' but instead found \'' +
+                typeof test + '\'');
         }
     }
 
@@ -3167,184 +3160,151 @@ module.exports = Transfrom;
         return obj;
     }
 
-    // Creation Class
-    defineObjectProperties(
-        Creation, {
-            configurable: false,
-            enumerable: false,
-            writable: false
-        }, {
-            /**
-             * Defines properties on this object.
-             * @param  {Object} descriptor Optional object descriptor that will be applied to all attaching properties.
-             * @param  {Object} properties An object who's properties will be attached to this object.
-             * @return {Object}            This object.
-             */
-            defineProperties: function defineProperties(descriptor,
-                properties) {
-                defineObjectProperties(this, descriptor,
-                    properties);
-                return this;
-            },
 
-            /**
-             * returns the prototype of `this` Creation.
-             * @return {Object} Prototype of `this` Creation.
-             */
-            getProto: function getProto() {
-                return Object.getPrototypeOf(this);
-            },
 
-            /**
-             * returns the prototype of `this` super Creation.
-             * @return {Object} Prototype of `this` super Creation.
-             */
-            getSuper: function getSuper() {
-                return Object.getPrototypeOf(this.generator)
-                    .proto;
-                // return Object.getPrototypeOf(Object.getPrototypeOf(this));
-            }
+    var Creation = {
+        /**
+         * Defines properties on this object.
+         * @param  {Object} descriptor Optional object descriptor that will be applied to all attaching properties.
+         * @param  {Object} properties An object who's properties will be attached to this object.
+         * @return {Object}            This object.
+         */
+        defineProperties: function defineProperties(descriptor,
+            properties) {
+            defineObjectProperties(this, descriptor,
+                properties);
+            return this;
+        },
+
+        /**
+         * returns the prototype of `this` Creation.
+         * @return {Object} Prototype of `this` Creation.
+         */
+        getProto: function getProto() {
+            return Object.getPrototypeOf(this);
+        },
+
+        /**
+         * returns the prototype of `this` super Creation.
+         * @return {Object} Prototype of `this` super Creation.
+         */
+        getSuper: function getSuper() {
+            return Object.getPrototypeOf(this.constructor.prototype);
         }
-    );
+    };
 
-    // Generation Class
-    defineObjectProperties(
-        Generation, {
-            configurable: false,
-            enumerable: false,
-            writable: false
-        }, {
-            name: 'Generation',
+    var Generation = {
+        /**
+         * Returns true if 'generator' was generated by this Generator.
+         * @param  {Generator} generator A Generator.
+         * @return {Boolean}             true or false.
+         */
+        isGeneration: function isGeneration(generator) {
+            assertTypeError(generator, 'function');
 
-            proto: Creation,
+            var _ = this;
 
-            /**
-             * Creates a new instance of this Generator.
-             * @return {Generator} Instance of this Generator.
-             */
-            create: function create() {
-                var _ = this,
-                    newObj = Object.create(_.proto);
+            return _.prototype.isPrototypeOf(generator.prototype);
+        },
 
-                _.__supercreate(newObj, arguments);
+        /**
+         * Returns true if 'object' was created by this Generator.
+         * @param  {Object} object An Object.
+         * @return {Boolean}       true or false.
+         */
+        isCreation: function isCreation(object) {
+            var _ = this;
+            return object instanceof _;
+        },
+        /**
+         * Generates a new generator that inherits from `this` generator.
+         * @param {Generator} ParentGenerator Generator to inherit from.
+         * @param {Function} create           Create method that gets called when creating a new instance of new generator.
+         * @return {Generator}                New Generator that inherits from 'ParentGenerator'.
+         */
+        generate: function generate(construct) {
+            assertTypeError(construct, 'function');
 
-                return newObj;
-            },
+            var _ = this;
 
-            __supercreate: function __supercreate(newObj, args) {
-                var _ = this,
-                    superGenerator = Object.getPrototypeOf(_),
-                    supercreateCalled = false;
-
-                newObj.supercreate = function supercreate() {
-
-                    supercreateCalled = true;
-
-                    if (Generation.isGeneration(superGenerator)) {
-                        superGenerator.__supercreate(newObj,
-                            arguments);
-                    }
-                };
-
-                _.__create.apply(newObj, args);
-
-                if (!supercreateCalled) {
-                    newObj.supercreate();
+            defineObjectProperties(
+                construct, {
+                    configurable: false,
+                    enumerable: false,
+                    writable: false
+                }, {
+                    prototype: Object.create(_.prototype)
                 }
+            );
 
-                delete newObj.supercreate;
-            },
+            defineObjectProperties(
+                construct, {
+                    configurable: false,
+                    enumerable: false,
+                    writable: false
+                },
+                Generation
+            );
 
-            __create: function () {},
+            defineObjectProperties(
+                construct.prototype, {
+                    configurable: false,
+                    enumerable: false,
+                    writable: false
+                }, {
+                    constructor: construct,
+                    generator: construct,
+                }
+            );
 
-            /**
-             * Generates a new generator that inherits from `this` generator.
-             * @param {Generator} ParentGenerator Generator to inherit from.
-             * @param {Function} create           Create method that gets called when creating a new instance of new generator.
-             * @return {Generator}                New Generator that inherits from 'ParentGenerator'.
-             */
-            generate: function generate(create) {
-                var _ = this;
+            return construct;
+        },
 
-                assertError(Generation.isGeneration(_) || _ ===
-                    Generation,
-                    'Cannot call method \'generate\' on non-Generations.'
-                );
-                assertTypeError(create, 'function');
+        /**
+         * Defines shared properties for all objects created by this generator.
+         * @param  {Object} descriptor Optional object descriptor that will be applied to all attaching properties.
+         * @param  {Object} properties An object who's properties will be attached to this generator's prototype.
+         * @return {Generator}         This generator.
+         */
+        definePrototype: function definePrototype(descriptor,
+            properties) {
+            defineObjectProperties(this.prototype,
+                descriptor,
+                properties);
+            return this;
+        }
+    };
 
-                var newGenerator = Object.create(_),
-                    newProto = Object.create(_.proto);
+    function Generator() {}
 
-                defineObjectProperties(
-                    newProto, {
-                        configurable: false,
-                        enumerable: false,
-                        writable: false
-                    }, {
-                        generator: newGenerator
-                    }
-                );
-
-                defineObjectProperties(
-                    newGenerator, {
-                        configurable: false,
-                        enumerable: false,
-                        writable: false
-                    }, {
-                        name: getFunctionName(create),
-                        proto: newProto,
-                        __create: create
-                    }
-                );
-
-                return newGenerator;
-            },
-
-            /**
-             * Returns true if 'generator' was generated by this Generator.
-             * @param  {Generator} generator A Generator.
-             * @return {Boolean}             true or false.
-             */
-            isGeneration: function isGeneration(generator) {
-                var _ = this;
-                return _.isPrototypeOf(generator);
-            },
-
-            /**
-             * Returns true if 'object' was created by this Generator.
-             * @param  {Object} object An Object.
-             * @return {Boolean}       true or false.
-             */
-            isCreation: function isCreation(object) {
-                var _ = this;
-                return _.proto.isPrototypeOf(object);
-            },
-
-            /**
-             * Defines shared properties for all objects created by this generator.
-             * @param  {Object} descriptor Optional object descriptor that will be applied to all attaching properties.
-             * @param  {Object} properties An object who's properties will be attached to this generator's prototype.
-             * @return {Generator}         This generator.
-             */
-            definePrototype: function definePrototype(descriptor,
-                properties) {
-                defineObjectProperties(this.proto, descriptor,
-                    properties);
-                return this;
-            },
-
-            /**
-             * Generator.toString method.
-             * @return {String} A string representation of this generator.
-             */
-            toString: function toString() {
-                return '[' + (this.name || 'generation') +
-                    ' Generator]';
-            }
+    defineObjectProperties(
+        Generator, {
+            configurable: false,
+            enumerable: false,
+            writable: false
+        }, {
+            prototype: Generator.prototype
         }
     );
 
-    // Generator Class Methods
+    defineObjectProperties(
+        Generator.prototype, {
+            configurable: false,
+            enumerable: false,
+            writable: false
+        },
+        Creation
+    );
+
+    defineObjectProperties(
+        Generator, {
+            configurable: false,
+            enumerable: false,
+            writable: false
+        },
+        Generation
+    );
+
     defineObjectProperties(
         Generator, {
             configurable: false,
@@ -3352,48 +3312,56 @@ module.exports = Transfrom;
             writable: false
         }, {
             /**
-             * Generates a new generator that inherits from `this` generator.
-             * @param {Generator} ParentGenerator Generator to inherit from.
-             * @param {Function} create           Create method that gets called when creating a new instance of new generator.
-             * @return {Generator}                New Generator that inherits from 'ParentGenerator'.
-             */
-            generate: function generate(create) {
-                return Generation.generate(create);
-            },
-
-            /**
              * Returns true if 'generator' was generated by this Generator.
              * @param  {Generator} generator A Generator.
              * @return {Boolean}             true or false.
              */
             isGenerator: function isGenerator(generator) {
-                return Generation.isGeneration(generator);
+                return this.isGeneration(generator);
             },
 
             /**
-             * [toGenerator description]
-             * @param  {Function} constructor A constructor function.
-             * @return {Generator}            A new generator who's create method is `constructor` and inherits from `constructor.prototype`.
+             * Generates a new generator that inherits from `this` generator.
+             * @param {Generator} ParentGenerator Generator to inherit from.
+             * @param {Function} create           Create method that gets called when creating a new instance of new generator.
+             * @return {Generator}                New Generator that inherits from 'ParentGenerator'.
              */
-            toGenerator: function toGenerator(constructor) {
-
-                assertTypeError(constructor, 'function');
-
-                var newGenerator = Object.create(Generation),
-                    newProto = Object.create(constructor.prototype);
+            toGenerator: function toGenerator(extendFrom, create) {
+                assertTypeError(extendFrom, 'function');
+                assertTypeError(create, 'function');
 
                 defineObjectProperties(
-                    newProto, {
+                    create, {
                         configurable: false,
                         enumerable: false,
                         writable: false
                     }, {
-                        generator: newGenerator
+                        prototype: Object.create(extendFrom.prototype),
                     }
                 );
 
                 defineObjectProperties(
-                    newProto, {
+                    create, {
+                        configurable: false,
+                        enumerable: false,
+                        writable: false
+                    },
+                    Generation
+                );
+
+                defineObjectProperties(
+                    create.prototype, {
+                        configurable: false,
+                        enumerable: false,
+                        writable: false
+                    }, {
+                        constructor: construct,
+                        generator: construct,
+                    }
+                );
+
+                defineObjectProperties(
+                    create.prototype, {
                         configurable: false,
                         enumerable: false,
                         writable: false
@@ -3401,26 +3369,13 @@ module.exports = Transfrom;
                     Creation
                 );
 
-                defineObjectProperties(
-                    newGenerator, {
-                        configurable: false,
-                        enumerable: false,
-                        writable: false
-                    }, {
-                        name: getFunctionName(constructor),
-                        proto: newProto,
-                        __create: constructor
-                    }
-                );
-
-                return newGenerator;
+                return create;
             }
         }
     );
 
-    Object.freeze(Creation);
-    Object.freeze(Generation);
     Object.freeze(Generator);
+    Object.freeze(Generator.prototype);
 
     // Exports
     if (typeof define === 'function' && define.amd) {
