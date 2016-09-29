@@ -2325,7 +2325,7 @@ BarsNode.definePrototype({
         _.previousDom = null;
 
         if (!Context.isCreation(context)) {
-            context = new Context(context);
+            context = Context.create(context);
         }
 
         if (_.path) {
