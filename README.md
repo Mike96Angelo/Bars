@@ -1,4 +1,4 @@
-# Bars - *v0.2.0*
+# Bars - *v0.3.0*
 
 Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.
 
