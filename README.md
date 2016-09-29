@@ -51,7 +51,7 @@ THE CAT IN THE HAT
 
 For all features see [Bars Spec](bars-spec.md).
 * [Try Bars](https://jsfiddle.net/bba4kk3d/).
-* [Benchmark](http://jsfiddle.net/yE9Z9/91/).
+* [Benchmark](http://jsfiddle.net/yE9Z9/92/).
 
 ### Install:
 ```
@@ -84,7 +84,7 @@ Returns a new [Fragment](#class-fragment).
 
 Example:
 ```javascript
-var bars = Bars.create();
+var bars = new Bars();
 
 var frag = bars.compile('<h1>Hello, {{name}}.</h1>');
 
