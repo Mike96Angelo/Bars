@@ -1,0 +1,17 @@
+{
+  "name": "Bars",
+  "main": "src/bars.min.js",
+  "version": "0.3.3",
+  "homepage": "https://github.com/Mike96Angelo/Bars",
+  "authors": [
+    "Michaelangelo Jong <mike96jong@gmail.com>"
+  ],
+  "description": "Bars is a light weight high performance templating system.",
+  "keywords": [
+    "bars",
+    "template",
+    "templating",
+    "html"
+  ],
+  "license": "MIT"
+}
