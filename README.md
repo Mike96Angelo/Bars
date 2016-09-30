@@ -9,6 +9,10 @@ Bars is a light weight high performance templating system.  Bars emits DOM rathe
 | handlebars.min.js |   73 KB   |      14 KB   | DOM-strings |
 | ember.min.js      |  419 KB   |     173 KB   | DOM         |
 
+
+* [Try Bars](https://jsfiddle.net/bba4kk3d/1/).
+* [Benchmark](http://jsfiddle.net/yE9Z9/92/).
+
 # What Bars Looks Like
 
 ### Bars:
@@ -57,8 +61,6 @@ THE CAT IN THE HAT
 ```
 
 For all features see [Bars Spec](bars-spec.md).
-* [Try Bars](https://jsfiddle.net/bba4kk3d/1/).
-* [Benchmark](http://jsfiddle.net/yE9Z9/92/).
 
 ### Install:
 ```
