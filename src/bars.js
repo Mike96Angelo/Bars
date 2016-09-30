@@ -2786,7 +2786,7 @@ Nodes.FRAG.definePrototype({
         for (var i = 0; i < _.nodes.length; i++) {
             _.nodes[i].update(_.context);
         }
-        // _.context.data = null;
+        _.context.data = null;
     },
 
     _elementAppendTo: function _elementAppendTo(parent) {
