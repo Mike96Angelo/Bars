@@ -1,7 +1,7 @@
 {
-  "name": "Bars",
-  "main": "src/bars.min.js",
-  "version": "0.3.3",
+  "name": "bars",
+  "main": "src/bars.js",
+  "version": "0.3.4",
   "homepage": "https://github.com/Mike96Angelo/Bars",
   "authors": [
     "Michaelangelo Jong <mike96jong@gmail.com>"
