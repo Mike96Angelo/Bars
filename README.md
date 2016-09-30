@@ -1,6 +1,13 @@
 # Bars - *v0.3.2*
 
-Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.
+Bars is a Light weight high performance templating system.  Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen.
+
+| Library           |   Size | Runtime Size | Emits       |
+|:------------------|-------:|-------------:|:------------|
+| mustache.min.js   |  10 KB |        10 KB | DOM-strings |
+| bars.min.js       |  35 KB |        15 KB | DOM         |
+| handlebars.min.js |  73 KB |        14 KB | DOM-strings |
+| ember.min.js      | 419 KB |       173 KB | DOM         |
 
 # What Bars Looks Like
 

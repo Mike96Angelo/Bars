@@ -3,9 +3,11 @@ var browserify = require('browserify'),
     source = require('vinyl-source-stream'),
     buffer = require('vinyl-buffer');
 
-gulp.task('js', function() {
+var minify = require('gulp-minify');
+
+gulp.task('package', function () {
     var b = browserify({
-        entries: 'index.js'
+        entries: 'lib/bars.js'
     });
 
     return b.bundle()
@@ -14,11 +16,34 @@ gulp.task('js', function() {
         .pipe(gulp.dest('./src'))
         .pipe(gulp.dest('./demo'))
         .pipe(gulp.dest('./benchmark'))
-        .pipe(gulp.dest('./test'));
+        .pipe(gulp.dest('./test'))
+        .pipe(minify({
+            ext: {
+                min: '.min.js'
+            }
+        }))
+        .pipe(gulp.dest('./src'));
 });
 
-gulp.task('watch', ['default'], function(){
-    gulp.watch(['./**/*'], ['js']);
+gulp.task('runtime', function () {
+    var b = browserify({
+        entries: 'lib/bars-runtime.js'
+    });
+
+    return b.bundle()
+        .pipe(source('bars-runtime.js'))
+        .pipe(buffer())
+        .pipe(gulp.dest('./src'))
+        .pipe(minify({
+            ext: {
+                min: '.min.js'
+            }
+        }))
+        .pipe(gulp.dest('./src'));
 });
 
-gulp.task('default', ['js']);
+gulp.task('watch', ['default'], function () {
+    gulp.watch(['./lib/**/*'], ['js']);
+});
+
+gulp.task('default', ['package', 'runtime']);

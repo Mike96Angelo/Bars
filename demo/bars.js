@@ -1,10 +1,5 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-module.exports = require('./lib');
-
-},{"./lib":12}],2:[function(require,module,exports){
 var Generator = require('generate-js'),
-    context = require('./runtime/context'),
-    compile = require('./compiler'),
     Renderer = require('./renderer'),
     Blocks = require('./blocks'),
     Transform = require('./transforms');
@@ -20,16 +15,6 @@ var Bars = Generator.generate(function Bars() {
 });
 
 Bars.definePrototype({
-    context: context,
-    compile: function compile(template, mode) {
-        var _ = this;
-        return _.build(_.parse(template, mode));
-    },
-
-    parse: function parse(template, mode) {
-        return compile(template, mode);
-    },
-
     build: function build(parsedTemplate) {
         var _ = this;
         return new Renderer(_, parsedTemplate);
@@ -56,7 +41,23 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"./blocks":3,"./compiler":7,"./renderer":13,"./runtime/context":14,"./transforms":17,"generate-js":18}],3:[function(require,module,exports){
+},{"./blocks":3,"./renderer":12,"./transforms":16,"generate-js":17}],2:[function(require,module,exports){
+var Bars = require('./bars-runtime'),
+    compile = require('./compiler');
+
+
+Bars.definePrototype({
+    compile: function compile(template, mode) {
+        var _ = this;
+        return _.build(_.parse(template, mode));
+    },
+
+    parse: function parse(template, mode) {
+        return compile(template, mode);
+    }
+});
+
+},{"./bars-runtime":1,"./compiler":7}],3:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -167,7 +168,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":18}],4:[function(require,module,exports){
+},{"generate-js":17}],4:[function(require,module,exports){
 function CodeBuffer(str, file) {
     this.reset();
     this._buffer = str;
@@ -2807,10 +2808,7 @@ Nodes.FRAG.definePrototype({
 
 module.exports = Nodes.FRAG;
 
-},{"./compiler/token-types":9,"./runtime/context":14,"./runtime/execute":15,"generate-js":18}],12:[function(require,module,exports){
-module.exports = require('./bars');
-
-},{"./bars":2}],13:[function(require,module,exports){
+},{"./compiler/token-types":9,"./runtime/context":13,"./runtime/execute":14,"generate-js":17}],12:[function(require,module,exports){
 var Generator = require('generate-js'),
     Frag = require('./frag');
 
@@ -2832,7 +2830,7 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./frag":11,"generate-js":18}],14:[function(require,module,exports){
+},{"./frag":11,"generate-js":17}],13:[function(require,module,exports){
 var Generator = require('generate-js');
 
 function pathResolver(base, path) {
@@ -2995,7 +2993,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":18}],15:[function(require,module,exports){
+},{"generate-js":17}],14:[function(require,module,exports){
 var TYPES = require('../compiler/token-types');
 var logic = require('./logic');
 
@@ -3063,7 +3061,7 @@ function execute(syntaxTree, transforms, context) {
 
 module.exports = execute;
 
-},{"../compiler/token-types":9,"./logic":16}],16:[function(require,module,exports){
+},{"../compiler/token-types":9,"./logic":15}],15:[function(require,module,exports){
 /* Arithmetic */
 exports.add      = function add      (a, b) { return a + b; };
 exports.subtract = function subtract (a, b) { return a - b; };
@@ -3113,7 +3111,7 @@ exports.gt = function gt (a, b) { return a > b; };
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
 
-},{}],17:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Transfrom = Generator.generate(function Transfrom() {});
@@ -3153,7 +3151,7 @@ Transfrom.definePrototype({
 
 module.exports = Transfrom;
 
-},{"generate-js":18}],18:[function(require,module,exports){
+},{"generate-js":17}],17:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -3502,4 +3500,4 @@ module.exports = Transfrom;
 
 }());
 
-},{}]},{},[1]);
+},{}]},{},[2]);
