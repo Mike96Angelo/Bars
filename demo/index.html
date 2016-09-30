@@ -8,7 +8,7 @@
         <script id="bars-template" type="text/x-handlebars-template">
             <ul>
             {{#each @sort(persons, 'length')}}
-               <li>{{@number(@index) + 1}} - {{.}}<input type="text" /></li>
+               <li>{{@number(@log(@index)) + 1}} - {{.}}<input type="text" /></li>
             {{/each}}
             </ul>
 
