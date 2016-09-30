@@ -32,134 +32,246 @@
             }
         </script>
         <script type="text/javascript">
-            var bars = window.Bars.create(),
+            var bars = new Bars(),
                 barsOut = document.getElementById('bars-output');
 
-            test('Empty Undefined', function() {
-                var template = '{{a}} : {{b}} : {{c}} : {{d}} : {{e/f}}';
+                test('Bars Insert', function() {
+                    var template = '{{name}}';
 
-                domFrag = bars.compile(template).render();
-                domFrag.appendTo(barsOut);
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
 
-                domFrag.update({ a: undefined, b: null, c: void(0), d: 0 });
-            }, ' :  :  : 0 : ');
+                    domFrag.update({ name: 'dallas' });
+                }, 'dallas');
 
-            test('Bars Transfrom', function() {
-                var template = '{{@upperCase(name)}} - {{@lowerCase(name)}}';
+                test('Bars Block - if', function() {
+                    var template = '{{#if name}}{{name}}{{else}}no its {{name}}{{/if}}';
 
-                domFrag = bars.compile(template).render();
-                domFrag.appendTo(barsOut);
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
 
-                domFrag.update({ name: 'John'});
-            }, 'JOHN - john');
+                    domFrag.update({ name: 'dallas' });
+                }, 'dallas');
 
-            test('Loops In Loops', function() {
-                var template = '{{#each a}}{{#each b}}{{.}}{{/each}}{{/each}}';
+                test('Bars Block - if else', function() {
+                    var template = '{{#if name == \'mike\'}}{{name}}{{else}}no its {{name}}{{/if}}';
 
-                domFrag = bars.compile(template).render();
-                domFrag.appendTo(barsOut);
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
 
-                domFrag.update({ a: { 0: { b: { 0: 'a', 1: 'b', 2: 'c' } }, 1: { b: { 0: 'a', 1: 'b', 2: 'c' } }, 2: { b: { 0: 'a', 1: 'b', 2: 'c' } }, 3: { b: { 0: 'a', 1: 'b', 2: 'c' } } } });
-            }, 'abcabcabcabc');
+                    domFrag.update({ name: 'dallas' });
+                }, 'no its dallas');
 
-            test('Array Update', function() {
-                var cats = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }],
-                    template = '<ul>{{#each cats}}<li>{{name}}</li>{{/each}}</ul>',
-                    data = { cats: cats };
+                test('Bars Block - if @key', function() {
+                    var template = '{{#if name}}{{@key}}{{else}}no its {{name}}{{/if}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({ name: 'dallas' });
+                }, '');
+
+                test('Bars Block - with', function() {
+                    var template = '{{#with test}}{{name}}{{else}}no{{/with}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: { name: 'dallas' }});
+                }, 'dallas');
+
+                test('Bars Block - with else', function() {
+                    var template = '{{#with ko}}{{name}}{{else}}no{{/with}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: { name: 'dallas' }});
+                }, 'no');
+
+                test('Bars Block - with @key', function() {
+                    var template = '{{#with test}}{{@key}}{{else}}no{{/with}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: { name: 'dallas' }});
+                }, 'test');
+
+                test('Bars Block - each', function() {
+                    var template = '{{#each test}}{{name}}{{else}}no{{/each}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: [{ name: 'dallas' },{ name: 'mike' }]});
+                }, 'dallasmike');
+
+                test('Bars Block - each else', function() {
+                    var template = '{{#each ko}}{{name}} {{else}}no{{/each}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: [{ name: 'dallas' },{ name: 'mike' }]});
+                }, 'no');
+
+                test('Bars Block - each @key', function() {
+                    var template = '{{#each test}}{{@key}}{{else}}no{{/each}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: [{ name: 'dallas' },{ name: 'mike' }]});
+                }, '01');
+
+                test('Bars Block - each object @key', function() {
+                    var template = '{{#each test}}{{@key}}{{else}}no{{/each}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: { name1: 'dallas',  name2: 'mike' }});
+                }, 'name1name2');
 
 
-                domFrag = bars.compile(template).render();
-                domFrag.appendTo(barsOut);
+                test('Bars Block - if in if', function() {
+                    var template = '{{#if name == \'dallas\'}}{{name}} {{#if name}}{{name}}{{else}}no{{/if}}{{else}}no{{/if}}';
 
-                domFrag.update(data);
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
 
-                delete cats[1];
-                delete cats[3];
+                    domFrag.update({ name: 'dallas' });
+                }, 'dallas dallas');
 
-                domFrag.update(data);
-            }, '<ul><li>A</li><li>C</li></ul>');
+                test('Bars Block - with in if', function() {
+                    var template = '{{#if true}}{{#with test}}{{name}}{{else}}no{{/with}}{{/if}}';
 
-            test('Insert Logic', function() {
-                var template = '{{a - 1}} : {{\'test\' + b}} : {{c * 3}} : {{d / b}} : {{ !e/f}}';
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
 
-                domFrag = bars.compile(template).render();
-                domFrag.appendTo(barsOut);
+                    domFrag.update({test: { name: 'dallas' }});
+                }, 'dallas');
 
-                domFrag.update({ a: 1, b: 2, c: 3, d: 4 });
-            }, '0 : test2 : 9 : 2 : true');
 
-            test('Bars If', function() {
-                var template = '{{#if a < 2}}true{{else}}false{{/if}}';
+                test('Bars Block - each in if', function() {
+                    var template = '{{#if test}}{{#each test}}{{name}}{{else}}no{{/each}}{{/if}}';
 
-                domFrag = bars.compile(template).render();
-                domFrag.appendTo(barsOut);
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
 
-                domFrag.update({ a: 1, b: 2, c: 3, d: 4 });
-            }, 'true');
+                    domFrag.update({test: [{ name: 'dallas' },{ name: 'mike' }]});
+                }, 'dallasmike');
 
-            test('Bars Insert Property', function() {
-                var template = '{{#each a}}{{@number(@index) + 1}}{{/each}}';
 
-                domFrag = bars.compile(template).render();
-                domFrag.appendTo(barsOut);
 
-                domFrag.update({ a: [1,2,3,4,5]});
-            }, '12345');
+                test('Bars Block - if in with', function() {
+                    var template = '{{#with this}}{{name}} {{#if name}}{{name}}{{else}}no{{/if}}{{else}}no{{/with}}';
 
-            // test('Partial Variables', function() {
-            //     bars.registerPartial('partialVariables', 'My name is {{a/first}}{{a/last}}.');
-            //     var template = '{{>partialVariables a=me/name}}';
-            //     domFrag = bars.compile(template).render();
-            //     domFrag.appendTo(barsOut);
-            //     domFrag.update({ me: { name: { first: 'D', last: 'R' } } });
-            // }, 'My name is DR.');
-            //
-            // test('Partial Variables', function() {
-            //     var template = '{{#each people}}{{>partialVariables root=/people fullName=name initial=name/initial}}{{/each}}',
-            //         people = [{ name: { first: 'O', initial: 'D', last: 'R' } }];
-            //
-            //     bars.registerPartial('partialVariables', '{{root/length}} People - My name is {{fullName/first}}{{initial}}{{fullName/last}}.');
-            //
-            //     domFrag = bars.compile(template).render();
-            //     domFrag.appendTo(barsOut);
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
 
-            //     domFrag.update({ people: [1] });
-            //     domFrag.update({ people: people });
-            // }, '1 People - My name is ODR.');
-            //
-            // test('Helper in Partial', function() {
-            //     var template = '{{>p name=name}}';
-            //
-            //     bars.registerPartial('p', '{{?count name}}');
-            //     bars.registerHelper('count', function(str) { return str.length; });
-            //
-            //     domFrag = bars.compile(template).render();
-            //     domFrag.appendTo(barsOut);
+                    domFrag.update({ name: 'dallas' });
+                }, 'dallas dallas');
 
-            //     domFrag.update({ name: 'dallas' });
-            // }, '6');
-            //
-            // test('Partial With No Variables', function() {
-            //     var template = '{{>part}}';
-            //
-            //     bars.registerPartial('part', '{{name}}');
-            //
-            //     domFrag = bars.compile(template).render();
-            //     domFrag.appendTo(barsOut);
+                test('Bars Block - if in with @key', function() {
+                    var template = '{{#with test}}{{name}} {{#if name}}{{@key}}{{else}}no{{/if}}{{else}}no{{/with}}';
 
-            //     domFrag.update({ name: 'dallas' });
-            // }, 'PARTIAL');
-            //
-            // test('HTML Escape', function() {
-            //     var template = '{{#if a}}{{{a}}}{{/if}}';
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
 
-            //     domFrag = bars.compile(template).render();
-            //     domFrag.appendTo(barsOut);
+                    domFrag.update({test: { name: 'dallas' }});
+                }, 'dallas test');
 
-            //     domFrag.update({ a: '<h1>This is an H1 tag!</h1>' });
-            //     domFrag.update({});
-            //     domFrag.update({ a: '<h3>This is an H3 tag!</h3>' });
-            // }, '<h3>This is an H3 tag!</h3>');
+                test('Bars Block - if in each', function() {
+                    var template = '{{#each test}}{{@log(@key)}}{{#if name}}{{name}}{{else}}no{{/if}}{{/each}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({
+                        test: [
+                            { name: 'dallas' },
+                            { name: 'mike' }
+                        ]
+                    });
+                    console.log(domFrag);
+                }, 'dallasmike');
+
+                test('Bars Block - with in each', function() {
+                    var template = '{{#each test}}{{#with this}}{{name}}{{else}}no{{/with}}{{/each}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: [{ name: 'dallas' },{ name: 'mike' }]});
+                }, 'dallasmike');
+
+                test('Bars Block - each in each', function() {
+                    var template = '{{#each test}}{{#each test}}{{name}}{{else}}no{{/each}}{{else}}no{{/each}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: [{test: [{ name: 'dallas' },{ name: 'mike' }]},{test: [{ name: 'dallas' },{ name: 'mike' }]}]});
+                }, 'dallasmikedallasmike');
+
+                test('Bars Block - with in with', function() {
+                    var template = '{{#with test}}{{#with this}}{{name}}{{else}}no{{/with}}{{/with}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: { name: 'dallas' }});
+                }, 'dallas');
+
+                test('Bars Block - each in with', function() {
+                    var template = '{{#with test}}{{#each this}}{{name}}{{else}}no{{/each}}{{/with}}';
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({test: [{ name: 'dallas' },{ name: 'mike' }]});
+                }, 'dallasmike');
+
+                test('Bars Partial', function() {
+                    var template = '{{>part}}';
+
+                    bars.registerPartial('part', '{{name}}');
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({ name: 'dallas' , child: {name: 'bob'}});
+                    console.log(domFrag);
+                }, 'dallas');
+
+                test('Bars Partial - Partial in Partial', function() {
+                    var template = '{{>part}}';
+
+                    bars.registerPartial('part', '{{name}}{{#if child}}{{>part child}}{{/if}}');
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({ name: 'dallas' , child: {name: 'bob'}});
+                    console.log(domFrag);
+                }, 'dallasbob');
+
+                test('Bars Partial - Partial in Partial @key', function() {
+                    var template = '{{>part}}';
+
+                    bars.registerPartial('part', '{{@key}}{{#if child}}{{>part child}}{{/if}}');
+
+                    domFrag = bars.compile(template).render();
+                    domFrag.appendTo(barsOut);
+
+                    domFrag.update({ name: 'dallas' , child: {name: 'bob'}});
+                    console.log(domFrag);
+                }, 'child');
+
+
+
 
             /*
              * now open you Inspector

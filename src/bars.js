@@ -74,7 +74,14 @@ Blocks.definePrototype({
         var _ = this;
 
         if (data && typeof data === 'object') {
-            _.node[0].context.data = data;
+            if (!_.nodes[0]) {
+                var frag = _.createFragment();
+
+                var newPath = _.path.slice();
+
+                frag.context.path = newPath;
+            }
+            _.nodes[0].context.data = data;
 
             return true;
         }
@@ -104,7 +111,11 @@ Blocks.definePrototype({
 
                 // update node paths
                 for (i = 0; i < keys.length; i++) {
-                    // _.nodes[i].context.path = keys[i];
+                    var newPath = _.path.slice();
+
+                    newPath.push(keys[i]);
+
+                    _.nodes[i].context.path = newPath;
                     _.nodes[i].context.data = data[keys[i]];
                 }
 
@@ -138,7 +149,11 @@ Blocks.definePrototype({
 
                 // update node paths
                 for (i = 0; i < keys.length; i++) {
-                    _.nodes[i].context.path = keys[i];
+                    var newPath = _.path.slice();
+
+                    newPath.push(keys[i]);
+
+                    _.nodes[i].context.path = newPath;
                     _.nodes[i].context.data = data[keys[i]];
                 }
 
@@ -2624,11 +2639,9 @@ Nodes.BLOCK.definePrototype({
         var _ = this,
             frag = new Nodes.FRAG(_.fragment, _.bars, _.conFrag);
 
-        var newPath = _.path.slice();
-        newPath.push(path);
-        frag.context.path = newPath;
-
         _.appendChild(frag);
+
+        return frag;
     },
 
     _update: function _update(context) {
@@ -2639,7 +2652,6 @@ Nodes.BLOCK.definePrototype({
 
         if (typeof _.bars.blocks[_.name] === 'function') {
             arg = execute(_.arg, _.bars.transforms, context);
-            // console.log('>>>>', arg);
             con = _.bars.blocks[_.name].call(_, arg);
         } else {
             throw new Error('Block helper not found: ' + _.name);
@@ -2647,7 +2659,7 @@ Nodes.BLOCK.definePrototype({
 
         if (con) {
             if (!_.nodes.length) {
-                _.createFragment('');
+                _.createFragment();
             }
 
             for (i = 0; i < _.nodes.length; i++) {
@@ -2701,7 +2713,7 @@ Nodes.PARTIAL = BarsNode.generate(function PartialNode(frag, bars, struct) {
 });
 
 Nodes.PARTIAL.definePrototype({
-    _update: function _update(data) {
+    _update: function _update(context) {
         var _ = this;
 
         if (!_.partial) {
@@ -2711,12 +2723,25 @@ Nodes.PARTIAL.definePrototype({
                 _.partial = new Nodes.FRAG(_.fragment, _.bars,
                     partial.struct);
                 _.partial.parent = _;
-                _.partial.context.path = _.path;
+                if (
+                    (
+                        _.path.length === 1 &&
+                        _.path[0] !== 'this' &&
+                        _.path[0] !== '.' &&
+                        _.path[0] !== ''
+                    ) ||
+                    _.path.length > 1
+                ) {
+                    _.partial.context.path = _.path;
+                }
             } else {
                 throw new Error('Partial not found: ' + _.name);
             }
         }
-        _.partial.update(data);
+
+        var arg = execute(_.arg, _.bars.transforms, context);
+        _.partial.context.data = arg;
+        _.partial.update(context);
     },
 
     _elementRemove: function _elementRemove() {
@@ -2977,7 +3002,9 @@ var logic = require('./logic');
 function execute(syntaxTree, transforms, context) {
     function run(token) {
         var result,
-            args =  [];
+            args = [];
+
+        // console.log('-------', token, context);
 
         if (
             token.type === TYPES.STRING ||
@@ -3018,9 +3045,11 @@ function execute(syntaxTree, transforms, context) {
             if (transforms[token.name] instanceof Function) {
                 result = transforms[token.name].apply(null, args);
             } else {
-                throw 'Missing Transfrom: "' + token.name +'".';
+                throw 'Missing Transfrom: "' + token.name + '".';
             }
         }
+
+        // console.log('<<<<<<<', result);
 
         return result;
     }
@@ -3092,7 +3121,6 @@ var Transfrom = Generator.generate(function Transfrom() {});
 Transfrom.definePrototype({
     log: function log(a) {
         console.log('Bars: ', a);
-        return a;
     },
     upperCase: function upperCase(a) {
         return String(a)

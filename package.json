@@ -1,6 +1,6 @@
 {
   "name": "bars",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.",
   "main": "index.js",
   "scripts": {
