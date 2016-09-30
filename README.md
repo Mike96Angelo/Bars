@@ -1,4 +1,4 @@
-# Bars - *v0.3.2*
+# Bars - *v0.3.3*
 
 Bars is a light weight high performance templating system.  Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen.
 
@@ -12,6 +12,17 @@ Bars is a light weight high performance templating system.  Bars emits DOM rathe
 
 * [Try Bars](https://jsfiddle.net/bba4kk3d/1/).
 * [Benchmark](http://jsfiddle.net/yE9Z9/92/).
+
+### Install:
+[npm](https://www.npmjs.com/package/bars)
+```
+$ npm install bars
+```
+
+[bower](https://bower.io)
+```
+$ bower install bars
+```
 
 # What Bars Looks Like
 
@@ -61,11 +72,6 @@ THE CAT IN THE HAT
 ```
 
 For all features see [Bars Spec](bars-spec.md).
-
-### Install:
-```
-$ npm install bars
-```
 
 ## Table of Contents
 
