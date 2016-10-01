@@ -2,7 +2,8 @@
 var Generator = require('generate-js'),
     Renderer = require('./renderer'),
     Blocks = require('./blocks'),
-    Transform = require('./transforms');
+    Transform = require('./transforms'),
+    packageJSON = require('../package');
 
 var Bars = Generator.generate(function Bars() {
     var _ = this;
@@ -15,6 +16,7 @@ var Bars = Generator.generate(function Bars() {
 });
 
 Bars.definePrototype({
+    version: packageJSON.version,
     build: function build(parsedTemplate) {
         var _ = this;
         return new Renderer(_, parsedTemplate);
@@ -41,7 +43,7 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"./blocks":2,"./renderer":5,"./transforms":10,"generate-js":11}],2:[function(require,module,exports){
+},{"../package":12,"./blocks":2,"./renderer":5,"./transforms":10,"generate-js":11}],2:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -139,6 +141,9 @@ var Generator = require('generate-js'),
     execute = require('./runtime/execute'),
     utils = require('./runtime/utils'),
     Context = require('./runtime/context'),
+
+    pathSpliter = utils.pathSpliter,
+    findPath = utils.findPath,
 
     Nodes = {},
 
@@ -428,7 +433,7 @@ Nodes.BLOCK = BarsNode.generate(function BlockNode(frag, bars, struct) {
 
     BarsNode.call(this, frag, bars, struct);
 
-    _.path = utils.pathSpliter(utils.findPath(_.arg));
+    _.path = pathSpliter(findPath(_.arg));
 });
 
 Nodes.BLOCK.definePrototype({
@@ -508,7 +513,7 @@ Nodes.PARTIAL = BarsNode.generate(function PartialNode(frag, bars, struct) {
 
     BarsNode.call(this, frag, bars, struct);
 
-    _.path = utils.pathSpliter(utils.findPath(_.arg));
+    _.path = pathSpliter(findPath(_.arg));
 });
 
 Nodes.PARTIAL.definePrototype({
@@ -631,6 +636,8 @@ module.exports = Renderer;
 },{"./frag":4,"generate-js":11}],6:[function(require,module,exports){
 var Generator = require('generate-js');
 var utils = require('./utils');
+var pathSpliter = utils.pathSpliter;
+var pathResolver = utils.pathResolver;
 
 var Context = Generator.generate(function Context(data, fragment, path) {
     var _ = this;
@@ -665,7 +672,7 @@ Context.definePrototype({
         set: function path(path) {
             var _ = this;
 
-            path = utils.pathSpliter(path);
+            path = pathSpliter(path);
             var fragment = _.fragment;
 
             _.data = null;
@@ -686,7 +693,7 @@ Context.definePrototype({
 
                 while (path[0] === '..' && _.context.context) {
 
-                    path = utils.pathResolver(_.context.path, path);
+                    path = pathResolver(_.context.path, path);
 
                     _.context = _.context.context;
                 }
@@ -699,7 +706,7 @@ Context.definePrototype({
     lookup: function lookup(path) {
         var _ = this;
 
-        path = utils.pathSpliter(path);
+        path = pathSpliter(path);
 
         if (!_.context && _.fragment.fragment) {
             _.context = _.fragment.fragment.context;
@@ -711,7 +718,7 @@ Context.definePrototype({
 
         if (path[0] === '..' && _.context) {
             return _.context.lookup(
-                utils.pathResolver(_.path, path)
+                pathResolver(_.path, path)
             );
         }
 
@@ -1371,5 +1378,44 @@ module.exports = Transfrom;
     }
 
 }());
+
+},{}],12:[function(require,module,exports){
+module.exports={
+  "name": "bars",
+  "version": "0.3.7",
+  "description": "Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mike96Angelo/Bars.git"
+  },
+  "keywords": [
+    "bars",
+    "template",
+    "templating",
+    "html"
+  ],
+  "author": "Michaelangelo Jong",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Mike96Angelo/Bars/issues"
+  },
+  "homepage": "https://github.com/Mike96Angelo/Bars#readme",
+  "dependencies": {
+    "generate-js": "^3.1.1"
+  },
+  "devDependencies": {
+    "browserify": "^11.0.1",
+    "colors": "^1.1.2",
+    "gulp": "^3.9.1",
+    "gulp-minify": "0.0.14",
+    "stringify": "^5.1.0",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0"
+  }
+}
 
 },{}]},{},[1]);
