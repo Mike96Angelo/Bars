@@ -41,7 +41,7 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"./blocks":2,"./renderer":5,"./transforms":9,"generate-js":10}],2:[function(require,module,exports){
+},{"./blocks":2,"./renderer":5,"./transforms":10,"generate-js":11}],2:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -49,10 +49,6 @@ var Blocks = Generator.generate(function Blocks() {});
 Blocks.definePrototype({
     if: function ifBlock(con) {
         return con;
-    },
-
-    unless: function unlessBlock(con) {
-        return !con;
     },
 
     with: function withBlock(data) {
@@ -109,50 +105,12 @@ Blocks.definePrototype({
         }
 
         return false;
-    },
-
-    reverse: function reverseBlock(data) {
-        var _ = this,
-            i;
-
-        if (data && typeof data === 'object') {
-            var keys = Object.keys(data)
-                .reverse();
-
-            if (keys.length) {
-                // TODO: This should be smarter.
-
-                // remove extra nodes
-                for (i = _.nodes.length - 1; i >= keys.length; i--) {
-                    _.nodes[i].remove();
-                }
-
-                // add needed nodes
-                for (i = _.nodes.length; i < keys.length; i++) {
-                    _.createFragment(keys[i]);
-                }
-
-                // update node paths
-                for (i = 0; i < keys.length; i++) {
-                    var newPath = _.path.slice();
-
-                    newPath.push(keys[i]);
-
-                    _.nodes[i].context.path = newPath;
-                    _.nodes[i].context.data = data[keys[i]];
-                }
-
-                return true;
-            }
-        }
-
-        return false;
     }
 });
 
 module.exports = Blocks;
 
-},{"generate-js":10}],3:[function(require,module,exports){
+},{"generate-js":11}],3:[function(require,module,exports){
 module.exports={
     "TEXT":              "TEXT",
     "FRAGMENT":          "FRAGMENT",
@@ -178,10 +136,13 @@ module.exports={
 
 },{}],4:[function(require,module,exports){
 var Generator = require('generate-js'),
-    TYPES = require('./compiler/token-types'),
     execute = require('./runtime/execute'),
+    utils = require('./runtime/utils'),
     Context = require('./runtime/context'),
+
     Nodes = {},
+
+    TYPES = require('./compiler/token-types'),
     ARRAY = [],
     MAP = {
         'FRAGMENT': 'FRAG',
@@ -193,67 +154,6 @@ var Generator = require('generate-js'),
         'BARS-INSERT': 'TEXT',
         'BARS-PARTIAL': 'PARTIAL'
     };
-
-
-function findPath(arg) {
-    if (arg) {
-        if (arg.type === TYPES.INSERT_VAL) {
-            return arg.path;
-        } else if (arg.type === TYPES.UNARY_EXPRESSION) {
-            return findPath(arg.argument);
-        } else if (arg.type === TYPES.BINARY_EXPRESSION) {
-            var left = findPath(arg.left);
-            if (left.type === TYPES.INSERT_VAL) {
-                return left.argument;
-            }
-            var right = findPath(arg.right);
-            if (right.type === TYPES.INSERT_VAL) {
-                return right.argument;
-            }
-        } else if (arg.type === TYPES.TRANSFORM) {
-            for (var i = 0; i < arg.arguments.length; i++) {
-                var argI = findPath(arg.arguments[i]);
-                if (argI.type === TYPES.INSERT_VAL) {
-                    return argI.argument;
-                }
-            }
-        }
-    }
-
-    return '';
-}
-
-function pathSpliter(path) {
-    var splitPath;
-
-    if (path instanceof Array) {
-        splitPath = path;
-    } else if (typeof path === 'string') {
-        if (path.match(/[/]|[.][.]/)) {
-            splitPath = path.split('/');
-        } else {
-            splitPath = path.split('.');
-        }
-
-        if (!splitPath[0] && !splitPath[1]) {
-            splitPath = ['.'];
-        }
-
-        var barsProp = splitPath.pop()
-            .split('@');
-        if (barsProp[0]) {
-            splitPath.push(barsProp[0]);
-        }
-        if (barsProp[1]) {
-            splitPath.push('@' + barsProp[1]);
-        }
-    } else {
-        throw 'bad arrgument: expected String | Array<String>.';
-    }
-
-    return splitPath;
-}
-
 
 /**
  * [BarsNode description]
@@ -528,7 +428,7 @@ Nodes.BLOCK = BarsNode.generate(function BlockNode(frag, bars, struct) {
 
     BarsNode.call(this, frag, bars, struct);
 
-    _.path = pathSpliter(findPath(_.arg));
+    _.path = utils.pathSpliter(utils.findPath(_.arg));
 });
 
 Nodes.BLOCK.definePrototype({
@@ -608,7 +508,7 @@ Nodes.PARTIAL = BarsNode.generate(function PartialNode(frag, bars, struct) {
 
     BarsNode.call(this, frag, bars, struct);
 
-    _.path = pathSpliter(findPath(_.arg));
+    _.path = utils.pathSpliter(utils.findPath(_.arg));
 });
 
 Nodes.PARTIAL.definePrototype({
@@ -706,7 +606,7 @@ Nodes.FRAG.definePrototype({
 
 module.exports = Nodes.FRAG;
 
-},{"./compiler/token-types":3,"./runtime/context":6,"./runtime/execute":7,"generate-js":10}],5:[function(require,module,exports){
+},{"./compiler/token-types":3,"./runtime/context":6,"./runtime/execute":7,"./runtime/utils":9,"generate-js":11}],5:[function(require,module,exports){
 var Generator = require('generate-js'),
     Frag = require('./frag');
 
@@ -728,52 +628,9 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./frag":4,"generate-js":10}],6:[function(require,module,exports){
+},{"./frag":4,"generate-js":11}],6:[function(require,module,exports){
 var Generator = require('generate-js');
-
-function pathResolver(base, path) {
-    base = base.slice();
-    path = path.slice();
-
-    while (base.length && path[0] === '..') {
-        path.shift();
-        base.pop();
-    }
-
-    return base.concat(path);
-}
-
-function pathSpliter(path) {
-    var splitPath;
-
-    if (path instanceof Array) {
-        splitPath = path;
-    } else if (typeof path === 'string') {
-        if (path.match(/[/]|[.][.]/)) {
-            splitPath = path.split('/');
-        } else {
-            splitPath = path.split('.');
-        }
-
-        if (!splitPath[0] && !splitPath[1]) {
-            splitPath = ['.'];
-        }
-
-        var barsProp = splitPath.pop()
-            .split('@');
-        if (barsProp[0]) {
-            splitPath.push(barsProp[0]);
-        }
-        if (barsProp[1]) {
-            splitPath.push('@' + barsProp[1]);
-        }
-    } else {
-        throw 'bad arrgument: expected String | Array<String>.';
-    }
-
-    return splitPath;
-}
-
+var utils = require('./utils');
 
 var Context = Generator.generate(function Context(data, fragment, path) {
     var _ = this;
@@ -808,7 +665,7 @@ Context.definePrototype({
         set: function path(path) {
             var _ = this;
 
-            path = pathSpliter(path);
+            path = utils.pathSpliter(path);
             var fragment = _.fragment;
 
             _.data = null;
@@ -829,7 +686,7 @@ Context.definePrototype({
 
                 while (path[0] === '..' && _.context.context) {
 
-                    path = pathResolver(_.context.path, path);
+                    path = utils.pathResolver(_.context.path, path);
 
                     _.context = _.context.context;
                 }
@@ -842,7 +699,7 @@ Context.definePrototype({
     lookup: function lookup(path) {
         var _ = this;
 
-        path = pathSpliter(path);
+        path = utils.pathSpliter(path);
 
         if (!_.context && _.fragment.fragment) {
             _.context = _.fragment.fragment.context;
@@ -854,7 +711,7 @@ Context.definePrototype({
 
         if (path[0] === '..' && _.context) {
             return _.context.lookup(
-                pathResolver(_.path, path)
+                utils.pathResolver(_.path, path)
             );
         }
 
@@ -891,7 +748,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":10}],7:[function(require,module,exports){
+},{"./utils":9,"generate-js":11}],7:[function(require,module,exports){
 var TYPES = require('../compiler/token-types');
 var logic = require('./logic');
 
@@ -899,8 +756,6 @@ function execute(syntaxTree, transforms, context) {
     function run(token) {
         var result,
             args = [];
-
-        // console.log('-------', token, context);
 
         if (
             token.type === TYPES.STRING ||
@@ -944,8 +799,6 @@ function execute(syntaxTree, transforms, context) {
                 throw 'Missing Transfrom: "' + token.name + '".';
             }
         }
-
-        // console.log('<<<<<<<', result);
 
         return result;
     }
@@ -1010,13 +863,91 @@ exports['<'] = exports.lt;
 exports['>'] = exports.gt;
 
 },{}],9:[function(require,module,exports){
+var TYPES = require('../compiler/token-types');
+
+exports.pathResolver = function pathResolver(base, path) {
+    base = base.slice();
+    path = path.slice();
+
+    while (base.length && path[0] === '..') {
+        path.shift();
+        base.pop();
+    }
+
+    return base.concat(path);
+};
+
+exports.pathSpliter = function pathSpliter(path) {
+    var splitPath;
+
+    if (path instanceof Array) {
+        splitPath = path;
+    } else if (typeof path === 'string') {
+        if (path.match(/[/]|[.][.]/)) {
+            splitPath = path.split('/');
+        } else {
+            splitPath = path.split('.');
+        }
+
+        if (!splitPath[0] && !splitPath[1]) {
+            splitPath = ['.'];
+        }
+
+        var barsProp = splitPath.pop()
+            .split('@');
+        if (barsProp[0]) {
+            splitPath.push(barsProp[0]);
+        }
+        if (barsProp[1]) {
+            splitPath.push('@' + barsProp[1]);
+        }
+    } else {
+        throw 'bad arrgument: expected String | Array<String>.';
+    }
+
+    return splitPath;
+};
+
+function findPath(arg) {
+    if (arg) {
+        if (arg.type === TYPES.INSERT_VAL) {
+            return arg.path;
+        } else if (arg.type === TYPES.UNARY_EXPRESSION) {
+            return findPath(arg.argument);
+        } else if (arg.type === TYPES.BINARY_EXPRESSION) {
+            var left = findPath(arg.left);
+            if (left.type === TYPES.INSERT_VAL) {
+                return left.argument;
+            }
+            var right = findPath(arg.right);
+            if (right.type === TYPES.INSERT_VAL) {
+                return right.argument;
+            }
+        } else if (arg.type === TYPES.TRANSFORM) {
+            for (var i = 0; i < arg.arguments.length; i++) {
+                var argI = findPath(arg.arguments[i]);
+                if (argI.type === TYPES.INSERT_VAL) {
+                    return argI.argument;
+                }
+            }
+        }
+    }
+
+    return '';
+}
+
+exports.findPath = findPath;
+
+},{"../compiler/token-types":3}],10:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Transfrom = Generator.generate(function Transfrom() {});
 
 Transfrom.definePrototype({
-    log: function log(a) {
-        console.log('Bars: ', a);
+    log: function log() {
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift('Bars:');
+        console.log.aplly(console, args);
     },
     upperCase: function upperCase(a) {
         return String(a)
@@ -1032,24 +963,67 @@ Transfrom.definePrototype({
     string: function string(a) {
         return String(a);
     },
-    sort: function sort(arr, key) {
-        return arr.sort(function (a, b) {
-            if (key) {
-                if (a[key] < b[key]) return -1;
-                if (a[key] > b[key]) return 1;
-                return 0;
-            }
-
-            if (a < b) return -1;
-            if (a > b) return 1;
-            return 0;
+    reverse: function reverse(arr) {
+        return arr.slice()
+            .reverse();
+    },
+    slice: function (arr, start, end) {
+        return arr.slice(start, end);
+    },
+    map: function map(arr, prop) {
+        return arr.map(function (item) {
+            return arr[prop];
         });
+    },
+    sort: function sort(arr, key) {
+        return arr.slice()
+            .sort(function (a, b) {
+                if (key) {
+                    if (a[key] < b[key]) return -1;
+                    if (a[key] > b[key]) return 1;
+                    return 0;
+                }
+
+                if (a < b) return -1;
+                if (a > b) return 1;
+                return 0;
+            });
+    },
+    sum: function sum(arr, key) {
+        var sum = 0,
+            i;
+        if (key) {
+            for (i = 0; i < arr.length; i++) {
+                sum += arr[i][key];
+            }
+        } else {
+            for (i = 0; i < arr.length; i++) {
+                sum += arr[i];
+            }
+        }
+
+        return sum;
+    },
+    ave: function ave(arr, key) {
+        var sum = 0,
+            i;
+        if (key) {
+            for (i = 0; i < arr.length; i++) {
+                sum += arr[i][key];
+            }
+        } else {
+            for (i = 0; i < arr.length; i++) {
+                sum += arr[i];
+            }
+        }
+
+        return sum / arr.length;
     }
 });
 
 module.exports = Transfrom;
 
-},{"generate-js":10}],10:[function(require,module,exports){
+},{"generate-js":11}],11:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong

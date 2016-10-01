@@ -1,6 +1,6 @@
 {
   "name": "bars",
-  "version": "0.3.4",
+  "version": "0.3.6",
   "description": "Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.",
   "main": "index.js",
   "scripts": {
@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/Mike96Angelo/Bars#readme",
   "dependencies": {
-    "generate-js": "^3.0.0"
+    "generate-js": "^3.1.1"
   },
   "devDependencies": {
     "browserify": "^11.0.1",

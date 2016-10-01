@@ -22,10 +22,8 @@ NOTE: *context-map not implemented*
 
 #### Built in Block helpers:
 - if `<condition>`
-- unless `<condition>`
 - with `<object>`
 - each `<array | object>`
-- reverse `<array | object>`
 
 ### Partial - *implemented*
 
@@ -116,11 +114,17 @@ null
 ```
 
 #### Built in Transform functions:
-- number(rag)
+- log(arg, arg, ...)
+- number(arg)
 - string(arg)
 - upperCase(str)
 - lowerCase(str)
+- reverse(arr)
+- slice(arr, start, end)
 - sort(arr[, prop])
+- map(arr[, prop])
+- sum(arr[, prop])
+- ave(arr[, prop])
 
 ## Bars Context Map
 

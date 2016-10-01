@@ -1,4 +1,4 @@
-# Bars - *v0.3.4*
+# Bars - *v0.3.6*
 
 Bars is a light weight high performance templating system.  Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen.
 
