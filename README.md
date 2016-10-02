@@ -7,6 +7,8 @@ Bars is a light weight high performance templating system.  Bars emits DOM rathe
 | mustache.min.js   |   10 KB   |      10 KB   | DOM-strings |
 | **bars.min.js**   | **35 KB** |    **15 KB** | **DOM**     |
 | handlebars.min.js |   73 KB   |      14 KB   | DOM-strings |
+| react.min.js      |  149 KB   |       N/A    | DOM         |
+| react-with-addons.min.js |  160 KB|   N/A    | DOM         |
 | ember.min.js      |  419 KB   |     173 KB   | DOM         |
 
 
