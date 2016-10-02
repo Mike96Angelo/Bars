@@ -24,11 +24,6 @@ Bars is a light weight high performance templating system.  Bars emits DOM rathe
 $ npm install bars
 ```
 
-[bower](https://bower.io)
-```
-$ bower install bars
-```
-
 # What Bars Looks Like
 
 ### Bars:
