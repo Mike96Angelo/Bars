@@ -118,7 +118,7 @@ Returns *this* [Bars](#bars).
 
 Example:
 ```javascript
-bars.registerPartial('unless', function unlessBlock(con) {
+bars.registerBlock('unless', function unlessBlock(con) {
     return !con;
 });
 
