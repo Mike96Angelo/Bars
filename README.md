@@ -15,8 +15,10 @@ Bars is a light weight high performance templating system.  Bars emits DOM rathe
 * [Try Bars](https://jsfiddle.net/bba4kk3d/1/).
 * [Benchmark](http://jsfiddle.net/yE9Z9/92/).
 
+
+
 ### Install:
-[npm](https://www.npmjs.com/package/bars)
+[![NPM](https://nodei.co/npm/bars.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/bars/)
 ```
 $ npm install bars
 ```
