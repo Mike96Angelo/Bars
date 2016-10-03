@@ -1,4 +1,7 @@
-# Bars - *v0.3.7*
+# Bars
+
+[![GitHub version](https://badge.fury.io/gh/Mike96Angelo%2Fbars.svg)](https://badge.fury.io/gh/Mike96Angelo%2Fbars)
+[![npm version](https://badge.fury.io/js/bars.svg)](https://badge.fury.io/js/bars)
 
 Bars is a light weight high performance templating system.  Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen.
 
@@ -14,10 +17,6 @@ Bars is a light weight high performance templating system.  Bars emits DOM rathe
 
 * [Try Bars](https://jsfiddle.net/bba4kk3d/1/).
 * [Benchmark](http://jsfiddle.net/yE9Z9/92/).
-
-
-[![NPM](https://nodei.co/npm/bars.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/bars/)
-[![NPM](https://nodei.co/npm-dl/bars.png?months=3&height=3)](https://nodei.co/npm/bars/)
 
 ### Install:
 ```
