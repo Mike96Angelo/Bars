@@ -1,11 +1,8 @@
 # Bars
 
-GitHub:
-* [![GitHub version](https://badge.fury.io/gh/Mike96Angelo%2Fbars.svg)](https://badge.fury.io/gh/Mike96Angelo%2Fbars)
-
-NPM:
-* [![npm version](https://img.shields.io/npm/v/bars.svg?maxAge=2592000)](https://www.npmjs.com/package/bars)
-* [![npm downloads](https://img.shields.io/npm/dm/bars.svg?maxAge=2592000)](https://www.npmjs.com/package/bars)
+[![npm version](https://img.shields.io/npm/v/bars.svg)](https://www.npmjs.com/package/bars)
+[![npm downloads](https://img.shields.io/npm/dm/bars.svg)](https://www.npmjs.com/package/bars)
+[![npm downloads](https://img.shields.io/npm/dt/bars.svg)](https://www.npmjs.com/package/bars)
 
 Bars is a light weight high performance templating system.  Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen.
 
