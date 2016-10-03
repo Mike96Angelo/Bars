@@ -1,6 +1,6 @@
 # Bars
 
-[![GitHub version](https://badge.fury.io/gh/Mike96Angelo/bars.svg)](https://github.com/Mike96Angelo/Bars)
+[![GitHub version](https://badge.fury.io/gh/Mike96Angelo%2fbars.svg)](https://github.com/Mike96Angelo/Bars)
 [![npm version](https://img.shields.io/npm/v/bars.svg?maxAge=21600)](https://www.npmjs.com/package/bars)
 [![npm downloads](https://img.shields.io/npm/dm/bars.svg?maxAge=604800)](https://www.npmjs.com/package/bars)
 [![npm downloads](https://img.shields.io/npm/dt/bars.svg?maxAge=604800)](https://www.npmjs.com/package/bars)
