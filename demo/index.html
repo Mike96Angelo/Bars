@@ -7,19 +7,24 @@
         </script>
         <script id="bars-template" type="text/x-handlebars-template">
             <ul>
-            {{#each @sort(persons, 'length')}}
-               <li>{{@number(@index) + 1}} - {{.}}<input type="text" /></li>
+            {{#each @sort(persons, 'name')}}
+               <li>{{@number(@index) + 1}} - {{name}}</li>
             {{/each}}
             </ul>
 
             {{#if x < 5}}
                <span>x is less then 5</span>
+            {{else if x > 5}}
+                <span>x is greater then 5</span>
             {{else}}
-               <span>x is not less then 5</span>
+               <span>x is equal to 5</span>
             {{/if}}
+
             <br>
             <br>
+
             {{>title}}
+
         </script>
         <script src="bars.js"></script>
     </head>
@@ -32,12 +37,9 @@
 
             window.barsData = {
                persons: [
-                //   { name: 'John' },
-                //   { name: 'Jane' },
-                //   { name: 'Jim' },
-                'John',
-                'Jane',
-                'Jim'
+                  { name: 'John' },
+                  { name: 'Jane' },
+                  { name: 'Jim' },
                ],
                x: 2,
                title: 'The Cat in the Hat'
@@ -50,7 +52,10 @@
                 });
             });
 
-            window.domFrag = bars.compile(template).render();
+            preCompiled = [0,"0.4.0","DOM",[1,[[3,"ul",[],0,[[5,"each",[10,"sort",[[9,["persons"]],[8,"length"]]],null,[1,[[3,"li",[],0,[[6,[11,"+",[[10,"number",[[9,["@","index"]]]],[8,1]]]],[2," - "],[6,[9,[]]],[3,"input",[[4,"type",[[2,"text"]],0]],0,[],0]],1]],1],null]],1],[5,"if",[11,"<",[[9,["x"]],[8,5]]],null,[1,[[3,"span",[],0,[[2,"x is less then 5"]],0]],1],[5,"if",[11,">",[[9,["x"]],[8,5]]],null,[1,[[3,"span",[],0,[[2,"x is greater then 5"]],0]],0],[1,[[3,"span",[],0,[[2,"x is equal to 5"]],0]],0]]],[3,"br",[],0,[],0],[3,"br",[],0,[],0],[7,"title",null,null,null]],1]];
+
+            // window.domFrag = bars.compile(template).render();
+            window.domFrag = bars.build(preCompiled).render();
             window.domFrag.appendTo(document.getElementById('bars-output'));
             window.domFrag.update(barsData);
 

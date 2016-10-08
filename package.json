@@ -1,7 +1,7 @@
 {
   "name": "bars",
-  "version": "0.3.7",
-  "description": "Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.",
+  "version": "0.4.0",
+  "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/Mike96Angelo/Bars#readme",
   "dependencies": {
-    "compileit": "0.0.19",
+    "compileit": "^1.0.0",
     "generate-js": "^3.1.2"
   },
   "devDependencies": {

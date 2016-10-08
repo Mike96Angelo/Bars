@@ -1,6 +1,7 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var Generator = require('generate-js'),
     Renderer = require('./renderer'),
+    Token = require('./compiler/tokens'),
     Blocks = require('./blocks'),
     Transform = require('./transforms'),
     packageJSON = require('../package');
@@ -18,9 +19,16 @@ var Bars = Generator.generate(function Bars() {
 Bars.definePrototype({
     version: packageJSON.version,
     build: function build(parsedTemplate) {
-        var _ = this;
+        var _ = this,
+            program = parsedTemplate;
 
-        return new Renderer(_, parsedTemplate);
+        if (Array.isArray(parsedTemplate)) {
+            program = new Token.tokens.program();
+
+            program.fromArray(parsedTemplate);
+        }
+
+        return new Renderer(_, program.fragment);
     },
 
     registerBlock: function registerBlock(name, block) {
@@ -44,7 +52,7 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"../package":11,"./blocks":2,"./renderer":4,"./transforms":9,"generate-js":10}],2:[function(require,module,exports){
+},{"../package":31,"./blocks":2,"./compiler/tokens":6,"./renderer":18,"./transforms":23,"generate-js":30}],2:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -113,7 +121,1095 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":10}],3:[function(require,module,exports){
+},{"generate-js":30}],3:[function(require,module,exports){
+var Token = require('./token');
+
+var AttrToken = Token.generate(
+    function AttrToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.name = '';
+
+        _.nodes = [];
+
+        _.nodesUpdate = 0;
+    }
+);
+
+
+AttrToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'attr'
+});
+
+AttrToken.definePrototype({
+    TYPE_ID: Token.tokens.push(AttrToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.name,
+            _.nodes,
+            _.nodesUpdate
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            name: _.name,
+            nodes: _.nodes,
+            nodesUpdate: _.nodesUpdate
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.name = arr[1];
+
+        _.nodes = arr[2].map(function (item) {
+            var node = new Token.tokens[item[0]]();
+
+            node.fromArray(item);
+
+            return node;
+        });
+
+        _.nodesUpdate = arr[3];
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = ' ';
+
+        str += _.name + (_.nodes.length ? '="' : '');
+
+        for (var i = 0; i < _.nodes.length; i++) {
+
+            _.nodes[i].indentLevel = '';
+
+            str += _.nodes[i].toString();
+        }
+
+        str += (_.nodes.length ? '"' : '');
+
+        return str;
+    },
+    updates: function updates() {
+        var _ = this;
+
+        _.nodesUpdate = 1;
+    }
+});
+
+Token.tokens.attr = AttrToken;
+
+},{"./token":14}],4:[function(require,module,exports){
+var Token = require('./token');
+
+var BlockToken = Token.generate(
+    function BlockToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.name = '';
+
+        _.expression = null;
+        _.map = null;
+
+        _.consequent = null;
+        _.alternate = null;
+    }
+);
+
+
+BlockToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'block'
+});
+
+BlockToken.definePrototype({
+    TYPE_ID: Token.tokens.push(BlockToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.name,
+            _.expression,
+            _.map,
+            _.consequent,
+            _.alternate
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            name: _.name,
+            expression: _.expression,
+            map: _.map,
+            consequent: _.consequent,
+            alternate: _.alternate
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.name = arr[1];
+
+        var expression = new Token.tokens[arr[2][0]]();
+
+        expression.fromArray(arr[2]);
+
+        _.expression = expression;
+
+        _.map = arr[3];
+
+        var consequent = new Token.tokens.fragment();
+
+        consequent.fromArray(arr[4]);
+
+        _.consequent = consequent;
+
+        if (arr[5]) {
+            var alternate = new Token.tokens[arr[5][0]]();
+
+            alternate.fromArray(arr[5]);
+
+            _.alternate = alternate;
+        }
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = '';
+
+        if (!_.fromElse) {
+            str += _.indentLevel + '{{#';
+        }
+
+        str += _.name + ' ';
+
+        str += _.expression.toString();
+        str += (_.map ? _.map.toString() : '');
+
+        str += '}}';
+
+        _.consequent.indentLevel = (_.indentLevel ? _.indentLevel +
+            '  ' : '');
+        str += _.consequent.toString();
+
+        if (_.alternate) {
+            _.alternate.indentLevel = _.indentLevel;
+            if (_.alternate.type === 'block') {
+                _.alternate.fromElse = true;
+                str += _.indentLevel + '{{else ' + _.alternate.toString();
+                return str;
+            }
+            _.alternate.indentLevel += (_.indentLevel ? _.indentLevel +
+                '  ' : '');
+
+            str += _.indentLevel + '{{else}}';
+            str += _.alternate.toString();
+        }
+
+        str += _.indentLevel + '{{/' + _.name + '}}';
+
+        return str;
+    },
+    updates: function updates() {
+        var _ = this;
+
+        if (_.elsed && _.alternate) {
+            _.alternate.nodesUpdate = 1;
+        } else if (_.consequent) {
+            _.consequent.nodesUpdate = 1;
+        }
+    }
+});
+
+Token.tokens.block = BlockToken;
+
+},{"./token":14}],5:[function(require,module,exports){
+var Token = require('./token');
+
+var FragmentToken = Token.generate(
+    function FragmentToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.nodes = [];
+
+        _.nodesUpdate = 0;
+    }
+);
+
+
+FragmentToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'fragment'
+});
+
+FragmentToken.definePrototype({
+    TYPE_ID: Token.tokens.push(FragmentToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.nodes,
+            _.nodesUpdate
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            nodes: _.nodes,
+            nodesUpdate: _.nodesUpdate
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.nodes = arr[1].map(function (item) {
+            var node = new Token.tokens[item[0]]();
+
+            node.fromArray(item);
+
+            return node;
+        });
+
+        _.nodesUpdate = arr[2];
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = '';
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].indentLevel = _.indentLevel;
+            str += _.nodes[i].toString();
+        }
+
+        return str;
+    },
+    updates: function updates() {
+        var _ = this;
+
+        _.nodesUpdate = 1;
+    }
+});
+
+Token.tokens.fragment = FragmentToken;
+
+},{"./token":14}],6:[function(require,module,exports){
+var Token = require('./token');
+
+// program
+require('./program');
+require('./fragment');
+
+// html markup
+require('./text');
+require('./tag');
+require('./attr');
+
+// bars markup
+require('./block');
+require('./insert');
+require('./partial');
+
+// bars expression
+require('./literal');
+require('./value');
+require('./transform');
+require('./opperator');
+
+
+// TODO: maps
+
+module.exports = Token;
+// module.exports = window.Token = Token;
+
+
+
+
+// test
+
+// var prog = new Token.tokens.program();
+//
+// prog.fragment = new Token.tokens.fragment();
+//
+// for (var i = 0; i < 5; i++) {
+//     prog.fragment.nodes.push(new Token.tokens.tag());
+// }
+
+// window.prog = prog;
+
+},{"./attr":3,"./block":4,"./fragment":5,"./insert":7,"./literal":8,"./opperator":9,"./partial":10,"./program":11,"./tag":12,"./text":13,"./token":14,"./transform":15,"./value":16}],7:[function(require,module,exports){
+var Token = require('./token');
+
+var InsertToken = Token.generate(
+    function InsertToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.expression = null;
+    }
+);
+
+
+InsertToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'insert'
+});
+
+InsertToken.definePrototype({
+    TYPE_ID: Token.tokens.push(InsertToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.expression
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            expression: _.expression
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        var expression = new Token.tokens[arr[1][0]]();
+
+        expression.fromArray(arr[1]);
+
+        _.expression = expression;
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = '{{ ';
+        str += _.expression.toString();
+        str += ' }}';
+        return str;
+    }
+});
+
+Token.tokens.insert = InsertToken;
+
+},{"./token":14}],8:[function(require,module,exports){
+var Token = require('./token');
+
+var LiteralToken = Token.generate(
+    function LiteralToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.value = '';
+    }
+);
+
+
+LiteralToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'literal'
+});
+
+LiteralToken.definePrototype({
+    TYPE_ID: Token.tokens.push(LiteralToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.value
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            value: _.value
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.value = arr[1];
+    },
+    toString: function toString() {
+        var _ = this,
+            str = '';
+
+        str += _.value;
+
+        return str;
+    }
+});
+
+Token.tokens.literal = LiteralToken;
+
+},{"./token":14}],9:[function(require,module,exports){
+var Token = require('./token');
+
+var OpperatorToken = Token.generate(
+    function OpperatorToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.opperator = 0;
+
+        _.arguments = [];
+    }
+);
+
+
+OpperatorToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'opperator'
+});
+
+OpperatorToken.definePrototype({
+    TYPE_ID: Token.tokens.push(OpperatorToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.opperator,
+            _.arguments
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            opperator: _.opperator,
+            arguments: _.arguments
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.opperator = arr[1];
+
+        _.arguments = arr[2].map(function (item) {
+            var arg = new Token.tokens[item[0]]();
+
+            arg.fromArray(item);
+
+            return arg;
+        });
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = '';
+
+        if (_.arguments.length === 1) {
+            str += _.opperator + _.arguments[0].toString();
+        } else if (_.arguments.length === 2) {
+            str += _.arguments[0].toString();
+            str += ' ' + _.opperator + ' ';
+            str += _.arguments[1].toString();
+        }
+
+        return str;
+    }
+});
+
+Token.tokens.opperator = OpperatorToken;
+Token;
+
+},{"./token":14}],10:[function(require,module,exports){
+var Token = require('./token');
+
+var PartialToken = Token.generate(
+    function PartialToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.name = '';
+
+        _.expression = null;
+        _.map = null;
+    }
+);
+
+
+PartialToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'partial'
+});
+
+PartialToken.definePrototype({
+    TYPE_ID: Token.tokens.push(PartialToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.name,
+            _.expression,
+            _.map
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            name: _.name,
+            expression: _.expression,
+            map: _.map
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.name = arr[1];
+
+        if (arr[2]) {
+            var expression = new Token.tokens[arr[2][0]]();
+
+            expression.fromArray(arr[2]);
+
+            _.expression = expression;
+        }
+
+        _.map = arr[3];
+    },
+    toString: function toString() {
+        var _ = this,
+            str = _.indentLevel + '{{>' + _.name;
+        str += (_.expression ? ' ' + _.expression.toString() : '');
+        str += '}}';
+        return str;
+    }
+});
+
+Token.tokens.partial = PartialToken;;
+
+},{"./token":14}],11:[function(require,module,exports){
+var Token = require('./token');
+var PACKAGE_JSON = require('../../../package');
+
+var ProgramToken = Token.generate(
+    function ProgramToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.version = PACKAGE_JSON.version;
+        _.mode = '';
+
+        _.fragment = null;
+    }
+);
+
+ProgramToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'program'
+});
+
+ProgramToken.definePrototype({
+    writable: true
+}, {
+    indentLevel: '\n'
+});
+
+ProgramToken.definePrototype({
+    TYPE_ID: Token.tokens.push(ProgramToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.version,
+            _.mode,
+            _.fragment
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            version: _.version,
+            mode: _.mode,
+            fragment: _.fragment
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.version = arr[1];
+        _.mode = arr[2];
+
+        var fragment = new Token.tokens.fragment();
+
+        fragment.fromArray(arr[3]);
+
+        _.fragment = fragment;
+    },
+    toString: function toString() {
+        var _ = this;
+
+        _.fragment.indentLevel = _.indentLevel;
+
+        return _.fragment.toString()
+            .trim() + '\n';
+    }
+});
+
+Token.tokens.program = ProgramToken;
+
+},{"../../../package":31,"./token":14}],12:[function(require,module,exports){
+var Token = require('./token');
+
+var TagToken = Token.generate(
+    function TagToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.name = '';
+
+        _.attrs = [];
+        _.nodes = [];
+
+        _.attrsUpdate = 0;
+        _.nodesUpdate = 0;
+    }
+);
+
+
+TagToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'tag'
+});
+
+TagToken.definePrototype({
+    TYPE_ID: Token.tokens.push(TagToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.name,
+            _.attrs,
+            _.attrsUpdate,
+            _.nodes,
+            _.nodesUpdate
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            name: _.name,
+            attrs: _.attrs,
+            attrsUpdate: _.attrsUpdate,
+            nodes: _.nodes,
+            nodesUpdate: _.nodesUpdate
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.name = arr[1];
+
+        _.attrs = arr[2].map(function (item) {
+            var node = new Token.tokens[item[0]]();
+
+            node.fromArray(item);
+
+            return node;
+        });
+
+        _.attrsUpdate = arr[3];
+
+        _.nodes = arr[4].map(function (item) {
+            var node = new Token.tokens[item[0]]();
+
+            node.fromArray(item);
+
+            return node;
+        });
+
+        _.nodesUpdate = arr[5];
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = _.indentLevel + '<' + _.name;
+
+        for (var i = 0; i < _.attrs.length; i++) {
+            str += _.attrs[i].toString();
+        }
+
+        if (_.selfClosed) {
+            str += (_.attrs.length ? ' ' : '') + '/>'; 
+            return str;
+        }
+
+        str += '>'; 
+        if (_.selfClosing) {
+            return str;
+        }
+        var nodes = '';
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].indentLevel = (_.indentLevel ? _.indentLevel +
+                '  ' : '');
+            nodes += _.nodes[i].toString();
+        }
+
+        str += nodes.trim();
+
+        str += _.indentLevel + '</' + _.name + '>';
+
+        return str;
+    },
+
+    updates: function updates(type) {
+        var _ = this;
+
+        if (type === 'attr') {
+            _.attrsUpdate = 1;
+        } else {
+            _.nodesUpdate = 1;
+        }
+    }
+});
+
+Token.tokens.tag = TagToken;
+
+},{"./token":14}],13:[function(require,module,exports){
+var Token = require('./token');
+
+var TextToken = Token.generate(
+    function TextToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.value = '';
+    }
+);
+
+
+TextToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'text'
+});
+
+TextToken.definePrototype({
+    TYPE_ID: Token.tokens.push(TextToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.value
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            value: _.value
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.value = arr[1];
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = '';
+
+        str += _.indentLevel + _.value;
+
+        return str;
+    }
+});
+
+Token.tokens.text = TextToken;
+
+},{"./token":14}],14:[function(require,module,exports){
+var Token = require('compileit')
+    .Token;
+
+var BarsToken = Token.generate(
+    function BarsToken(code, type) {
+        Token.call(this, code, type);
+    }
+);
+
+BarsToken.tokens = [];
+
+BarsToken.definePrototype({
+    writable: true
+}, {
+    indentLevel: ''
+});
+
+BarsToken.definePrototype({
+    TYPE_ID: -1,
+
+    toJSON: function toJSON(arr) {
+        if (this.JSONuseObject)
+            return this.toObject();
+        return this.toArray();
+    },
+
+    toArray: function toArray() {
+        var _ = this;
+
+        console.warn('toArray not impleneted.');
+        return [-1];
+    },
+
+    toObject: function toObject() {
+        var _ = this;
+
+        console.warn('toObject not impleneted.');
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID
+        };
+    },
+    fromArray: function fromArray(arr) {
+        var _ = this;
+        if (arr[0] !== _.TYPE_ID) {
+            throw 'TypeMismatch: ' + arr[0] + ' is not ' + _.TYPE_ID;
+        }
+
+        _._fromArray(arr);
+    },
+    updates: function updates() {
+        var _ = this;
+        console.warn('updates not impleneted.');
+    }
+});
+
+module.exports = BarsToken;
+
+},{"compileit":24}],15:[function(require,module,exports){
+var Token = require('./token');
+
+var TransformToken = Token.generate(
+    function TransformToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.name = '';
+
+        _.arguments = [];
+    }
+);
+
+
+TransformToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'transform'
+});
+
+TransformToken.definePrototype({
+    TYPE_ID: Token.tokens.push(TransformToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.name,
+            _.arguments
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            name: _.name,
+            arguments: _.arguments
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.name = arr[1];
+
+        _.arguments = arr[2].map(function (item) {
+            var arg = new Token.tokens[item[0]]();
+
+            arg.fromArray(item);
+
+            return arg;
+        });
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = '@';
+
+        str += _.name + '(';
+
+        for (var i = 0; i < _.arguments.length; i++) {
+
+            str += _.arguments[i].toString() + (i + 1 < _.arguments
+                .length ?
+                ', ' : '');
+        }
+
+        str += ')';
+
+        return str;
+    }
+});
+
+Token.tokens.transform = TransformToken;
+
+},{"./token":14}],16:[function(require,module,exports){
+var Token = require('./token');
+
+var ValueToken = Token.generate(
+    function ValueToken(code) {
+        var _ = this;
+
+        if (code) {
+            Token.call(_, code);
+        }
+
+        _.path = '';
+    }
+);
+
+
+ValueToken.definePrototype({
+    enumerable: true
+}, {
+    type: 'value'
+});
+
+ValueToken.definePrototype({
+    TYPE_ID: Token.tokens.push(ValueToken) - 1,
+    toArray: function () {
+        var _ = this;
+        return [
+            _.TYPE_ID,
+            _.path
+        ];
+    },
+
+    toObject: function () {
+        var _ = this;
+        return {
+            type: _.type,
+            TYPE_ID: _.TYPE_ID,
+            path: _.path
+        };
+    },
+
+    _fromArray: function _fromArray(arr) {
+        var _ = this;
+
+        _.path = arr[1];
+    },
+
+    toString: function toString() {
+        var _ = this,
+            str = '';
+
+        if (
+            _.path[0] === '~' ||
+            _.path[0] === '..' ||
+            _.path[0] === '.' ||
+            _.path[0] === '@'
+        ) {
+            str += _.path.join('/');
+        } else {
+            str += _.path.join('.');
+        }
+
+        return str;
+    }
+});
+
+Token.tokens.value = ValueToken;
+
+},{"./token":14}],17:[function(require,module,exports){
 var Generator = require('generate-js'),
     execute = require('./runtime/execute'),
     utils = require('./runtime/utils'),
@@ -589,7 +1685,7 @@ Nodes.FRAG.definePrototype({
 
 module.exports = Nodes.FRAG;
 
-},{"./runtime/context":5,"./runtime/execute":6,"./runtime/utils":8,"generate-js":10}],4:[function(require,module,exports){
+},{"./runtime/context":19,"./runtime/execute":20,"./runtime/utils":22,"generate-js":30}],18:[function(require,module,exports){
 var Generator = require('generate-js'),
     Frag = require('./frag');
 
@@ -611,7 +1707,7 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./frag":3,"generate-js":10}],5:[function(require,module,exports){
+},{"./frag":17,"generate-js":30}],19:[function(require,module,exports){
 var Generator = require('generate-js');
 var utils = require('./utils');
 var pathSpliter = utils.pathSpliter;
@@ -738,7 +1834,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"./utils":8,"generate-js":10}],6:[function(require,module,exports){
+},{"./utils":22,"generate-js":30}],20:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
@@ -800,7 +1896,7 @@ function execute(syntaxTree, transforms, context) {
 
 module.exports = execute;
 
-},{"./logic":7}],7:[function(require,module,exports){
+},{"./logic":21}],21:[function(require,module,exports){
 /* Arithmetic */
 exports.add      = function add      (a, b) { return a + b; };
 exports.subtract = function subtract (a, b) { return a - b; };
@@ -850,7 +1946,7 @@ exports.gt = function gt (a, b) { return a > b; };
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
 
-},{}],8:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 exports.pathResolver = function pathResolver(base, path) {
     base = base.slice();
     path = path.slice();
@@ -916,7 +2012,7 @@ function findPath(arg) {
 
 exports.findPath = findPath;
 
-},{}],9:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Transfrom = Generator.generate(function Transfrom() {});
@@ -1001,7 +2097,572 @@ Transfrom.definePrototype({
 
 module.exports = Transfrom;
 
-},{"generate-js":10}],10:[function(require,module,exports){
+},{"generate-js":30}],24:[function(require,module,exports){
+exports.Compiler = require('./lib/compiler');
+exports.Token = require('./lib/token');
+
+},{"./lib/compiler":26,"./lib/token":28}],25:[function(require,module,exports){
+var Generator = require('generate-js'),
+    utils = require('./utils');
+
+var CodeBuffer = Generator.generate(
+    function CodeBuffer(str, file) {
+        var _ = this;
+
+        _.reset();
+        _._buffer = str;
+        _._file = file;
+    }
+);
+
+CodeBuffer.definePrototype({
+    reset: function reset() {
+        var _ = this;
+
+        _.line = 1;
+        _.column = 1;
+        _._index = 0;
+        _._currentLine = 0;
+    },
+    currentLine: {
+        get: function currentLine() {
+            var _ = this,
+                lineText = '',
+                i = _._currentLine;
+
+            while (i < _.length) {
+                lineText += _._buffer[i];
+                if (_._buffer.codePointAt(i) === 10) {
+                    break;
+                }
+                i++;
+            }
+
+            return lineText;
+        }
+    },
+
+    buffer: {
+        get: function getBuffer() {
+            var _ = this;
+
+            return _._buffer;
+        }
+    },
+
+
+    index: {
+        get: function getIndex() {
+            var _ = this;
+
+            return _._index;
+        },
+
+        set: function setIndex(val) {
+            var _ = this,
+                i = _._index,
+                update = false;
+
+            val = Math.min(_.length, val);
+            val = Math.max(0, val);
+
+            if (i == val) return;
+
+            if (i > val) {
+                // throw new Error('========' + val + ' < ' +i+'=======');
+                _.reset();
+                i = _._index;
+            }
+
+            if (_.buffer.codePointAt(i) === 10) {
+                update = true;
+                i++;
+            }
+
+            for (; i <= val; i++) {
+                if (update) {
+                    _._currentLine = i;
+                    _.line++;
+                    update = false;
+                } else {
+                    _.column++;
+                }
+
+                if (_.buffer.codePointAt(i) === 10) {
+                    update = true;
+                }
+            }
+            _.column = val - _._currentLine + 1;
+            _._index = val;
+        }
+    },
+
+    length: {
+        get: function getLength() {
+            var _ = this;
+
+            return _._buffer.length;
+        }
+    },
+
+    next: function next() {
+        var _ = this;
+
+        _.index++;
+        return _.charAt(_.index);
+    },
+
+    left: {
+        get: function getLeft() {
+            var _ = this;
+
+            return _._index < _.length;
+        }
+    },
+
+    charAt: function charAt(i) {
+        var _ = this;
+
+        return _._buffer[i] || 'EOF';
+    },
+
+    codePointAt: function codePointAt(i) {
+        var _ = this;
+
+        return _._buffer.codePointAt(i);
+    },
+
+    slice: function slice(startIndex, endIndex) {
+        var _ = this;
+
+        return _._buffer.slice(startIndex, endIndex);
+    },
+
+    makeError: function makeError(start, end, message) {
+        var _ = this;
+
+        utils.assertTypeError(start, 'number');
+        utils.assertTypeError(end, 'number');
+        utils.assertTypeError(message, 'string');
+
+        _.index = start;
+
+        var currentLine = _.currentLine,
+            tokenLength = end - start,
+            tokenIdentifier =
+            currentLine[currentLine.length - 1] === '\n' ? '' :
+            '\n',
+            i;
+
+        for (i = 1; i < _.column; i++) {
+            tokenIdentifier += ' ';
+        }
+
+        tokenLength = Math.min(
+            tokenLength,
+            currentLine.length - tokenIdentifier.length
+        ) || 1;
+
+        for (i = 0; i < tokenLength; i++) {
+            tokenIdentifier += '^';
+        }
+
+        return 'Syntax Error: ' +
+            message +
+            ' at ' +
+            (_._file ? _._file + ':' : '') +
+            _.line +
+            ':' +
+            _.column +
+            '\n\n' +
+            currentLine +
+            tokenIdentifier +
+            '\n';
+    }
+});
+
+module.exports = CodeBuffer;
+
+},{"./utils":29,"generate-js":30}],26:[function(require,module,exports){
+var Generator = require('generate-js'),
+    Scope = require('./scope'),
+    Token = require('./token'),
+    CodeBuffer = require('./code-buffer'),
+    utils = require('./utils');
+
+var Compiler = Generator.generate(
+    function Compiler(parseModes, formaters) {
+        var _ = this;
+
+        _.modeFormater = formaters.modeFormater || utils.varThrough;
+        _.charFormater = formaters.charFormater || utils.varThrough;
+        _.funcFormater = formaters.funcFormater || utils.varThrough;
+        _.typeFormater = formaters.typeFormater || utils.varThrough;
+        _.sourceFormater = formaters.sourceFormater || utils.varThrough;
+
+        _.parseModes = parseModes;
+        _.scope = new Scope();
+    }
+);
+
+Compiler.definePrototype({
+    compile: function compile(codeStr, file, mode, flags) {
+        var _ = this,
+            tokens = [];
+
+        _.codeBuffer = new CodeBuffer(codeStr, file);
+
+        _.scope.verbose = flags.verbose;
+
+        if (flags.verbose) {
+            _.scope.printScope();
+        }
+
+        _.parseMode(mode, tokens, flags);
+
+        if (flags.verbose) {
+            _.scope.printScope();
+        }
+
+        if (_.scope.length) {
+            throw code.makeError(
+                'Unexpected End Of Input.'
+            );
+        }
+
+        return tokens;
+    },
+
+    parseMode: function parseMode(mode, tokens, flags) {
+        var _ = this,
+            scope = _.scope,
+            code = _.codeBuffer,
+            token,
+            parseFuncs = _.parseModes[mode],
+            index = code.index;
+
+        if (!parseFuncs) {
+            throw new Error('Mode not found: ' + JSON.stringify(
+                mode) + '.');
+        }
+
+        function newParseMode(mode, tokens, flags) {
+            _.parseMode(mode, tokens, flags);
+        }
+
+        newParseMode.close = function () {
+            this.closed = true;
+        };
+
+        loop: while (code.left) {
+
+            for (var i = 0; i < parseFuncs.length; i++) {
+                var parseFunc = parseFuncs[i];
+
+                if (flags.verbose) {
+                    console.log(
+                        utils.repeat('  ', scope.length +
+                            1) +
+                        _.modeFormater(mode) + ' ' +
+                        _.funcFormater(parseFunc.name) +
+                        '\n' +
+                        utils.repeat('  ', scope.length +
+                            1) +
+                        utils.bufferSlice(code, 5, _.charFormater)
+                    );
+                }
+
+                token = parseFunc(
+                    mode,
+                    code,
+                    tokens,
+                    flags,
+                    scope,
+                    newParseMode
+                );
+
+                if (token) {
+                    if (token instanceof Token) {
+                        tokens.push(token);
+
+                        if (flags.verbose) {
+                            console.log(
+                                utils.repeat('  ', scope.length +
+                                    1) +
+                                _.typeFormater(token.constructor
+                                    .name || token.type) +
+                                ': ' +
+                                _.sourceFormater(token.source())
+                            );
+                        }
+                    }
+
+                    if (newParseMode.closed) {
+                        delete newParseMode.closed;
+                        break loop;
+                    }
+
+                    break;
+                }
+            }
+
+            if (newParseMode.closed) {
+                delete newParseMode.closed;
+                break loop;
+            }
+
+            if (index === code.index) {
+                token = new Token(code);
+                token.close(code);
+                token.value = token.source(code);
+
+                if (flags.noErrorOnILLEGAL) {
+                    tokens.push(token);
+                } else {
+                    throw code.makeError(
+                        token.range[0],
+                        token.range[1],
+                        'ILLEGAL Token: ' +
+                        JSON.stringify(token.source(code))
+                    );
+                }
+            }
+
+            index = code.index;
+        }
+    }
+});
+
+module.exports = Compiler;
+
+},{"./code-buffer":25,"./scope":27,"./token":28,"./utils":29,"generate-js":30}],27:[function(require,module,exports){
+var Generator = require('generate-js'),
+    Token = require('./token'),
+    utils = require('./utils');
+
+var Scope = Generator.generate(
+    function Scope() {
+        var _ = this;
+
+        _.defineProperties({
+            _scope: []
+        });
+    }
+);
+
+Scope.definePrototype({
+    push: function push(token) {
+        var _ = this;
+
+        utils.assertError(Token.isCreation(token), 'Invalid Type.');
+
+        _._scope.push(token);
+
+        if (_.verbose) {
+            _.printScope();
+        }
+
+        return _._scope.length;
+    },
+    pop: function pop() {
+        var _ = this;
+
+        var token = _._scope.pop();
+
+        if (_.verbose) {
+            _.printScope();
+        }
+
+        return token;
+    },
+    close: function close() {
+        var _ = this;
+
+        var token = _._scope.pop();
+
+        token.close();
+
+        if (_.verbose) {
+            _.printScope();
+        }
+
+        return token;
+    },
+    printScope: function printScope() {
+        var _ = this;
+
+        console.log(
+            ['Main'].concat(
+                _._scope
+                .map(function (item) {
+                    return item.constructor.name ||
+                        item.type;
+                })
+            )
+            .join(' => ')
+        );
+    },
+    token: {
+        get: function getToken() {
+            var _ = this;
+
+            return _._scope[_._scope.length - 1];
+        }
+    },
+    length: {
+        get: function getLength() {
+            var _ = this;
+
+            return _._scope.length;
+        }
+    }
+});
+
+module.exports = Scope;
+
+},{"./token":28,"./utils":29,"generate-js":30}],28:[function(require,module,exports){
+var Generator = require('generate-js'),
+    utils = require('./utils');
+
+var Token = Generator.generate(
+    function Token(code, type) {
+        var _ = this;
+
+        _.defineProperties({
+            code: code
+        });
+
+        _.type = type;
+        _.range = [code.index, code.index + 1];
+        _.loc = {
+            start: {
+                line: code.line,
+                column: code.column
+            },
+            end: {
+                line: code.line,
+                column: code.column + 1
+            }
+        };
+    }
+);
+
+Token.definePrototype({
+    writable: true,
+    enumerable: true
+}, {
+    type: 'ILLEGAL'
+});
+
+Token.definePrototype({
+    length: {
+        get: function getLength() {
+            return this.range[1] - this.range[0];
+        }
+    },
+    source: function source() {
+        var _ = this;
+        return _.code.slice(_.range[0], _.range[1]);
+    },
+    close: function close() {
+        var _ = this;
+
+        if (_.closed) {
+            throw new Error('Cannot call close on a closed token.');
+        }
+
+        _.closed = true;
+
+        if (_.code.index > _.range[1]) {
+            _.range[1] = _.code.index;
+            _.loc.end = {
+                line: _.code.line,
+                column: _.code.column
+            };
+        }
+    }
+});
+
+module.exports = Token;
+
+},{"./utils":29,"generate-js":30}],29:[function(require,module,exports){
+/**
+ * Assert Error function.
+ * @param  {Boolean} condition Whether or not to throw error.
+ * @param  {String} message    Error message.
+ */
+function assertError(condition, message) {
+    if (!condition) {
+        throw new Error(message);
+    }
+}
+exports.assertError = assertError;
+
+/**
+ * Assert TypeError function.
+ * @param  {Boolean} condition Whether or not to throw error.
+ * @param  {String} message    Error message.
+ */
+function assertTypeError(test, type) {
+    if (typeof test !== type) {
+        throw new TypeError('Expected \'' + type +
+            '\' but instead found \'' +
+            typeof test + '\'');
+    }
+}
+exports.assertTypeError = assertTypeError;
+
+/**
+ * Repeats a string `n` time.
+ * @param  {String} str String to be repeated.
+ * @param  {Number} n   Number of times to repeat.
+ */
+function repeat(str, n) {
+    var result = '';
+
+    for (var i = 0; i < n; i++) {
+        result += str;
+    }
+
+    return result;
+}
+exports.repeat = repeat;
+
+/**
+ * Returns whatever you pass it.
+ * @param  {Any} a CodeBuffer to slice.
+ */
+function varThrough(a) {
+    return a;
+}
+exports.varThrough = varThrough;
+
+/**
+ * Stringified CodeBuffer slice.
+ * @param  {CodeBuffer} code CodeBuffer to slice.
+ * @param  {Number} range    Range to slice before and after `code.index`.
+ */
+function bufferSlice(code, range, format) {
+    format = format || varThrough;
+    return JSON.stringify(
+            code.slice(Math.max(0, code.index - range), code.index)
+        )
+        .slice(1, -1) +
+        format(
+            JSON.stringify(code.charAt(code.index) || 'EOF')
+            .slice(1, -1)
+        ) +
+        JSON.stringify(
+            code.slice(
+                code.index + 1,
+                Math.min(code.length, code.index + 1 + range)
+            )
+        )
+        .slice(1, -1);
+}
+exports.bufferSlice = bufferSlice;
+
+},{}],30:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -1363,11 +3024,11 @@ module.exports = Transfrom;
 
 }());
 
-},{}],11:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.3.7",
-  "description": "Client-side html templating system that emits DOM.  The templates can be updated with new data without re-writing the DOM.",
+  "version": "0.4.0",
+  "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -1389,7 +3050,7 @@ module.exports={
   },
   "homepage": "https://github.com/Mike96Angelo/Bars#readme",
   "dependencies": {
-    "compileit": "0.0.19",
+    "compileit": "^1.0.0",
     "generate-js": "^3.1.2"
   },
   "devDependencies": {
