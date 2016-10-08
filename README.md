@@ -36,9 +36,11 @@ $ npm install bars
 </ul>
 
 {{#if x < 5}}
-   x is less then 5
+   <span>x is less then 5</span>
+{{else if x > 5}}
+    <span>x is greater then 5</span>
 {{else}}
-   x is not less then 5
+   <span>x is equal to 5</span>
 {{/if}}
 
 {{@upperCase(title)}}
