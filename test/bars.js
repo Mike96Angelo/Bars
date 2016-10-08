@@ -3618,9 +3618,12 @@ Nodes.BLOCK.definePrototype({
                 _.nodes[i]._elementRemove();
             }
 
-            if (!_.alternate) {
-                _.alternate = new Nodes.FRAG(_.fragment, _.bars, _
-                    .altFrag || {});
+            if (!_.alternate && _.altFrag) {
+                _.alternate = new Nodes[MAP[_.altFrag.type]](
+                    _.fragment,
+                    _.bars,
+                    _.altFrag
+                );
                 _.alternate.parent = _;
             }
 
