@@ -19,6 +19,7 @@ Bars.definePrototype({
     version: packageJSON.version,
     build: function build(parsedTemplate) {
         var _ = this;
+
         return new Renderer(_, parsedTemplate);
     },
 
@@ -43,7 +44,7 @@ Bars.definePrototype({
 
 module.exports = window.Bars = Bars;
 
-},{"../package":12,"./blocks":2,"./renderer":5,"./transforms":10,"generate-js":11}],2:[function(require,module,exports){
+},{"../package":11,"./blocks":2,"./renderer":4,"./transforms":9,"generate-js":10}],2:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -112,31 +113,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":11}],3:[function(require,module,exports){
-module.exports={
-    "TEXT":              "TEXT",
-    "FRAGMENT":          "FRAGMENT",
-    "HTML_COMMENT":      "HTML-COMMENT",
-    "HTML_TAG":          "HTML-TAG",
-    "HTML_TEXT":         "HTML-TEXT",
-    "HTML_ATTR":         "HTML-ATTR",
-    "STRING_TEXT":       "STRING-TEXT",
-    "BARS_COMMENT":      "BARS-COMMENT",
-    "BARS_BLOCK":        "BARS-BLOCK",
-    "BARS_ELSE":         "BARS-ELSE",
-    "BARS_INSERT":       "BARS-INSERT",
-    "BARS_PARTIAL":      "BARS-PARTIAL",
-    "STRING":            "STRING",
-    "NUMBER":            "NUMBER",
-    "BOOLEAN":           "BOOLEAN",
-    "NULL":              "NULL",
-    "INSERT_VAL":        "INSERT-VAL",
-    "UNARY_EXPRESSION":  "UNARY-EXPRESSION",
-    "BINARY_EXPRESSION": "BINARY-EXPRESSION",
-    "TRANSFORM":         "TRANSFORM"
-}
-
-},{}],4:[function(require,module,exports){
+},{"generate-js":10}],3:[function(require,module,exports){
 var Generator = require('generate-js'),
     execute = require('./runtime/execute'),
     utils = require('./runtime/utils'),
@@ -147,17 +124,15 @@ var Generator = require('generate-js'),
 
     Nodes = {},
 
-    TYPES = require('./compiler/token-types'),
     ARRAY = [],
     MAP = {
-        'FRAGMENT': 'FRAG',
-        'HTML-TAG': 'TAG',
-        'HTML-TEXT': 'TEXT',
-        'HTML-ATTR': 'ATTR',
-        'STRING-TEXT': 'TEXT',
-        'BARS-BLOCK': 'BLOCK',
-        'BARS-INSERT': 'TEXT',
-        'BARS-PARTIAL': 'PARTIAL'
+        'fragment': 'FRAG',
+        'tag': 'TAG',
+        'text': 'TEXT',
+        'attr': 'ATTR',
+        'block': 'BLOCK',
+        'insert': 'TEXT',
+        'partial': 'PARTIAL'
     };
 
 /**
@@ -181,7 +156,7 @@ var BarsNode = Generator.generate(function BarsNode(frag, bars, struct) {
         type: struct.type,
         name: struct.name,
         value: struct.value,
-        arg: struct.argument,
+        arg: struct.expression,
         conFrag: struct.consequent,
         altFrag: struct.alternate,
     });
@@ -611,7 +586,7 @@ Nodes.FRAG.definePrototype({
 
 module.exports = Nodes.FRAG;
 
-},{"./compiler/token-types":3,"./runtime/context":6,"./runtime/execute":7,"./runtime/utils":9,"generate-js":11}],5:[function(require,module,exports){
+},{"./runtime/context":5,"./runtime/execute":6,"./runtime/utils":8,"generate-js":10}],4:[function(require,module,exports){
 var Generator = require('generate-js'),
     Frag = require('./frag');
 
@@ -633,7 +608,7 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./frag":4,"generate-js":11}],6:[function(require,module,exports){
+},{"./frag":3,"generate-js":10}],5:[function(require,module,exports){
 var Generator = require('generate-js');
 var utils = require('./utils');
 var pathSpliter = utils.pathSpliter;
@@ -672,7 +647,7 @@ Context.definePrototype({
         set: function path(path) {
             var _ = this;
 
-            path = pathSpliter(path);
+            // path = pathSpliter(path);
             var fragment = _.fragment;
 
             _.data = null;
@@ -704,9 +679,11 @@ Context.definePrototype({
     },
 
     lookup: function lookup(path) {
-        var _ = this;
+        var _ = this,
+            i = 0;
 
-        path = pathSpliter(path);
+        // path = pathSpliter(path);
+        // console.log('lookup:', path)
 
         if (!_.context && _.fragment.fragment) {
             _.context = _.fragment.fragment.context;
@@ -725,9 +702,10 @@ Context.definePrototype({
         if (
             path[0] === 'this' ||
             path[0] === '.' ||
-            path[0] === '~'
+            path[0] === '~' ||
+            path[0] === '@'
         ) {
-            path.shift();
+            i = 1;
         }
 
         if (!_.data && _.context) {
@@ -736,18 +714,20 @@ Context.definePrototype({
 
         if (!_.data) return;
 
-        var value = _.data;
+        var value = (path[0] === '@' ? _.props : _.data);
 
-        for (var i = 0; value && i < path.length; i++) {
+        // console.log('lookup:', value)
 
-            if (path[i][0] === '@') {
-                value = _.props[path[i].slice(1)];
-            } else if (value !== null && value !== void(0)) {
+
+        for (; value && i < path.length; i++) {
+
+            if (value !== null && value !== void(0)) {
                 value = value[path[i]];
             } else {
                 value = undefined;
             }
         }
+        // console.log('lookup:', value)
 
         return value;
     }
@@ -755,47 +735,45 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"./utils":9,"generate-js":11}],7:[function(require,module,exports){
-var TYPES = require('../compiler/token-types');
+},{"./utils":8,"generate-js":10}],6:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
     function run(token) {
         var result,
             args = [];
-
+        // console.log('>>>>', token)
         if (
-            token.type === TYPES.STRING ||
-            token.type === TYPES.NUMBER ||
-            token.type === TYPES.BOOLEAN ||
-            token.type === TYPES.NULL
+            token.type === 'literal'
         ) {
             result = token.value;
         } else if (
-            token.type === TYPES.INSERT_VAL
+            token.type === 'value'
         ) {
             result = context.lookup(token.path);
         } else if (
-            token.type === TYPES.UNARY_EXPRESSION
+            token.type === 'opperator' &&
+            token.arguments.length === 1
         ) {
             result = logic[token.opperator](
-                run(token.argument)
+                run(token.arguments[0])
             );
         } else if (
-            token.type === TYPES.BINARY_EXPRESSION
+            token.type === 'opperator' &&
+            token.arguments.length === 2
         ) {
             if (token.opperator === '||') {
-                result = run(token.left) || run(token.right);
+                result = run(token.arguments[0]) || run(token.arguments[1]);
             } else if (token.opperator === '&&') {
-                result = run(token.left) && run(token.right);
+                result = run(token.arguments[0]) && run(token.arguments[1]);
             } else {
                 result = logic[token.opperator](
-                    run(token.left),
-                    run(token.right)
+                    run(token.arguments[0]),
+                    run(token.arguments[1])
                 );
             }
         } else if (
-            token.type === TYPES.TRANSFORM
+            token.type === 'transform'
         ) {
             for (var i = 0; i < token.arguments.length; i++) {
                 args.push(run(token.arguments[i]));
@@ -806,7 +784,7 @@ function execute(syntaxTree, transforms, context) {
                 throw 'Missing Transfrom: "' + token.name + '".';
             }
         }
-
+        // console.log('<<<<', result)
         return result;
     }
 
@@ -819,7 +797,7 @@ function execute(syntaxTree, transforms, context) {
 
 module.exports = execute;
 
-},{"../compiler/token-types":3,"./logic":8}],8:[function(require,module,exports){
+},{"./logic":7}],7:[function(require,module,exports){
 /* Arithmetic */
 exports.add      = function add      (a, b) { return a + b; };
 exports.subtract = function subtract (a, b) { return a - b; };
@@ -869,9 +847,7 @@ exports.gt = function gt (a, b) { return a > b; };
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
 
-},{}],9:[function(require,module,exports){
-var TYPES = require('../compiler/token-types');
-
+},{}],8:[function(require,module,exports){
 exports.pathResolver = function pathResolver(base, path) {
     base = base.slice();
     path = path.slice();
@@ -917,23 +893,15 @@ exports.pathSpliter = function pathSpliter(path) {
 
 function findPath(arg) {
     if (arg) {
-        if (arg.type === TYPES.INSERT_VAL) {
+        if (arg.type === 'insert') {
             return arg.path;
-        } else if (arg.type === TYPES.UNARY_EXPRESSION) {
-            return findPath(arg.argument);
-        } else if (arg.type === TYPES.BINARY_EXPRESSION) {
-            var left = findPath(arg.left);
-            if (left.type === TYPES.INSERT_VAL) {
-                return left.argument;
-            }
-            var right = findPath(arg.right);
-            if (right.type === TYPES.INSERT_VAL) {
-                return right.argument;
-            }
-        } else if (arg.type === TYPES.TRANSFORM) {
+        } else if (
+            arg.type === 'opperator' ||
+            arg.type === 'transform'
+        ) {
             for (var i = 0; i < arg.arguments.length; i++) {
                 var argI = findPath(arg.arguments[i]);
-                if (argI.type === TYPES.INSERT_VAL) {
+                if (argI.type === 'insert') {
                     return argI.argument;
                 }
             }
@@ -945,7 +913,7 @@ function findPath(arg) {
 
 exports.findPath = findPath;
 
-},{"../compiler/token-types":3}],10:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Transfrom = Generator.generate(function Transfrom() {});
@@ -1030,7 +998,7 @@ Transfrom.definePrototype({
 
 module.exports = Transfrom;
 
-},{"generate-js":11}],11:[function(require,module,exports){
+},{"generate-js":10}],10:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -1308,11 +1276,24 @@ module.exports = Transfrom;
 
             /**
              * Generates a new generator that inherits from `this` generator.
-             * @param {Generator} ParentGenerator Generator to inherit from.
+             * @param {Generator} extendFrom      Constructor to inherit from.
              * @param {Function} create           Create method that gets called when creating a new instance of new generator.
              * @return {Generator}                New Generator that inherits from 'ParentGenerator'.
              */
             toGenerator: function toGenerator(extendFrom, create) {
+                console.warn(
+                    'Generator.toGenerator is depreciated please use Generator.generateFrom'
+                );
+                return this.generateFrom(extendFrom, create);
+            },
+
+            /**
+             * Generates a new generator that inherits from `this` generator.
+             * @param {Constructor} extendFrom    Constructor to inherit from.
+             * @param {Function} create           Create method that gets called when creating a new instance of new generator.
+             * @return {Generator}                New Generator that inherits from 'ParentGenerator'.
+             */
+            generateFrom: function generateFrom(extendFrom, create) {
                 assertTypeError(extendFrom, 'function');
                 assertTypeError(create, 'function');
 
@@ -1341,8 +1322,8 @@ module.exports = Transfrom;
                         enumerable: false,
                         writable: false
                     }, {
-                        constructor: construct,
-                        generator: construct,
+                        constructor: create,
+                        generator: create,
                     }
                 );
 
@@ -1379,7 +1360,7 @@ module.exports = Transfrom;
 
 }());
 
-},{}],12:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 module.exports={
   "name": "bars",
   "version": "0.3.7",
@@ -1405,7 +1386,8 @@ module.exports={
   },
   "homepage": "https://github.com/Mike96Angelo/Bars#readme",
   "dependencies": {
-    "generate-js": "^3.1.1"
+    "compileit": "0.0.19",
+    "generate-js": "^3.1.2"
   },
   "devDependencies": {
     "browserify": "^11.0.1",

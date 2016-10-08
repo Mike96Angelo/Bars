@@ -23,7 +23,8 @@
   },
   "homepage": "https://github.com/Mike96Angelo/Bars#readme",
   "dependencies": {
-    "generate-js": "^3.1.1"
+    "compileit": "0.0.19",
+    "generate-js": "^3.1.2"
   },
   "devDependencies": {
     "browserify": "^11.0.1",

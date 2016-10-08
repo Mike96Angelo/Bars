@@ -14,7 +14,7 @@
 ```handlebars
 {{#<name> <arg> <context-map>?}}
 
-{{else}}
+{{else[ <name> <arg> <context-map>?]}}
 
 {{/<name>}}
 ```
