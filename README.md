@@ -17,7 +17,7 @@ Bars is a light weight high performance templating system.  Bars emits DOM rathe
 | ember.min.js      |  419 KB   |     173 KB   | DOM         |
 
 
-* [Try Bars](https://jsfiddle.net/bba4kk3d/1/).
+* [Try Bars](https://jsfiddle.net/bba4kk3d/2/).
 * [Benchmark](http://jsfiddle.net/yE9Z9/92/).
 
 ### Install:
