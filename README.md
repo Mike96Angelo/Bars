@@ -95,7 +95,8 @@ For all features see [Bars Spec](bars-spec.md).
 
 
 <a name="compile"></a>
-## Bars.compile(template) *not available in the runtime only package*
+## Bars.compile(template) 
+#### *not available in the runtime only package*
 
 * *template* `String` A Bars template string.
 * *return*: `Fragment` A new [Fragment](#class-fragment) created from the `template`.
@@ -113,7 +114,8 @@ Note: bars.compile(template) is equivalent to bars.build(bars.preCompile(templat
 ```
 
 <a name="pre-compile"></a>
-## Bars.preCompile(template) *not available in the runtime only package*
+## Bars.preCompile(template) 
+#### *not available in the runtime only package*
 
 * *template* `String` A Bars template string.
 * *return*: `Object` A object structure representing the `template`.
