@@ -111,7 +111,7 @@ var bars = new Bars();
 
 var frag = bars.compile('<h1>Hello, {{name}}.</h1>');
 
-Note: bars.compile(template) is equivalent to bars.build(bars.preCompile(template))
+//Note: bars.compile(template) is equivalent to bars.build(bars.preCompile(template))
 
 ```
 
