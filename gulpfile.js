@@ -7,7 +7,8 @@ var minify = require('gulp-minify');
 
 gulp.task('package', function () {
     var b = browserify({
-        entries: 'lib/bars.js'
+        entries: 'lib/bars.js',
+        standalone: 'Bars'
     });
 
     return b.bundle()

@@ -50,7 +50,7 @@ Bars.definePrototype({
     },
 });
 
-module.exports = window.Bars = Bars;
+module.exports = Bars;
 
 },{"../package":31,"./blocks":2,"./compiler/tokens":6,"./renderer":18,"./transforms":23,"generate-js":30}],2:[function(require,module,exports){
 var Generator = require('generate-js');
