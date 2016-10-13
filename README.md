@@ -112,7 +112,7 @@ Note: bars.compile(template) is equivalent to bars.build(bars.preCompile(templat
 
 ```
 
-<a name="preCompile"></a>
+<a name="pre-compile"></a>
 ## Bars.preCompile(template)
 
 * *template* `String` A Bars template string.
