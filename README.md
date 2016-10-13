@@ -80,6 +80,8 @@ For all features see [Bars Spec](bars-spec.md).
 
 * [Bars](#bars)
     * [Bars.compile(template)](#compile)
+    * [Bars.preCompile(template)](#pre-compile)
+    * [Bars.build(compiledTemplate)](#build)
     * [Bars.registerBlock(name, func)](#register-block)
     * [Bars.registerPartial(name, template)](#register-partial)
     * [Bars.registerTransform(name, func)](#register-transform)
@@ -105,6 +107,40 @@ Example:
 var bars = new Bars();
 
 var frag = bars.compile('<h1>Hello, {{name}}.</h1>');
+
+Note: bars.compile(template) is equivalent to bars.build(bars.preCompile(template))
+
+```
+
+<a name="preCompile"></a>
+## Bars.preCompile(template)
+
+* *template* `String` A Bars template string.
+* *return*: `Object` A object structure representing the `template`.
+
+Returns a object structure representing the `template`.
+
+Example:
+```javascript
+var bars = new Bars();
+
+var myCompiledTemplate = bars.preCompile('<h1>Hello, {{name}}.</h1>');
+
+```
+
+<a name="build"></a>
+## Bars.build(compiledTemplate)
+
+* *compiledTemplate* `Object` A Bars compiled template.
+* *return*: `Fragment` A new [Fragment](#class-fragment) created from the `template`.
+
+Returns a new [Fragment](#class-fragment).
+
+Example:
+```javascript
+var bars = new Bars();
+
+var frag = bars.build(myComiledTemplate);
 
 ```
 
