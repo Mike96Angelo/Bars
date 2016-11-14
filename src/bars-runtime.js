@@ -1558,7 +1558,7 @@ Nodes.BLOCK.definePrototype({
                 _.alternate.parent = _;
             }
 
-            _.alternate.update(context);
+            if (_.alternate) _.alternate.update(context);
         }
     },
     _elementAppendTo: function _elementAppendTo() {},
@@ -3027,7 +3027,7 @@ exports.bufferSlice = bufferSlice;
 },{}],31:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.4.0",
+  "version": "0.4.3",
   "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {
@@ -3054,7 +3054,7 @@ module.exports={
     "generate-js": "^3.1.2"
   },
   "devDependencies": {
-    "browserify": "^11.0.1",
+    "browserify": "^13.1.1",
     "colors": "^1.1.2",
     "gulp": "^3.9.1",
     "gulp-minify": "0.0.14",
