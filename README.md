@@ -83,7 +83,7 @@ For all features see [Bars Spec](bars-spec.md).
     * [Bars.preCompile(template)](#pre-compile)
     * [Bars.build(compiledTemplate)](#build)
     * [Bars.registerBlock(name, func)](#register-block)
-    * [Bars.registerPartial(name, template)](#register-partial)
+    * [Bars.registerPartial(name, builtTemplate)](#register-partial)
     * [Bars.registerTransform(name, func)](#register-transform)
     * [Class: Fragment](#class-fragment)
         * [Fragment.render()](#frament-render)
@@ -95,7 +95,7 @@ For all features see [Bars Spec](bars-spec.md).
 
 
 <a name="compile"></a>
-## Bars.compile(template) 
+## Bars.compile(template)
 #### *not available in the runtime only package.*
 
 Also see [bars-browserify](https://github.com/Mike96Angelo/Bars-Browserify).
@@ -116,7 +116,7 @@ var frag = bars.compile('<h1>Hello, {{name}}.</h1>');
 ```
 
 <a name="pre-compile"></a>
-## Bars.preCompile(template) 
+## Bars.preCompile(template)
 #### *not available in the runtime only package.*
 
 Also see [bars-browserify](https://github.com/Mike96Angelo/Bars-Browserify).
@@ -172,10 +172,10 @@ bars.registerBlock('unless', function unlessBlock(con) {
 ```
 
 <a name="register-partial"></a>
-## Bars.registerPartial(name, template)
+## Bars.registerPartial(name, builtTemplate)
 
 * *name* `String` The name of the partial.
-* *template* `String` The partial template.
+* *builtTemplate* `Fragment` The partial Fragment returned from [Bars.build(parsedTemplate)](#build).
 * *return*: `Bars` *This* [Bars](#bars).
 
 Returns *this* [Bars](#bars).
@@ -201,7 +201,7 @@ Returns *this* [Bars](#bars).
 
 Example:
 ```javascript
-bars.registerPartial('upperCase', function upperCase(a) {
+bars.registerTransform('upperCase', function upperCase(a) {
     return String(a).toUpperCase();
 });
 
