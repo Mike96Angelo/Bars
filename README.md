@@ -11,9 +11,6 @@ Bars is a lightweight high performance HTML aware templating engine.  Bars emits
 
 Bars is still in early development, please share any suggestions and report any bugs to the [GitHub issues](https://github.com/Mike96Angelo/Bars/issues) page, so we can continue to improve Bars.  If you want to contribute to Bars, [fork Bars on GitHub](https://github.com/Mike96Angelo/Bars) and send in a pull request.  For ways to contribute check out the [issues](https://github.com/Mike96Angelo/Bars/issues) page on GitHub.
 
-* [Try Bars](https://jsfiddle.net/bba4kk3d/2/).
-* [Benchmark](http://jsfiddle.net/yE9Z9/92/).
-
 ### Install:
 ```
 $ npm install bars
@@ -69,6 +66,8 @@ THE CAT IN THE HAT
 ```
 
 For all features see [Bars Spec](bars-spec.md).
+* [Try Bars](https://jsfiddle.net/bba4kk3d/2/).
+* [Benchmark](http://jsfiddle.net/yE9Z9/92/)
 
 ## Table of Contents
 
@@ -161,7 +160,7 @@ bars.registerBlock('unless', function unlessBlock(con) {
 
 /**
  * To use the `unless` block in a template
- * use this {{#unless <arg>}} {{else}} {{/unless}}.
+ * use this {{#unless <expression> <context-map>?}} {{else}} {{/unless}}.
  */
 ```
 
@@ -176,11 +175,11 @@ Returns *this* [Bars](#bars).
 
 Example:
 ```javascript
-bars.registerPartial('person', '<h2>{{name}}</h2>{{#if age}} - {{age}}{{/if}}');
+bars.registerPartial('person', builtTemplate);
 
 /**
  * To use the `person` partial in another
- * template use this {{>person <arg>}}.
+ * template use this {{>person <expression|context-map>?}}.
  */
 ```
 
@@ -201,7 +200,7 @@ bars.registerTransform('upperCase', function upperCase(a) {
 
 /**
  * To use the `upperCase` transform in a
- * template use this {{@upperCase(<arg>)}}.
+ * template use this {{@upperCase(<expression>)}}.
  */
 ```
 
