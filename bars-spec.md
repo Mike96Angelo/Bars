@@ -12,9 +12,9 @@
 ### Block - *implemented*
 
 ```handlebars
-{{#<name> <arg> <context-map>?}}
+{{#<name> <expression> <context-map>?}}
 
-{{else[ <name> <arg> <context-map>?]}}
+{{else[ <name> <expression> <context-map>?]}}
 
 {{/<name>}}
 ```
@@ -28,17 +28,26 @@ NOTE: *context-map not implemented*
 ### Partial - *implemented*
 
 ```handlebars
-{{><name> <arg | context-map>?}}
+{{><name> <expression | context-map>?}}
 ```
+NOTE: *context-map not implemented*
+
+### Partial Router - *not implemented*
+
+```handlebars
+{{>?<name-expression> <expression | context-map>?}}
+```
+The result of the name-expression tell the partail router which partial to render.
+
 NOTE: *context-map not implemented*
 
 ### Insert - *implemented*
 
 ```handlebars
-{{<arg>}}
+{{<expression>}}
 ```
 
-## Bars Argument
+## Bars Expression
 
 ### Operators - *implemented*
 
@@ -101,16 +110,17 @@ null
 <path>.<to>.<value>
 ```
 
-### Bars Insert Property - *implemented*
+### Bars Block Property - *implemented*
 
 ```javascript
-<insert-value>@<property>
+@<property>
+~?/<path>/<to>/@<property>
 ```
 
 ### Bars Transform Function - *implemented*
 
 ```javascript
-@<transform>(<arg>, <arg>, ...)
+@<transform>(<expression>, <expression>, ...)
 ```
 
 #### Built in Transform functions:
@@ -129,5 +139,5 @@ null
 ## Bars Context Map
 
 ```javascript
-<name>=<arg> <name>=<arg> ...
+<name>=<expression> <name>=<expression> ...
 ```
