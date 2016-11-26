@@ -7,6 +7,8 @@
 
 Bars is a lightweight high performance HTML aware templating engine.  Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen.
 
+# Contribute to Bars
+
 Bars is still in early development please share any comments or suggestions and report bugs so we can continue to improve Bars.  If you want to contribute to Bars, [fork Bars on GitHub](https://github.com/Mike96Angelo/Bars) and send in a pull request.  For ways to contribute check out the [issues](https://github.com/Mike96Angelo/Bars/issues) page on GitHub.
 
 * [Try Bars](https://jsfiddle.net/bba4kk3d/2/).
