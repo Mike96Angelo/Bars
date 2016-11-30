@@ -37,10 +37,10 @@ Bars.definePrototype({
         _.blocks[name] = block;
     },
 
-    registerPartial: function registerPartial(name, template) {
+    registerPartial: function registerPartial(name, templateRenderer) {
         var _ = this;
 
-        _.partials[name] = _.compile(template);
+        _.partials[name] = templateRenderer;
     },
 
     registerTransform: function registerTransform(name, func) {
@@ -3027,7 +3027,7 @@ exports.bufferSlice = bufferSlice;
 },{}],31:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {

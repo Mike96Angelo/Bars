@@ -37,10 +37,10 @@ Bars.definePrototype({
         _.blocks[name] = block;
     },
 
-    registerPartial: function registerPartial(name, template) {
+    registerPartial: function registerPartial(name, templateRenderer) {
         var _ = this;
 
-        _.partials[name] = _.compile(template);
+        _.partials[name] = templateRenderer;
     },
 
     registerTransform: function registerTransform(name, func) {
@@ -60,10 +60,11 @@ var Bars = require('./bars-runtime'),
 Bars.definePrototype({
     compile: function compile(template, filename, mode, flags) {
         var _ = this;
-        return _.build(_.parse(template, filename, mode, flags));
+        return _.build(_.preCompile(template, filename, mode,
+            flags));
     },
 
-    parse: function parse(template, filename, mode, flags) {
+    preCompile: function preCompile(template, filename, mode, flags) {
         return compile(template, filename, mode, flags);
     }
 });
@@ -978,6 +979,20 @@ var Token = require('../tokens'),
     TransformToken = Token.tokens.transform,
     utils = require('../utils');
 
+var _PRECEDENCE_ = {
+    '+': 1,
+    '-': 1,
+    '*': 2,
+    '/': 2,
+    '%': 2,
+    '^': 3,
+    '!': Infinity
+};
+
+function PRECEDENCE(op) {
+    return _PRECEDENCE_[op] || 0;
+}
+
 function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
     var index = code.index,
         length = code.length,
@@ -1060,6 +1075,8 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
         return true;
     }
 
+    expression.precedence = PRECEDENCE(expression.opperator);
+
     if (expression.binary) {
         if (binary_fail) {
             throw code.makeError(
@@ -1090,6 +1107,19 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
                 JSON.stringify(expression.arguments[0].source(code)) +
                 '.'
             );
+        }
+
+        var prevOp = expression.arguments[0];
+
+        if (
+            OpperatorToken.isCreation(prevOp) &&
+            prevOp.precedence < expression.precedence
+        ) {
+            expression.arguments.pop();
+
+            expression.arguments.push(prevOp.arguments.pop());
+
+            prevOp.arguments.push(expression);
         }
 
         expression.range[0] = expression.arguments[0].range[0];
@@ -5100,7 +5130,7 @@ exports.bufferSlice = bufferSlice;
 },{}],56:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {
