@@ -181,7 +181,7 @@ var parseModes = {
         parsers.parseExpressionTransform,
         parsers.parseExpressionValue,
         parsers.parseExpressionLiteral,
-        parsers.parseExpressionOpperator,
+        parsers.parseExpressionOperator,
         parsers.parseWhitspace
     ],
     'LOGIC-ARGS': [
@@ -189,7 +189,7 @@ var parseModes = {
         parsers.parseExpressionTransform,
         parsers.parseExpressionValue,
         parsers.parseExpressionLiteral,
-        parsers.parseExpressionOpperator,
+        parsers.parseExpressionOperator,
         parsers.parseWhitspace
     ]
 };
@@ -752,7 +752,7 @@ module.exports = parseBarsPartial;
 },{"../tokens":28,"../utils":40}],12:[function(require,module,exports){
 var Token = require('../tokens'),
     LiteralToken = Token.tokens.literal,
-    OpperatorToken = Token.tokens.opperator;
+    OperatorToken = Token.tokens.operator;
 
 function STRING(mode, code, tokens, flags, scope, parseMode) {
     var ch,
@@ -794,7 +794,7 @@ function STRING(mode, code, tokens, flags, scope, parseMode) {
         text.close();
 
         if (
-            OpperatorToken.isCreation(scope.token)
+            OperatorToken.isCreation(scope.token)
         ) {
             scope.close();
             parseMode.close();
@@ -876,7 +876,7 @@ function NUMBER(mode, code, tokens, flags, scope, parseMode) {
         number.value = Number(number.source(code));
 
         if (
-            OpperatorToken.isCreation(scope.token)
+            OperatorToken.isCreation(scope.token)
         ) {
             scope.close();
             parseMode.close();
@@ -920,7 +920,7 @@ function BOOLEAN(mode, code, tokens, flags, scope, parseMode) {
     boolean.value = bool;
 
     if (
-        OpperatorToken.isCreation(scope.token)
+        OperatorToken.isCreation(scope.token)
     ) {
         scope.close();
         parseMode.close();
@@ -950,7 +950,7 @@ function NULL(mode, code, tokens, flags, scope, parseMode) {
     }
 
     if (
-        OpperatorToken.isCreation(scope.token)
+        OperatorToken.isCreation(scope.token)
     ) {
         scope.close();
         parseMode.close();
@@ -975,7 +975,7 @@ module.exports = parseExpressionLiteral;
 var Token = require('../tokens'),
     ValueToken = Token.tokens.value,
     LiteralToken = Token.tokens.literal,
-    OpperatorToken = Token.tokens.opperator,
+    OperatorToken = Token.tokens.operator,
     TransformToken = Token.tokens.transform,
     utils = require('../utils');
 
@@ -993,7 +993,7 @@ function PRECEDENCE(op) {
     return _PRECEDENCE_[op] || 0;
 }
 
-function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
+function parseExpressionOperator(mode, code, tokens, flags, scope, parseMode) {
     var index = code.index,
         length = code.length,
         originalIndex = index,
@@ -1001,7 +1001,9 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
         ch = code.codePointAt(index),
         ch2, ch3,
         expression,
-        binary_fail;
+        binary_fail,
+        prevOp,
+        usePrevOp;
 
     oldIndex = index;
     for (; index < length; index++) {
@@ -1027,8 +1029,8 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
         (ch === 0x0021 && ch2 === 0x003d && ch3 === 0x003d) /* !== */
     ) {
         code.index = index;
-        expression = new OpperatorToken(code);
-        expression.opperator = code.slice(index, index + 3);
+        expression = new OperatorToken(code);
+        expression.operator = code.slice(index, index + 3);
         expression.binary = true;
         index += 2;
     } else if ( /* handle BINARY-EXPRESSION */
@@ -1040,8 +1042,8 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
         (ch === 0x007c && ch2 === 0x007c) /* || */
     ) {
         code.index = index;
-        expression = new OpperatorToken(code);
-        expression.opperator = code.slice(index, index + 2);
+        expression = new OperatorToken(code);
+        expression.operator = code.slice(index, index + 2);
         expression.binary = true;
         index++;
     } else if ( /* handle BINARY-EXPRESSION */
@@ -1054,20 +1056,20 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
         (ch === 0x003e) /* > */
     ) {
         code.index = index;
-        expression = new OpperatorToken(code);
-        expression.opperator = code.charAt(index);
+        expression = new OperatorToken(code);
+        expression.operator = code.charAt(index);
         expression.binary = true;
     } else if ( /* handle UNARY-EXPRESSION */
         ch === 0x0021 /* ! */
     ) {
         code.index = index;
-        expression = new OpperatorToken(code);
-        expression.opperator = code.charAt(index);
+        expression = new OperatorToken(code);
+        expression.operator = code.charAt(index);
         expression.unary = true;
         index++;
     }
 
-    if (!expression || !expression.opperator) {
+    if (!expression || !expression.operator) {
         if (binary_fail) {
             return null;
         }
@@ -1075,29 +1077,29 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
         return true;
     }
 
-    expression.precedence = PRECEDENCE(expression.opperator);
+    expression.precedence = PRECEDENCE(expression.operator);
 
     if (expression.binary) {
         if (binary_fail) {
             throw code.makeError(
-                originalIndex, originalIndex + expression.opperator.length,
+                originalIndex, originalIndex + expression.operator.length,
                 'Unexpected Token: ' +
-                JSON.stringify(expression.opperator) +
-                ' missing whitespace before opperator.'
+                JSON.stringify(expression.operator) +
+                ' missing whitespace before operator.'
             );
         }
         expression.arguments[0] = tokens.pop();
 
         if (!expression.arguments[0]) {
             throw code.makeError(
-                index, index + expression.opperator.length,
+                index, index + expression.operator.length,
                 'Missing left-hand <arg>.'
             );
         }
 
         if (!ValueToken.isCreation(expression.arguments[0]) &&
             !LiteralToken.isCreation(expression.arguments[0]) &&
-            !OpperatorToken.isCreation(expression.arguments[0]) &&
+            !OperatorToken.isCreation(expression.arguments[0]) &&
             !TransformToken.isCreation(expression.arguments[0])
         ) {
             throw code.makeError(
@@ -1109,10 +1111,11 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
             );
         }
 
-        var prevOp = expression.arguments[0];
+        prevOp = expression.arguments[0];
+        usePrevOp = false;
 
         if (
-            OpperatorToken.isCreation(prevOp) &&
+            OperatorToken.isCreation(prevOp) &&
             prevOp.precedence < expression.precedence
         ) {
             expression.arguments.pop();
@@ -1120,6 +1123,8 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
             expression.arguments.push(prevOp.arguments.pop());
 
             prevOp.arguments.push(expression);
+
+            usePrevOp = true;
         }
 
         expression.range[0] = expression.arguments[0].range[0];
@@ -1169,14 +1174,14 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
     if (!expression.closed || !expression.arguments[1]) {
         code.index = index;
         throw code.makeError(
-            index, index + expression.opperator.length,
+            index, index + expression.operator.length,
             'Missing right-hand <arg>.'
         );
     }
 
     if (!ValueToken.isCreation(expression.arguments[1]) &&
         !LiteralToken.isCreation(expression.arguments[1]) &&
-        !OpperatorToken.isCreation(expression.arguments[1]) &&
+        !OperatorToken.isCreation(expression.arguments[1]) &&
         !TransformToken.isCreation(expression.arguments[1])
     ) {
         throw code.makeError(
@@ -1190,17 +1195,17 @@ function parseExpressionOpperator(mode, code, tokens, flags, scope, parseMode) {
 
     if (expression.unary) {
         if (
-            OpperatorToken.isCreation(scope.token)
+            OperatorToken.isCreation(scope.token)
         ) {
             scope.close();
             parseMode.close();
         }
     }
 
-    return expression;
+    return usePrevOp ? prevOp : expression;
 }
 
-module.exports = parseExpressionOpperator;
+module.exports = parseExpressionOperator;
 
 },{"../tokens":28,"../utils":40}],14:[function(require,module,exports){
 // parseExpressionTransformEnd
@@ -1236,7 +1241,7 @@ module.exports = parseExpressionTransformEnd;
 },{"../tokens":28}],15:[function(require,module,exports){
 var Token = require('../tokens'),
     TransformToken = Token.tokens.transform,
-    OpperatorToken = Token.tokens.opperator,
+    OperatorToken = Token.tokens.operator,
     utils = require('../utils');
 
 function parseExpressionTransform(mode, code, tokens, flags, scope, parseMode) {
@@ -1305,7 +1310,7 @@ function parseExpressionTransform(mode, code, tokens, flags, scope, parseMode) {
     }
 
     if (
-        OpperatorToken.isCreation(scope.token)
+        OperatorToken.isCreation(scope.token)
     ) {
         scope.close();
         parseMode.close();
@@ -1319,7 +1324,7 @@ module.exports = parseExpressionTransform;
 },{"../tokens":28,"../utils":40}],16:[function(require,module,exports){
 var Token = require('../tokens'),
     ValueToken = Token.tokens.value,
-    OpperatorToken = Token.tokens.opperator,
+    OperatorToken = Token.tokens.operator,
     utils = require('../utils');
 
 function parseExpressionValue(mode, code, tokens, flags, scope, parseMode) {
@@ -1450,7 +1455,7 @@ function parseExpressionValue(mode, code, tokens, flags, scope, parseMode) {
         value.path = path;
 
         if (
-            OpperatorToken.isCreation(scope.token)
+            OperatorToken.isCreation(scope.token)
         ) {
             scope.close();
             parseMode.close();
@@ -1796,11 +1801,11 @@ exports.parseBarsMarkupEnd = require('./bars-markup-end');
 // Expression
 exports.parseExpressionValue = require('./expression-value');
 exports.parseExpressionLiteral = require('./expression-literal');
-exports.parseExpressionOpperator = require('./expression-opperator');
+exports.parseExpressionOperator = require('./expression-operator');
 exports.parseExpressionTransform = require('./expression-transform');
 exports.parseExpressionTransformEnd = require('./expression-transform-end');
 
-},{"./bars-block":6,"./bars-comment":7,"./bars-insert":8,"./bars-markup":10,"./bars-markup-end":9,"./bars-partial":11,"./expression-literal":12,"./expression-opperator":13,"./expression-transform":15,"./expression-transform-end":14,"./expression-value":16,"./html-attr":18,"./html-attr-end":17,"./html-comment":19,"./html-tag":21,"./html-tag-end":20,"./text":23,"./whitespace":24}],23:[function(require,module,exports){
+},{"./bars-block":6,"./bars-comment":7,"./bars-insert":8,"./bars-markup":10,"./bars-markup-end":9,"./bars-partial":11,"./expression-literal":12,"./expression-operator":13,"./expression-transform":15,"./expression-transform-end":14,"./expression-value":16,"./html-attr":18,"./html-attr-end":17,"./html-comment":19,"./html-tag":21,"./html-tag-end":20,"./text":23,"./whitespace":24}],23:[function(require,module,exports){
 var TextToken = require('../tokens')
     .tokens.text,
     utils = require('../utils');
@@ -2306,7 +2311,7 @@ require('./partial');
 require('./literal');
 require('./value');
 require('./transform');
-require('./opperator');
+require('./operator');
 
 
 // TODO: maps
@@ -2329,7 +2334,7 @@ module.exports = Token;
 
 // window.prog = prog;
 
-},{"./attr":25,"./block":26,"./fragment":27,"./insert":29,"./literal":30,"./opperator":31,"./partial":32,"./program":33,"./tag":34,"./text":35,"./token":36,"./transform":37,"./value":38}],29:[function(require,module,exports){
+},{"./attr":25,"./block":26,"./fragment":27,"./insert":29,"./literal":30,"./operator":31,"./partial":32,"./program":33,"./tag":34,"./text":35,"./token":36,"./transform":37,"./value":38}],29:[function(require,module,exports){
 var Token = require('./token');
 
 var InsertToken = Token.generate(
@@ -2452,34 +2457,34 @@ Token.tokens.literal = LiteralToken;
 },{"./token":36}],31:[function(require,module,exports){
 var Token = require('./token');
 
-var OpperatorToken = Token.generate(
-    function OpperatorToken(code) {
+var OperatorToken = Token.generate(
+    function OperatorToken(code) {
         var _ = this;
 
         if (code) {
             Token.call(_, code);
         }
 
-        _.opperator = 0;
+        _.operator = 0;
 
         _.arguments = [];
     }
 );
 
 
-OpperatorToken.definePrototype({
+OperatorToken.definePrototype({
     enumerable: true
 }, {
-    type: 'opperator'
+    type: 'operator'
 });
 
-OpperatorToken.definePrototype({
-    TYPE_ID: Token.tokens.push(OpperatorToken) - 1,
+OperatorToken.definePrototype({
+    TYPE_ID: Token.tokens.push(OperatorToken) - 1,
     toArray: function () {
         var _ = this;
         return [
             _.TYPE_ID,
-            _.opperator,
+            _.operator,
             _.arguments
         ];
     },
@@ -2489,7 +2494,7 @@ OpperatorToken.definePrototype({
         return {
             type: _.type,
             TYPE_ID: _.TYPE_ID,
-            opperator: _.opperator,
+            operator: _.operator,
             arguments: _.arguments
         };
     },
@@ -2497,7 +2502,7 @@ OpperatorToken.definePrototype({
     _fromArray: function _fromArray(arr) {
         var _ = this;
 
-        _.opperator = arr[1];
+        _.operator = arr[1];
 
         _.arguments = arr[2].map(function (item) {
             var arg = new Token.tokens[item[0]]();
@@ -2513,10 +2518,10 @@ OpperatorToken.definePrototype({
             str = '';
 
         if (_.arguments.length === 1) {
-            str += _.opperator + _.arguments[0].toString();
+            str += _.operator + _.arguments[0].toString();
         } else if (_.arguments.length === 2) {
             str += _.arguments[0].toString();
-            str += ' ' + _.opperator + ' ';
+            str += ' ' + _.operator + ' ';
             str += _.arguments[1].toString();
         }
 
@@ -2524,7 +2529,7 @@ OpperatorToken.definePrototype({
     }
 });
 
-Token.tokens.opperator = OpperatorToken;
+Token.tokens.operator = OperatorToken;
 Token;
 
 },{"./token":36}],32:[function(require,module,exports){
@@ -3954,22 +3959,22 @@ function execute(syntaxTree, transforms, context) {
         ) {
             result = context.lookup(token.path);
         } else if (
-            token.type === 'opperator' &&
+            token.type === 'operator' &&
             token.arguments.length === 1
         ) {
-            result = logic[token.opperator](
+            result = logic[token.operator](
                 run(token.arguments[0])
             );
         } else if (
-            token.type === 'opperator' &&
+            token.type === 'operator' &&
             token.arguments.length === 2
         ) {
-            if (token.opperator === '||') {
+            if (token.operator === '||') {
                 result = run(token.arguments[0]) || run(token.arguments[1]);
-            } else if (token.opperator === '&&') {
+            } else if (token.operator === '&&') {
                 result = run(token.arguments[0]) && run(token.arguments[1]);
             } else {
-                result = logic[token.opperator](
+                result = logic[token.operator](
                     run(token.arguments[0]),
                     run(token.arguments[1])
                 );
@@ -4098,7 +4103,7 @@ function findPath(arg) {
         if (arg.type === 'insert') {
             return arg.path;
         } else if (
-            arg.type === 'opperator' ||
+            arg.type === 'operator' ||
             arg.type === 'transform'
         ) {
             for (var i = 0; i < arg.arguments.length; i++) {
@@ -4118,13 +4123,13 @@ exports.findPath = findPath;
 },{}],48:[function(require,module,exports){
 var Generator = require('generate-js');
 
-var Transfrom = Generator.generate(function Transfrom() {});
+var Transform = Generator.generate(function Transform() {});
 
-Transfrom.definePrototype({
+Transform.definePrototype({
     log: function log() {
         var args = Array.prototype.slice.call(arguments);
         args.unshift('Bars:');
-        console.log.aplly(console, args);
+        console.log.apply(console, args);
     },
     upperCase: function upperCase(a) {
         return String(a)
@@ -4198,7 +4203,7 @@ Transfrom.definePrototype({
     }
 });
 
-module.exports = Transfrom;
+module.exports = Transform;
 
 },{"generate-js":55}],49:[function(require,module,exports){
 exports.Compiler = require('./lib/compiler');
@@ -5130,7 +5135,7 @@ exports.bufferSlice = bufferSlice;
 },{}],56:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.4.4",
+  "version": "0.4.6",
   "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {

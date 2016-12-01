@@ -445,7 +445,7 @@ require('./partial');
 require('./literal');
 require('./value');
 require('./transform');
-require('./opperator');
+require('./operator');
 
 
 // TODO: maps
@@ -468,7 +468,7 @@ module.exports = Token;
 
 // window.prog = prog;
 
-},{"./attr":3,"./block":4,"./fragment":5,"./insert":7,"./literal":8,"./opperator":9,"./partial":10,"./program":11,"./tag":12,"./text":13,"./token":14,"./transform":15,"./value":16}],7:[function(require,module,exports){
+},{"./attr":3,"./block":4,"./fragment":5,"./insert":7,"./literal":8,"./operator":9,"./partial":10,"./program":11,"./tag":12,"./text":13,"./token":14,"./transform":15,"./value":16}],7:[function(require,module,exports){
 var Token = require('./token');
 
 var InsertToken = Token.generate(
@@ -591,34 +591,34 @@ Token.tokens.literal = LiteralToken;
 },{"./token":14}],9:[function(require,module,exports){
 var Token = require('./token');
 
-var OpperatorToken = Token.generate(
-    function OpperatorToken(code) {
+var OperatorToken = Token.generate(
+    function OperatorToken(code) {
         var _ = this;
 
         if (code) {
             Token.call(_, code);
         }
 
-        _.opperator = 0;
+        _.operator = 0;
 
         _.arguments = [];
     }
 );
 
 
-OpperatorToken.definePrototype({
+OperatorToken.definePrototype({
     enumerable: true
 }, {
-    type: 'opperator'
+    type: 'operator'
 });
 
-OpperatorToken.definePrototype({
-    TYPE_ID: Token.tokens.push(OpperatorToken) - 1,
+OperatorToken.definePrototype({
+    TYPE_ID: Token.tokens.push(OperatorToken) - 1,
     toArray: function () {
         var _ = this;
         return [
             _.TYPE_ID,
-            _.opperator,
+            _.operator,
             _.arguments
         ];
     },
@@ -628,7 +628,7 @@ OpperatorToken.definePrototype({
         return {
             type: _.type,
             TYPE_ID: _.TYPE_ID,
-            opperator: _.opperator,
+            operator: _.operator,
             arguments: _.arguments
         };
     },
@@ -636,7 +636,7 @@ OpperatorToken.definePrototype({
     _fromArray: function _fromArray(arr) {
         var _ = this;
 
-        _.opperator = arr[1];
+        _.operator = arr[1];
 
         _.arguments = arr[2].map(function (item) {
             var arg = new Token.tokens[item[0]]();
@@ -652,10 +652,10 @@ OpperatorToken.definePrototype({
             str = '';
 
         if (_.arguments.length === 1) {
-            str += _.opperator + _.arguments[0].toString();
+            str += _.operator + _.arguments[0].toString();
         } else if (_.arguments.length === 2) {
             str += _.arguments[0].toString();
-            str += ' ' + _.opperator + ' ';
+            str += ' ' + _.operator + ' ';
             str += _.arguments[1].toString();
         }
 
@@ -663,7 +663,7 @@ OpperatorToken.definePrototype({
     }
 });
 
-Token.tokens.opperator = OpperatorToken;
+Token.tokens.operator = OperatorToken;
 Token;
 
 },{"./token":14}],10:[function(require,module,exports){
@@ -1851,22 +1851,22 @@ function execute(syntaxTree, transforms, context) {
         ) {
             result = context.lookup(token.path);
         } else if (
-            token.type === 'opperator' &&
+            token.type === 'operator' &&
             token.arguments.length === 1
         ) {
-            result = logic[token.opperator](
+            result = logic[token.operator](
                 run(token.arguments[0])
             );
         } else if (
-            token.type === 'opperator' &&
+            token.type === 'operator' &&
             token.arguments.length === 2
         ) {
-            if (token.opperator === '||') {
+            if (token.operator === '||') {
                 result = run(token.arguments[0]) || run(token.arguments[1]);
-            } else if (token.opperator === '&&') {
+            } else if (token.operator === '&&') {
                 result = run(token.arguments[0]) && run(token.arguments[1]);
             } else {
-                result = logic[token.opperator](
+                result = logic[token.operator](
                     run(token.arguments[0]),
                     run(token.arguments[1])
                 );
@@ -1995,7 +1995,7 @@ function findPath(arg) {
         if (arg.type === 'insert') {
             return arg.path;
         } else if (
-            arg.type === 'opperator' ||
+            arg.type === 'operator' ||
             arg.type === 'transform'
         ) {
             for (var i = 0; i < arg.arguments.length; i++) {
@@ -2015,13 +2015,13 @@ exports.findPath = findPath;
 },{}],23:[function(require,module,exports){
 var Generator = require('generate-js');
 
-var Transfrom = Generator.generate(function Transfrom() {});
+var Transform = Generator.generate(function Transform() {});
 
-Transfrom.definePrototype({
+Transform.definePrototype({
     log: function log() {
         var args = Array.prototype.slice.call(arguments);
         args.unshift('Bars:');
-        console.log.aplly(console, args);
+        console.log.apply(console, args);
     },
     upperCase: function upperCase(a) {
         return String(a)
@@ -2095,7 +2095,7 @@ Transfrom.definePrototype({
     }
 });
 
-module.exports = Transfrom;
+module.exports = Transform;
 
 },{"generate-js":30}],24:[function(require,module,exports){
 exports.Compiler = require('./lib/compiler');
@@ -3027,7 +3027,7 @@ exports.bufferSlice = bufferSlice;
 },{}],31:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.4.4",
+  "version": "0.4.6",
   "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {
