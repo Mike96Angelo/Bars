@@ -51,7 +51,7 @@ NOTE: *context-map not implemented*
 
 ### Operators - *implemented*
 
-#### Parentheses
+#### Parentheses - *implemented*
 
 ```javascript
 (<expression>)
