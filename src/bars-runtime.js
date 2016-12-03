@@ -599,9 +599,9 @@ var OperatorToken = Token.generate(
             Token.call(_, code);
         }
 
-        _.operator = 0;
+        _.operator = '';
 
-        _.arguments = [];
+        _.operands = [];
     }
 );
 
@@ -619,7 +619,7 @@ OperatorToken.definePrototype({
         return [
             _.TYPE_ID,
             _.operator,
-            _.arguments
+            _.operands
         ];
     },
 
@@ -629,7 +629,7 @@ OperatorToken.definePrototype({
             type: _.type,
             TYPE_ID: _.TYPE_ID,
             operator: _.operator,
-            arguments: _.arguments
+            operands: _.operands
         };
     },
 
@@ -638,7 +638,7 @@ OperatorToken.definePrototype({
 
         _.operator = arr[1];
 
-        _.arguments = arr[2].map(function (item) {
+        _.operands = arr[2].map(function (item) {
             var arg = new Token.tokens[item[0]]();
 
             arg.fromArray(item);
@@ -651,12 +651,12 @@ OperatorToken.definePrototype({
         var _ = this,
             str = '';
 
-        if (_.arguments.length === 1) {
-            str += _.operator + _.arguments[0].toString();
-        } else if (_.arguments.length === 2) {
-            str += _.arguments[0].toString();
+        if (_.operands.length === 1) {
+            str += _.operator + _.operands[0].toString();
+        } else if (_.operands.length === 2) {
+            str += _.operands[0].toString();
             str += ' ' + _.operator + ' ';
-            str += _.arguments[1].toString();
+            str += _.operands[1].toString();
         }
 
         return str;
@@ -1852,23 +1852,23 @@ function execute(syntaxTree, transforms, context) {
             result = context.lookup(token.path);
         } else if (
             token.type === 'operator' &&
-            token.arguments.length === 1
+            token.operands.length === 1
         ) {
             result = logic[token.operator](
-                run(token.arguments[0])
+                run(token.operands[0])
             );
         } else if (
             token.type === 'operator' &&
-            token.arguments.length === 2
+            token.operands.length === 2
         ) {
             if (token.operator === '||') {
-                result = run(token.arguments[0]) || run(token.arguments[1]);
+                result = run(token.operands[0]) || run(token.operands[1]);
             } else if (token.operator === '&&') {
-                result = run(token.arguments[0]) && run(token.arguments[1]);
+                result = run(token.operands[0]) && run(token.operands[1]);
             } else {
                 result = logic[token.operator](
-                    run(token.arguments[0]),
-                    run(token.arguments[1])
+                    run(token.operands[0]),
+                    run(token.operands[1])
                 );
             }
         } else if (
@@ -2325,7 +2325,7 @@ Compiler.definePrototype({
         }
 
         if (_.scope.length) {
-            throw code.makeError(
+            throw _.codeBuffer.makeError(
                 'Unexpected End Of Input.'
             );
         }
@@ -2423,7 +2423,10 @@ Compiler.definePrototype({
                         token.range[0],
                         token.range[1],
                         'ILLEGAL Token: ' +
-                        JSON.stringify(token.source(code))
+                        JSON.stringify(
+                            token.source(code)
+                        )
+                        .slice(1, -1)
                     );
                 }
             }
@@ -3027,7 +3030,7 @@ exports.bufferSlice = bufferSlice;
 },{}],31:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {
@@ -3050,7 +3053,7 @@ module.exports={
   },
   "homepage": "https://github.com/Mike96Angelo/Bars#readme",
   "dependencies": {
-    "compileit": "^1.0.0",
+    "compileit": "^1.0.1",
     "generate-js": "^3.1.2"
   },
   "devDependencies": {

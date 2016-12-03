@@ -388,6 +388,8 @@ function parseBarsBlock(mode, code, tokens, flags, scope, parseMode) {
 
     parseMode('LOGIC', args, flags);
 
+    args = utils.makeExpressionTree(args, code);
+
     block.expression = args[0];
 
     if (args.length > 1) {
@@ -556,7 +558,8 @@ module.exports = parseBarsComment;
 
 },{}],8:[function(require,module,exports){
 var InsertToken = require('../tokens')
-    .tokens.insert;
+    .tokens.insert,
+    utils = require('../utils');
 
 function parseBarsInsert(mode, code, tokens, flags, scope, parseMode) {
     var index = code.index + 2,
@@ -568,6 +571,8 @@ function parseBarsInsert(mode, code, tokens, flags, scope, parseMode) {
     code.index = index;
 
     parseMode('LOGIC', args, flags);
+
+    args = utils.makeExpressionTree(args, code);
 
     if (args.length > 1) {
         code.index = args[1].range[0];
@@ -607,7 +612,7 @@ function parseBarsInsert(mode, code, tokens, flags, scope, parseMode) {
 
 module.exports = parseBarsInsert;
 
-},{"../tokens":28}],9:[function(require,module,exports){
+},{"../tokens":28,"../utils":40}],9:[function(require,module,exports){
 // parseBarsMarkupEnd
 var Token = require('../tokens');
 
@@ -712,6 +717,8 @@ function parseBarsPartial(mode, code, tokens, flags, scope, parseMode) {
         scope.push(partial);
         parseMode('LOGIC', args, flags);
 
+        args = utils.makeExpressionTree(args, code);
+
         if (args.length > 1) {
             throw code.makeError(
                 args[1].range[0], args[1].range[1],
@@ -793,11 +800,17 @@ function STRING(mode, code, tokens, flags, scope, parseMode) {
         code.index = index;
         text.close();
 
-        if (
-            OperatorToken.isCreation(scope.token)
-        ) {
-            scope.close();
-            parseMode.close();
+        var preToken = tokens[tokens.length - 1];
+        if (preToken && !OperatorToken.isCreation(preToken)) {
+            throw code.makeError(
+                number.range[0],
+                number.range[1],
+                'Unexpected token: ' +
+                JSON.stringify(
+                    number.source()
+                )
+                .slice(1, -1)
+            );
         }
 
         return text;
@@ -875,11 +888,17 @@ function NUMBER(mode, code, tokens, flags, scope, parseMode) {
         number.close();
         number.value = Number(number.source(code));
 
-        if (
-            OperatorToken.isCreation(scope.token)
-        ) {
-            scope.close();
-            parseMode.close();
+        var preToken = tokens[tokens.length - 1];
+        if (preToken && !OperatorToken.isCreation(preToken)) {
+            throw code.makeError(
+                number.range[0],
+                number.range[1],
+                'Unexpected token: ' +
+                JSON.stringify(
+                    number.source()
+                )
+                .slice(1, -1)
+            );
         }
 
         return number;
@@ -919,11 +938,17 @@ function BOOLEAN(mode, code, tokens, flags, scope, parseMode) {
 
     boolean.value = bool;
 
-    if (
-        OperatorToken.isCreation(scope.token)
-    ) {
-        scope.close();
-        parseMode.close();
+    var preToken = tokens[tokens.length - 1];
+    if (preToken && !OperatorToken.isCreation(preToken)) {
+        throw code.makeError(
+            number.range[0],
+            number.range[1],
+            'Unexpected token: ' +
+            JSON.stringify(
+                number.source()
+            )
+            .slice(1, -1)
+        );
     }
 
     return bool;
@@ -949,11 +974,17 @@ function NULL(mode, code, tokens, flags, scope, parseMode) {
         return null;
     }
 
-    if (
-        OperatorToken.isCreation(scope.token)
-    ) {
-        scope.close();
-        parseMode.close();
+    var preToken = tokens[tokens.length - 1];
+    if (preToken && !OperatorToken.isCreation(preToken)) {
+        throw code.makeError(
+            number.range[0],
+            number.range[1],
+            'Unexpected token: ' +
+            JSON.stringify(
+                number.source()
+            )
+            .slice(1, -1)
+        );
     }
 
     return nul;
@@ -972,242 +1003,182 @@ function parseExpressionLiteral(mode, code, tokens, flags, scope, parseMode) {
 module.exports = parseExpressionLiteral;
 
 },{"../tokens":28}],13:[function(require,module,exports){
-var Token = require('../tokens'),
-    ValueToken = Token.tokens.value,
-    LiteralToken = Token.tokens.literal,
+var compileit = require('compileit'),
+    Token = require('../tokens'),
     OperatorToken = Token.tokens.operator,
-    TransformToken = Token.tokens.transform,
     utils = require('../utils');
 
-var _PRECEDENCE_ = {
-    '+': 1,
-    '-': 1,
-    '*': 2,
-    '/': 2,
-    '%': 2,
-    '^': 3,
-    '!': Infinity
-};
+var ExpressionToken = compileit.Token.generate(
+    function ExpressionToken(code) {
+        var _ = this;
 
-function PRECEDENCE(op) {
-    return _PRECEDENCE_[op] || 0;
+        compileit.Token.call(_, code, 'expression');
+    }
+);
+
+function opS(ch) {
+    return ch === 0x0021 ||
+        (0x0025 <= ch && ch <= 0x0026) ||
+        (0x002a <= ch && ch <= 0x002b) ||
+        ch === 0x002d ||
+        ch === 0x002f ||
+        (0x003c <= ch && ch <= 0x003e) ||
+        ch === 0x007c;
+}
+
+function opEQ(ch) {
+    return ch === 0x0021 ||
+        (0x003c <= ch && ch <= 0x003e);
+}
+
+function opEQEQ(ch) {
+    return ch === 0x0021 ||
+        ch === 0x003d;
+}
+
+function isEQ(ch) {
+    return ch === 0x003d;
+}
+
+function isOR(ch) {
+    return ch === 0x007c;
+}
+
+function isAND(ch) {
+    return ch === 0x0026;
+}
+
+function parseParentheses(mode, code, tokens, flags, scope, parseMode) {
+    var index = code.index,
+        length = code.length,
+        expression,
+        args;
+
+    if (code.codePointAt(index) === 0x0028) { // ^[(]$
+        expression = new ExpressionToken(code);
+        code.index++;
+        expression.parentheses = true;
+        args = [];
+        scope.push(expression);
+        parseMode('LOGIC', args, flags);
+        // do more here
+
+        args = utils.makeExpressionTree(args, code);
+
+        if (args.length > 1) throw 'OPERATOR OPERAND MISMATCH';
+
+        return args[0];
+    } else if (code.codePointAt(index) === 0x0029) { // ^[)]$
+        if (scope.token && scope.token.parentheses) {
+            code.index++;
+            scope.close();
+            parseMode.close();
+            return true;
+        } else {
+            throw code.makeError(
+                index,
+                index + 1,
+                'Unexpected token: )'
+            );
+        }
+    }
+
+    return null;
+}
+
+function parseOperator(mode, code, tokens, flags, scope, parseMode) {
+    var index = code.index,
+        length = code.length,
+        ch = code.codePointAt(index);
+
+    if (!opS(ch)) {
+        return null;
+    }
+
+    var operator = new OperatorToken(code);
+
+    if (opEQ(ch) && isEQ(code.codePointAt(index + 1))) {
+        index++;
+    } else if (isEQ(ch)) {
+        throw code.makeError(
+            operator.range[0],
+            operator.range[1],
+            'Unexpected token: ' +
+            JSON.stringify(
+                operator.source()
+            )
+            .slice(1, -1)
+        );
+    }
+
+    if (
+        (isOR(ch) && isOR(code.codePointAt(index + 1))) ||
+        (isAND(ch) && isAND(code.codePointAt(index + 1)))
+    ) {
+        index++;
+    } else if (isOR(ch) || isAND(ch)) {
+        throw code.makeError(
+            operator.range[0],
+            operator.range[1],
+            'Unexpected token: ' +
+            JSON.stringify(
+                operator.source()
+            )
+            .slice(1, -1)
+        );
+    }
+
+    if (opEQEQ(ch) && isEQ(code.codePointAt(index + 1))) {
+        index++;
+    }
+    index++;
+
+    code.index = index;
+
+    operator.close();
+    operator.operator = operator.source();
+    var preToken = tokens[tokens.length - 1];
+    var pre2Token = tokens[tokens.length - 2];
+    if (
+        (
+            operator.operator !== '!' &&
+            (!preToken ||
+                (!preToken.saturated &&
+                    OperatorToken.isCreation(preToken)
+                )
+            )
+        ) ||
+        (
+            OperatorToken.isCreation(preToken) &&
+            preToken.operator === '!' &&
+            OperatorToken.isCreation(pre2Token) &&
+            pre2Token.operator === '!'
+        )
+    ) {
+        throw code.makeError(
+            operator.range[0],
+            operator.range[1],
+            'Unexpected token: ' +
+            JSON.stringify(
+                operator.source()
+            )
+            .slice(1, -1)
+        );
+    }
+
+    return operator;
 }
 
 function parseExpressionOperator(mode, code, tokens, flags, scope, parseMode) {
-    var index = code.index,
-        length = code.length,
-        originalIndex = index,
-        oldIndex,
-        ch = code.codePointAt(index),
-        ch2, ch3,
-        expression,
-        binary_fail,
-        prevOp,
-        usePrevOp;
-
-    oldIndex = index;
-    for (; index < length; index++) {
-        ch = code.codePointAt(index);
-
-        if (!utils.isWhitespace(ch)) break;
-
-        if (flags.whitepaceString && ch === 0x000a) {
-            code.index = index;
-            return null;
-        }
-    }
-    if (index === oldIndex) {
-        binary_fail = true;
-    }
-
-    ch = code.codePointAt(index);
-    ch2 = code.codePointAt(index + 1);
-    ch3 = code.codePointAt(index + 2);
-
-    if ( /* handle BINARY-EXPRESSION */
-        (ch === 0x003d && ch2 === 0x003d && ch3 === 0x003d) || /* === */
-        (ch === 0x0021 && ch2 === 0x003d && ch3 === 0x003d) /* !== */
-    ) {
-        code.index = index;
-        expression = new OperatorToken(code);
-        expression.operator = code.slice(index, index + 3);
-        expression.binary = true;
-        index += 2;
-    } else if ( /* handle BINARY-EXPRESSION */
-        (ch === 0x003d && ch2 === 0x003d) || /* == */
-        (ch === 0x0021 && ch2 === 0x003d) || /* != */
-        (ch === 0x003c && ch2 === 0x003d) || /* <= */
-        (ch === 0x003e && ch2 === 0x003d) || /* >= */
-        (ch === 0x0026 && ch2 === 0x0026) || /* && */
-        (ch === 0x007c && ch2 === 0x007c) /* || */
-    ) {
-        code.index = index;
-        expression = new OperatorToken(code);
-        expression.operator = code.slice(index, index + 2);
-        expression.binary = true;
-        index++;
-    } else if ( /* handle BINARY-EXPRESSION */
-        (ch === 0x002b) || /* + */
-        (ch === 0x002d) || /* - */
-        (ch === 0x002a) || /* * */
-        (ch === 0x002f) || /* / */
-        (ch === 0x0025) || /* % */
-        (ch === 0x003c) || /* < */
-        (ch === 0x003e) /* > */
-    ) {
-        code.index = index;
-        expression = new OperatorToken(code);
-        expression.operator = code.charAt(index);
-        expression.binary = true;
-    } else if ( /* handle UNARY-EXPRESSION */
-        ch === 0x0021 /* ! */
-    ) {
-        code.index = index;
-        expression = new OperatorToken(code);
-        expression.operator = code.charAt(index);
-        expression.unary = true;
-        index++;
-    }
-
-    if (!expression || !expression.operator) {
-        if (binary_fail) {
-            return null;
-        }
-        code.index = index;
-        return true;
-    }
-
-    expression.precedence = PRECEDENCE(expression.operator);
-
-    if (expression.binary) {
-        if (binary_fail) {
-            throw code.makeError(
-                originalIndex, originalIndex + expression.operator.length,
-                'Unexpected Token: ' +
-                JSON.stringify(expression.operator) +
-                ' missing whitespace before operator.'
-            );
-        }
-        expression.arguments[0] = tokens.pop();
-
-        if (!expression.arguments[0]) {
-            throw code.makeError(
-                index, index + expression.operator.length,
-                'Missing left-hand <arg>.'
-            );
-        }
-
-        if (!ValueToken.isCreation(expression.arguments[0]) &&
-            !LiteralToken.isCreation(expression.arguments[0]) &&
-            !OperatorToken.isCreation(expression.arguments[0]) &&
-            !TransformToken.isCreation(expression.arguments[0])
-        ) {
-            throw code.makeError(
-                expression.arguments[0].range[0],
-                expression.arguments[0].range[1],
-                'Unexpected left-hand <arg>: ' +
-                JSON.stringify(expression.arguments[0].source(code)) +
-                '.'
-            );
-        }
-
-        prevOp = expression.arguments[0];
-        usePrevOp = false;
-
-        if (
-            OperatorToken.isCreation(prevOp) &&
-            prevOp.precedence < expression.precedence
-        ) {
-            expression.arguments.pop();
-
-            expression.arguments.push(prevOp.arguments.pop());
-
-            prevOp.arguments.push(expression);
-
-            usePrevOp = true;
-        }
-
-        expression.range[0] = expression.arguments[0].range[0];
-        expression.loc.start = expression.arguments[0].loc.start;
-
-        index++;
-        oldIndex = index;
-        ch = code.codePointAt(index);
-        for (; index < length; index++) {
-            ch = code.codePointAt(index);
-
-            if (!utils.isWhitespace(ch)) break;
-
-            if (flags.whitepaceString && ch === 0x000a) {
-                code.index = index;
-                return null;
-            }
-        }
-        if (index === oldIndex) {
-            throw code.makeError(
-                index, index + 1,
-                'Unexpected Token: Expected <whitespace> but found ' +
-                JSON.stringify(code.charAt(index)) +
-                '.'
-            );
-        }
-    }
-
-    var args = [];
-    code.index = index;
-    scope.push(expression);
-
-    parseMode('LOGIC', args, flags);
-
-    expression.arguments[1] = args[0];
-
-    if (args.length > 1) {
-        throw code.makeError(
-            args[1].range[0], args[1].range[1],
-            'Unexpected Token: ' +
-            JSON.stringify(args[1].source(code)) + '.'
-        );
-    }
-
-    args = null;
-
-    if (!expression.closed || !expression.arguments[1]) {
-        code.index = index;
-        throw code.makeError(
-            index, index + expression.operator.length,
-            'Missing right-hand <arg>.'
-        );
-    }
-
-    if (!ValueToken.isCreation(expression.arguments[1]) &&
-        !LiteralToken.isCreation(expression.arguments[1]) &&
-        !OperatorToken.isCreation(expression.arguments[1]) &&
-        !TransformToken.isCreation(expression.arguments[1])
-    ) {
-        throw code.makeError(
-            expression.arguments[1].range[0],
-            expression.arguments[1].range[1],
-            'Unexpected right-hand <arg>: ' +
-            JSON.stringify(expression.arguments[1].source(code)) +
-            '.'
-        );
-    }
-
-    if (expression.unary) {
-        if (
-            OperatorToken.isCreation(scope.token)
-        ) {
-            scope.close();
-            parseMode.close();
-        }
-    }
-
-    return usePrevOp ? prevOp : expression;
+    return (
+        parseOperator(mode, code, tokens, flags, scope, parseMode) ||
+        parseParentheses(mode, code, tokens, flags, scope, parseMode)
+    );
 }
 
 module.exports = parseExpressionOperator;
 
-},{"../tokens":28,"../utils":40}],14:[function(require,module,exports){
+},{"../tokens":28,"../utils":40,"compileit":49}],14:[function(require,module,exports){
 // parseExpressionTransformEnd
 var Token = require('../tokens');
 
@@ -1285,6 +1256,8 @@ function parseExpressionTransform(mode, code, tokens, flags, scope, parseMode) {
 
             parseMode('LOGIC-ARGS', args, flags);
 
+            args = utils.makeExpressionTree(args, code);
+
             if (args.length > 1) {
                 code.index = args[1].range[0];
                 throw code.makeError(
@@ -1309,11 +1282,17 @@ function parseExpressionTransform(mode, code, tokens, flags, scope, parseMode) {
         return null;
     }
 
-    if (
-        OperatorToken.isCreation(scope.token)
-    ) {
-        scope.close();
-        parseMode.close();
+    var preToken = tokens[tokens.length - 1];
+    if (preToken && !OperatorToken.isCreation(preToken)) {
+        throw code.makeError(
+            number.range[0],
+            number.range[1],
+            'Unexpected token: ' +
+            JSON.stringify(
+                number.source()
+            )
+            .slice(1, -1)
+        );
     }
 
     return transform;
@@ -1454,11 +1433,17 @@ function parseExpressionValue(mode, code, tokens, flags, scope, parseMode) {
         value.close();
         value.path = path;
 
-        if (
-            OperatorToken.isCreation(scope.token)
-        ) {
-            scope.close();
-            parseMode.close();
+        var preToken = tokens[tokens.length - 1];
+        if (preToken && !OperatorToken.isCreation(preToken)) {
+            throw code.makeError(
+                number.range[0],
+                number.range[1],
+                'Unexpected token: ' +
+                JSON.stringify(
+                    number.source()
+                )
+                .slice(1, -1)
+            );
         }
 
         return value;
@@ -2465,9 +2450,9 @@ var OperatorToken = Token.generate(
             Token.call(_, code);
         }
 
-        _.operator = 0;
+        _.operator = '';
 
-        _.arguments = [];
+        _.operands = [];
     }
 );
 
@@ -2485,7 +2470,7 @@ OperatorToken.definePrototype({
         return [
             _.TYPE_ID,
             _.operator,
-            _.arguments
+            _.operands
         ];
     },
 
@@ -2495,7 +2480,7 @@ OperatorToken.definePrototype({
             type: _.type,
             TYPE_ID: _.TYPE_ID,
             operator: _.operator,
-            arguments: _.arguments
+            operands: _.operands
         };
     },
 
@@ -2504,7 +2489,7 @@ OperatorToken.definePrototype({
 
         _.operator = arr[1];
 
-        _.arguments = arr[2].map(function (item) {
+        _.operands = arr[2].map(function (item) {
             var arg = new Token.tokens[item[0]]();
 
             arg.fromArray(item);
@@ -2517,12 +2502,12 @@ OperatorToken.definePrototype({
         var _ = this,
             str = '';
 
-        if (_.arguments.length === 1) {
-            str += _.operator + _.arguments[0].toString();
-        } else if (_.arguments.length === 2) {
-            str += _.arguments[0].toString();
+        if (_.operands.length === 1) {
+            str += _.operator + _.operands[0].toString();
+        } else if (_.operands.length === 2) {
+            str += _.operands[0].toString();
             str += ' ' + _.operator + ' ';
-            str += _.arguments[1].toString();
+            str += _.operands[1].toString();
         }
 
         return str;
@@ -3183,6 +3168,9 @@ module.exports={
 var SELF_CLOSEING_TAGS = require('./self-closing-tags');
 var ENTITIES = require('./html-entities');
 
+var Token = require('../tokens'),
+    OperatorToken = Token.tokens.operator;
+
 function pathSpliter(path) {
     var splitPath;
 
@@ -3245,8 +3233,6 @@ function isHTMLIdentifier(ch) {
 exports.isHTMLIdentifier = isHTMLIdentifier;
 
 
-160
-
 function isWhitespace(ch) {
     /* ^\s$ */
     return (0x0009 <= ch && ch <= 0x000d) ||
@@ -3297,7 +3283,169 @@ function getHTMLUnEscape(str) {
 
 exports.getHTMLUnEscape = getHTMLUnEscape;
 
-},{"./html-entities":39,"./self-closing-tags":41}],41:[function(require,module,exports){
+
+
+var OpPresidence = {
+    dm: ['/', '%', '*'],
+    as: ['+', '-'],
+    c: ['===', '==', '!==', '!=', '<=', '>='],
+    ao: ['||', '&&']
+};
+
+function makeExpressionTree(tokens, code) {
+    var i, temp = [],
+        token,
+        errL = null,
+        errR = null;
+
+    for (i = tokens.length - 1; i >= 0; i--) {
+        token = tokens[i];
+        if (!token.saturated &&
+            OperatorToken.isCreation(token) &&
+            token.operator === '!'
+        ) {
+            token.saturated = true;
+            token.operands.push(temp.shift());
+
+            if (!token.operands[token.operands.length - 1]) {
+                errR = token;
+            }
+        }
+        temp.unshift(token);
+    }
+
+    tokens = temp;
+    temp = [];
+
+    for (i = 0; i < tokens.length; i++) {
+        token = tokens[i];
+        if (!token.saturated &&
+            OperatorToken.isCreation(token) &&
+            OpPresidence.dm.indexOf(token.operator) !== -1
+        ) {
+            token.saturated = true;
+            token.operands.push(temp.pop());
+
+            if (!token.operands[token.operands.length - 1]) {
+                errL = token;
+            }
+
+            token.operands.push(tokens[++i]);
+
+            if (!token.operands[token.operands.length - 1]) {
+                errR = token;
+            }
+        }
+        temp.push(token);
+    }
+
+    tokens = temp;
+    temp = [];
+
+    for (i = 0; i < tokens.length; i++) {
+        token = tokens[i];
+        if (!token.saturated &&
+            OperatorToken.isCreation(token) &&
+            OpPresidence.as.indexOf(token.operator) !== -1
+        ) {
+            token.saturated = true;
+            token.operands.push(temp.pop());
+
+            if (!token.operands[token.operands.length - 1]) {
+                errL = token;
+            }
+
+            token.operands.push(tokens[++i]);
+
+            if (!token.operands[token.operands.length - 1]) {
+                errR = token;
+            }
+        }
+        temp.push(token);
+    }
+
+    tokens = temp;
+    temp = [];
+
+    for (i = 0; i < tokens.length; i++) {
+        token = tokens[i];
+        if (!token.saturated &&
+            OperatorToken.isCreation(token) &&
+            OpPresidence.c.indexOf(token.operator) !== -1
+        ) {
+            token.saturated = true;
+            token.operands.push(temp.pop());
+
+            if (!token.operands[token.operands.length - 1]) {
+                errL = token;
+            }
+
+            token.operands.push(tokens[++i]);
+
+            if (!token.operands[token.operands.length - 1]) {
+                errR = token;
+            }
+        }
+        temp.push(token);
+    }
+
+    tokens = temp;
+    temp = [];
+
+    for (i = 0; i < tokens.length; i++) {
+        token = tokens[i];
+        if (!token.saturated &&
+            OperatorToken.isCreation(token) &&
+            OpPresidence.ao.indexOf(token.operator) !== -1
+        ) {
+            token.saturated = true;
+            token.operands.push(temp.pop());
+
+            if (!token.operands[token.operands.length - 1]) {
+                errL = token;
+            }
+
+            token.operands.push(tokens[++i]);
+
+            if (!token.operands[token.operands.length - 1]) {
+                errR = token;
+            }
+        }
+        temp.push(token);
+    }
+
+    tokens = temp;
+
+    if (errL) {
+        throw code.makeError(
+            errL.range[0],
+            errL.range[1],
+            'Missing left-hand operand for: ' +
+            JSON.stringify(
+                errL.source()
+            )
+            .slice(1, -1)
+        );
+    }
+
+    if (errR) {
+        throw code.makeError(
+            errR.range[0],
+            errR.range[1],
+            'Missing right-hand operand for: ' +
+            JSON.stringify(
+                errR.source()
+            )
+            .slice(1, -1)
+        );
+    }
+
+    return tokens;
+}
+
+exports.makeExpressionTree = makeExpressionTree;
+
+},{"../tokens":28,"./html-entities":39,"./self-closing-tags":41}],41:[function(require,module,exports){
 module.exports=[
     "area",
     "base",
@@ -3960,23 +4108,23 @@ function execute(syntaxTree, transforms, context) {
             result = context.lookup(token.path);
         } else if (
             token.type === 'operator' &&
-            token.arguments.length === 1
+            token.operands.length === 1
         ) {
             result = logic[token.operator](
-                run(token.arguments[0])
+                run(token.operands[0])
             );
         } else if (
             token.type === 'operator' &&
-            token.arguments.length === 2
+            token.operands.length === 2
         ) {
             if (token.operator === '||') {
-                result = run(token.arguments[0]) || run(token.arguments[1]);
+                result = run(token.operands[0]) || run(token.operands[1]);
             } else if (token.operator === '&&') {
-                result = run(token.arguments[0]) && run(token.arguments[1]);
+                result = run(token.operands[0]) && run(token.operands[1]);
             } else {
                 result = logic[token.operator](
-                    run(token.arguments[0]),
-                    run(token.arguments[1])
+                    run(token.operands[0]),
+                    run(token.operands[1])
                 );
             }
         } else if (
@@ -4433,7 +4581,7 @@ Compiler.definePrototype({
         }
 
         if (_.scope.length) {
-            throw code.makeError(
+            throw _.codeBuffer.makeError(
                 'Unexpected End Of Input.'
             );
         }
@@ -4531,7 +4679,10 @@ Compiler.definePrototype({
                         token.range[0],
                         token.range[1],
                         'ILLEGAL Token: ' +
-                        JSON.stringify(token.source(code))
+                        JSON.stringify(
+                            token.source(code)
+                        )
+                        .slice(1, -1)
                     );
                 }
             }
@@ -5135,7 +5286,7 @@ exports.bufferSlice = bufferSlice;
 },{}],56:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
   "main": "index.js",
   "scripts": {
@@ -5158,7 +5309,7 @@ module.exports={
   },
   "homepage": "https://github.com/Mike96Angelo/Bars#readme",
   "dependencies": {
-    "compileit": "^1.0.0",
+    "compileit": "^1.0.1",
     "generate-js": "^3.1.2"
   },
   "devDependencies": {

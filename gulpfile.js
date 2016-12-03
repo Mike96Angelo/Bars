@@ -44,7 +44,7 @@ gulp.task('runtime', function () {
 });
 
 gulp.task('watch', ['default'], function () {
-    gulp.watch(['./lib/**/*'], ['js']);
+    gulp.watch(['./lib/**/*'], ['default']);
 });
 
 gulp.task('default', ['package', 'runtime']);
