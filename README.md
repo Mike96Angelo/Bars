@@ -22,7 +22,7 @@ $ npm install bars
 ```handlebars
 <ul>
 {{#each persons}}
-   <li>{{@number(@index) + 1}} - {{name}}</li>
+   <li>{{@index + 1}} - {{name}}</li>
 {{/each}}
 </ul>
 
@@ -78,11 +78,9 @@ For all features see [Bars Spec](bars-spec.md).
     * [Bars.registerBlock(name, func)](#register-block)
     * [Bars.registerPartial(name, builtTemplate)](#register-partial)
     * [Bars.registerTransform(name, func)](#register-transform)
-    * [Class: Fragment](#class-fragment)
-        * [Fragment.render()](#frament-render)
-    * [Class: DomFrag](#class-dom-frag)
-        * [DomFrag.update(data)](#dom-update)
-        * [DomFrag.appendTo(element)](#dom-append-to)
+    * [Class: Renderer](#class-renderer)
+        * [Renderer.update(data)](#renderer-update)
+        * [Renderer.appendTo(element)](#renderer-append-to)
 
 <a name="bars"></a>
 
@@ -94,15 +92,15 @@ For all features see [Bars Spec](bars-spec.md).
 Also see [bars-browserify](https://github.com/Mike96Angelo/Bars-Browserify).
 
 * *template* `String` A Bars template string.
-* *return*: `Fragment` A new [Fragment](#class-fragment) created from the `template`.
+* *return*: `Renderer` A new [Renderer](#class-renderer) created from the `template`.
 
-Returns a new [Fragment](#class-fragment).
+Returns a new [Renderer](#class-renderer).
 
 Example:
 ```javascript
 var bars = new Bars();
 
-var frag = bars.compile('<h1>Hello, {{name}}.</h1>');
+var renderer = bars.compile('<h1>Hello, {{name}}.</h1>');
 
 //Note: bars.compile(template) is equivalent to bars.build(bars.preCompile(template))
 
@@ -131,32 +129,38 @@ var myCompiledTemplate = bars.preCompile('<h1>Hello, {{name}}.</h1>');
 ## Bars.build(compiledTemplate)
 
 * *compiledTemplate* `Object` A Bars compiled template.
-* *return*: `Fragment` A new [Fragment](#class-fragment) created from the `template`.
+* *return*: `Renderer` A new [Renderer](#class-renderer) created from the `template`.
 
-Returns a new [Fragment](#class-fragment).
+Returns a new [Renderer](#class-renderer).
 
 Example:
 ```javascript
 var bars = new Bars();
 
-var frag = bars.build(myComiledTemplate);
+var renderer = bars.build(myComiledTemplate);
 
 ```
 
 <a name="register-block"></a>
 ## Bars.registerBlock(name, func)
 
-* *name* `String` The name of the partial.
-* *func* `Function` The partial template.
+* *name* `String` The name of the block helper.
+* *func* `Function` The block helper function.
 * *return*: `Bars` *This* [Bars](#bars).
 
 Returns *this* [Bars](#bars).
 
 Example:
 ```javascript
-bars.registerBlock('unless', function unlessBlock(con) {
-    return !con;
-});
+bars.registerBlock('unless',
+    function unlessBlock(data, consequent, alternate, context) {
+        if (data) {
+            alternate();
+        } else {
+            consequent();
+        }
+    }
+);
 
 /**
  * To use the `unless` block in a template
@@ -168,7 +172,7 @@ bars.registerBlock('unless', function unlessBlock(con) {
 ## Bars.registerPartial(name, builtTemplate)
 
 * *name* `String` The name of the partial.
-* *builtTemplate* `Fragment` The partial Fragment returned from [Bars.build(parsedTemplate)](#build).
+* *builtTemplate* `Renderer` The partial Renderer returned from [Bars.build(parsedTemplate)](#build).
 * *return*: `Bars` *This* [Bars](#bars).
 
 Returns *this* [Bars](#bars).
@@ -186,8 +190,8 @@ bars.registerPartial('person', builtTemplate);
 <a name="register-transform"></a>
 ## Bars.registerTransform(name, func)
 
-* *name* `String` The name of the partial.
-* *func* `Function` The partial template.
+* *name* `String` The name of the transform helper.
+* *func* `Function` The transform helper function.
 * *return*: `Bars` *This* [Bars](#bars).
 
 Returns *this* [Bars](#bars).
@@ -204,53 +208,34 @@ bars.registerTransform('upperCase', function upperCase(a) {
  */
 ```
 
-<a name="class-fragment"></a>
-## Class: Fragment
+<a name="class-renderer"></a>
+## Class: Renderer
 
-A Fragment that is compiled using the [Bars.compile(template)](#bars-compile) method.
-
-<a name="frament-render"></a>
-## Fragment.render()
-
-* *template* `Object` Object context for rendering.
-* *return*: `DomFrag` A new [DomFrag](#class-dom-frag).
-
-Creates a new [DomFrag](#class-dom-frag) from the compiled template and `data`.
-
-Example:
-```javascript
-var dom = frag.render().update({name: 'John'});
-```
-
-<a name="class-dom-frag"></a>
-## Class: DomFrag
-
-A DomFrag.
-
-<a name="dom-update"></a>
-## DomFrag.update(data)
+A Renderer that is built using the [Bars.build(compiledTemplatemplate)](#bars-compile) method.
+<a name="renderer-update"></a>
+## Renderer.update(data)
 
 * *data* `Object` Object context for rendering update.
-* *return*: `DomFrag` *This* [DomFrag](#class-dom-frag).
+* *return*: `Renderer` *This* [Renderer](#class-renderer).
 
-Updates and renders *This* [DomFrag](#class-dom-frag).
+Updates and renders *This* [Renderer](#class-renderer).
 
 Example:
 ```javascript
-dom.update({name: 'Bob'});
+renderer.update({name: 'Bob'});
 ```
 
-<a name="dom-append-to"></a>
-## DomFrag.appendTo(element)
+<a name="renderer-append-to"></a>
+## Renderer.appendTo(element)
 
-* *element*: `Element` The DOM Element to append *This* [DomFrag](#class-dom-frag) to.
-* *return*: `DomFrag` *This* [DomFrag](#class-dom-frag).
+* *element*: `Element` The DOM Element to append *This* [Renderer](#class-renderer) to.
+* *return*: `Renderer` *This* [Renderer](#class-renderer).
 
-Returns *this* [DomFrag](#class-dom-frag).
+Returns *this* [Renderer](#class-renderer).
 
 Example:
 ```javascript
-dom.appendTo(document.body);
+renderer.appendTo(document.body);
 ```
 
 ## Author:

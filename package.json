@@ -1,7 +1,7 @@
 {
   "name": "bars",
-  "version": "0.4.7",
-  "description": "Bars is a light weight high performance templating system.Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happens.",
+  "version": "0.5.0",
+  "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -24,7 +24,8 @@
   "homepage": "https://github.com/Mike96Angelo/Bars#readme",
   "dependencies": {
     "compileit": "^1.0.1",
-    "generate-js": "^3.1.2"
+    "generate-js": "^3.1.2",
+    "virtual-dom": "^2.1.1"
   },
   "devDependencies": {
     "browserify": "^13.1.1",

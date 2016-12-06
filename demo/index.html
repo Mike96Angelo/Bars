@@ -2,13 +2,18 @@
 <html>
     <head>
         <title>Bars Demo</title>
-        <script id="bars-template-title" type="text/x-handlebars-template">
+        <script id="bars-template-title-u" type="text/x-handlebars-template">
             <span>{{@upperCase(title)}}</span>
         </script>
+        <script id="bars-template-title-l" type="text/x-handlebars-template">
+            <span>{{@lowerCase(title)}}</span>
+        </script>
         <script id="bars-template" type="text/x-handlebars-template">
-            <!--<ul>
-            {{#each @sort(persons, 'name')}}
-               <li>{{@number(@index) + 1}} - {{name}}</li>
+            <ul>
+            {{#each persons}}
+            {{#each ../persons}}
+               <li>{{@../index +'/'+@index +' '+ name}}</li>
+            {{/each}}
             {{/each}}
             </ul>
 
@@ -21,13 +26,9 @@
             {{/if}}
 
             <br>
-            <br> -->
+            <br>
 
-            <!-- {{>title}} -->
-
-            12 + 4 - 8 / 7 + 6 - 2 + 6 * 3 - 6 + 5 % 6 / 9 = {{ @log(x == (12+4 - 8)/7 + 6 - 2 + 6 * 3 - 6 + 5 % 6 / 9)}}
-            <br>{{x}}
-
+            {{>?t}}
         </script>
         <script src="bars.js"></script>
     </head>
@@ -35,20 +36,23 @@
         <div id="bars-output"></div>
         <script type="text/javascript">
             var bars = new window.Bars(),
-                template = document.getElementById('bars-template').innerHTML;
-                templateTitle = document.getElementById('bars-template-title').innerHTML;
+                template = document.getElementById('bars-template').innerHTML,
+                tu = document.getElementById('bars-template-title-u').innerHTML,
+                tl = document.getElementById('bars-template-title-l').innerHTML;
 
             window.barsData = {
                persons: [
-                  { name: 'John' },
-                  { name: 'Jane' },
-                  { name: 'Jim' },
+                  { name: 'John' ,id:'a'},
+                  { name: 'Jane' ,id:'b' },
+                  { name: 'Jim' ,id:'c' },
                ],
                x: ((12 + 4 - 8 )/ 7 + 6 - 2 + 6 * 3 - 6 + 5 % 6 / 9),
-               title: 'The Cat in the Hat'
+               title: 'The Cat in the Hat',
+               t:'tu'
             };
 
-            // bars.registerPartial('title', templateTitle);
+            bars.registerPartial('tu', bars.preCompile(tu));
+            bars.registerPartial('tl', bars.preCompile(tl));
             bars.registerTransform('sbl', function (arr) {
                 return arr.sort(function (a,b){
                     return a.name.length - b.name.length;
@@ -56,12 +60,12 @@
             });
 
             // preCompiled = [0,"0.4.0","DOM",[1,[[3,"ul",[],0,[[5,"each",[10,"sort",[[9,["persons"]],[8,"length"]]],null,[1,[[3,"li",[],0,[[6,[11,"+",[[10,"number",[[9,["@","index"]]]],[8,1]]]],[2," - "],[6,[9,[]]],[3,"input",[[4,"type",[[2,"text"]],0]],0,[],0]],1]],1],null]],1],[5,"if",[11,"<",[[9,["x"]],[8,5]]],null,[1,[[3,"span",[],0,[[2,"x is less then 5"]],0]],1],[5,"if",[11,">",[[9,["x"]],[8,5]]],null,[1,[[3,"span",[],0,[[2,"x is greater then 5"]],0]],0],[1,[[3,"span",[],0,[[2,"x is equal to 5"]],0]],0]]],[3,"br",[],0,[],0],[3,"br",[],0,[],0],[7,"title",null,null,null]],1]];
-preCompiled = bars.preCompile(template);
+preCompiled = bars.preCompile(template, 'example.bars', 'DOM', {minify:true});
 
-            // window.domFrag = bars.compile(template).render();
-            window.domFrag = bars.build(preCompiled).render();
+            // window.domFrag = bars.compile(template, barsData);
+            window.domFrag = bars.build(preCompiled, barsData);
             window.domFrag.appendTo(document.getElementById('bars-output'));
-            window.domFrag.update(barsData);
+
 
             /*
              * now open you Inspector
