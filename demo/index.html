@@ -29,6 +29,9 @@
             <br>
 
             {{>?t}}
+
+
+            <div class="some"></div>
         </script>
         <script src="bars.js"></script>
     </head>
@@ -51,8 +54,8 @@
                t:'tu'
             };
 
-            bars.registerPartial('tu', bars.preCompile(tu));
-            bars.registerPartial('tl', bars.preCompile(tl));
+            bars.registerPartial('tu', bars.compile(tu));
+            bars.registerPartial('tl', bars.compile(tl));
             bars.registerTransform('sbl', function (arr) {
                 return arr.sort(function (a,b){
                     return a.name.length - b.name.length;
