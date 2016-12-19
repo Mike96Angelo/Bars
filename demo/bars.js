@@ -3495,7 +3495,7 @@ function renderInsert(bars, struct, context) {
 
 function renderChildrenTexts(bars, struct, context) {
     var children = [];
-    if (!struct || !struct.nodes) return children.join();
+    if (!struct || !struct.nodes) return children.join('');
     for (var i = 0; i < struct.nodes.length; i++) {
         var child = struct.nodes[i];
 
@@ -3508,7 +3508,7 @@ function renderChildrenTexts(bars, struct, context) {
         }
     }
 
-    return children.join();
+    return children.join('');
 }
 
 function renderBlockAsTexts(bars, struct, context) {
@@ -3535,7 +3535,7 @@ function renderBlockAsTexts(bars, struct, context) {
         context
     );
 
-    return nodes.join();
+    return nodes.join('');
 }
 
 function renderBlockAsNodes(bars, struct, context) {
@@ -6530,7 +6530,7 @@ function isArray(obj) {
 },{}],89:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
@@ -6555,6 +6555,7 @@ module.exports={
   "dependencies": {
     "compileit": "^1.0.1",
     "generate-js": "^3.1.2",
+    "source-map": "^0.5.6",
     "virtual-dom": "^2.1.1"
   },
   "devDependencies": {

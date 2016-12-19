@@ -9,29 +9,22 @@
             <span>{{@lowerCase(title)}}</span>
         </script>
         <script id="bars-template" type="text/x-handlebars-template">
-            <ul>
-            {{#each persons}}
-            {{#each ../persons}}
-               <li>{{@../index +'/'+@index +' '+ name}}</li>
-            {{/each}}
-            {{/each}}
-            </ul>
+  <ul>
+    {{#each @sort(persons, 'name')}}
+    <li>{{@number(@index) + 1}} - {{name}}</li>
+    {{/each}}
+  </ul>
 
-            {{#if x < 5}}
-               <span>x is less then 5</span>
-            {{else if x > 5}}
-                <span>x is greater then 5</span>
-            {{else}}
-               <span>x is equal to 5</span>
-            {{/if}}
-
-            <br>
-            <br>
-
-            {{>?t}}
-
-
-            <div class="some"></div>
+  {{#if x < 5}}
+    <span>x is less then 5</span>
+  {{else if x > 5}}
+    <span>x is greater then 5</span>
+  {{else}}
+    <span>x is equal to 5</span>
+  {{/if}}
+  <br>
+  <br>
+  {{>? t }}
         </script>
         <script src="bars.js"></script>
     </head>
