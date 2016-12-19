@@ -67,7 +67,7 @@ THE CAT IN THE HAT
 
 For all features see [Bars Spec](bars-spec.md).
 * [Try Bars](https://jsfiddle.net/bba4kk3d/2/).
-* [Benchmark](http://jsfiddle.net/yE9Z9/92/)
+* [Benchmark](http://jsfiddle.net/yE9Z9/97/)
 
 ## Table of Contents
 
