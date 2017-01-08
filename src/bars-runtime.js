@@ -1219,8 +1219,8 @@ function renderAttrsAndProps(bars, struct, context) {
     }
 
     props.attributes = attrs;
-    var key = context.lookup(['@', 'key']);
-    props.key = /[^0-9]/.test(key) ? key : context.lookup(['id']);
+    // var key = context.lookup(['@', 'key']);
+    // props.key = /[^0-9]/.test(key) ? key : context.lookup(['id']); What is this supposed to do?
 
     return props;
 }
@@ -4266,7 +4266,7 @@ function isArray(obj) {
 },{}],64:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
