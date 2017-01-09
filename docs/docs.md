@@ -151,7 +151,7 @@ The result of transform `lowerCase` applied to the variable `name` will be rende
 ## Blocks
 
 ```
-{{<name> <args> <context-map>}}
+{{#<name> <args> <context-map>}}
     <content>
 {{else <name> <args> <context-map>}}
     <content>
@@ -162,7 +162,7 @@ The result of transform `lowerCase` applied to the variable `name` will be rende
 
 ### if
 ```
-{{if <condition> [<context-map>]}}
+{{#if <condition> [<context-map>]}}
     <content>
 {{else}}
     <content>
@@ -171,7 +171,7 @@ The result of transform `lowerCase` applied to the variable `name` will be rende
 
 example:
 ```
-{{if x < 5}}
+{{#if x < 5}}
     x is less than 5.
 {{else if x > 5}}
     x is greater than 5.
@@ -182,7 +182,7 @@ example:
 
 ### with
 ```
-{{with [<context>] [<context-map>]}}
+{{#with [<context>] [<context-map>]}}
     <content>
 {{else}}
     <content>
@@ -191,7 +191,7 @@ example:
 
 example: (changing context)
 ```
-{{with person}}
+{{#with person}}
     name: {{name}}
     age: {{age}}
 {{else}}
@@ -201,7 +201,7 @@ example: (changing context)
 
 example: (creating variables)
 ```
-{{with name=person.name age=person.age}}
+{{#with name=person.name age=person.age}}
     name: {{name}}
     age: {{age}}
 {{else}}
@@ -211,7 +211,7 @@ example: (creating variables)
 
 example: (creating variables from new context)
 ```
-{{with person n=name a=age}}
+{{#with person n=name a=age}}
     name: {{n}}
     age: {{a}}
 {{else}}
@@ -222,7 +222,7 @@ example: (creating variables from new context)
 
 ### each
 ```
-{{each <object|array> [<context-map>]}}
+{{#each <object|array> [<context-map>]}}
     <content>
 {{else}}
     <content>
@@ -231,7 +231,7 @@ example: (creating variables from new context)
 
 example:
 ```
-{{each songs}}
+{{#each songs}}
     name: {{name}}
     artist: {{artist}}
     album: {{album}}
@@ -242,7 +242,7 @@ example:
 
 example: (@index/@key)
 ```
-{{each songs}}
+{{#each songs}}
     track: {{@index}}
     name: {{name}}
     artist: {{artist}}
@@ -254,7 +254,7 @@ example: (@index/@key)
 
 example: (creating indexing variables)
 ```
-{{each songs i=@index}}
+{{#each songs i=@index}}
     track: {{i}}
     name: {{name}}
     artist: {{artist}}
@@ -266,8 +266,8 @@ example: (creating indexing variables)
 
 example: (loops in loops)
 ```
-{{each arrayOfArrays i=@index}}
-    {{each this ii=@index}}
+{{#each arrayOfArrays i=@index}}
+    {{#each this ii=@index}}
         {{i}}:{{ii}}
     {{/each}}
 {{/each}}
