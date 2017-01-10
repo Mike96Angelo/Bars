@@ -319,3 +319,16 @@ this is the app.
 ```
 
 The partial whose name is stored in the variable `page` will be rendered.  As the `page` variable is changed the respective partial will be rendered.
+
+# HTML Markup
+```
+<<tag-name> [<attrs>] [<props>]></<tag-name>>
+```
+
+example:
+```
+<div id="{{id}}" data:{{data}}></div>
+```
+
+Attributes are regular HTML Attributes.
+Properties are JavaScript properties set on the JavaScript DOM element interface.  These properties could be very useful if a DOM element is to preform any form of manipulation to the state when triggered by an event (e.g. click).
