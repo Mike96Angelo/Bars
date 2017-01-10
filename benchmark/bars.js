@@ -2910,7 +2910,7 @@ BarsToken.definePrototype({
     writable: true
 }, {
     indentLevel: '',
-    JSONuseObject: true
+    // JSONuseObject: true
 });
 
 BarsToken.definePrototype({
@@ -6699,7 +6699,7 @@ function isArray(obj) {
 },{}],91:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
