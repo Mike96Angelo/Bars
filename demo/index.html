@@ -10,20 +10,23 @@
         </script>
         <script id="bars-template" type="text/x-handlebars-template">
   <ul>
-    {{#each @sort(persons, 'name') i=@index}}
+    {{#each persons i=@index}}
     <li>{{i + 1}} - {{name}}</li>
     {{/each}}
   </ul>
 
-  {{#with y=x}}
-
   {{#if x < 5}}
     <span>x is less then 5</span>
-  {{else if y > 5}}
+  {{else if x > 5}}
     <span>x is greater then 5</span>
   {{else}}
     <span>x is equal to 5</span>
   {{/if}}
+  <br>
+  <br>
+  {{#with t = test}}
+
+  {{t/one/two/three}}
   {{/with}}
   <br>
   <br>
@@ -47,7 +50,8 @@
                ],
                x: ((12 + 4 - 8 )/ 7 + 6 - 2 + 6 * 3 - 6 + 5 % 6 / 9),
                title: 'The Cat in the Hat',
-               t:'tu'
+               t:'tu',
+               test:{one:{two:{three:'four'}}}
             };
 
             bars.registerPartial('tu', bars.compile(tu));

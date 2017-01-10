@@ -1554,7 +1554,7 @@ var Context = Generator.generate(function Context(data, props, context) {
     _.props = props;
     _.context = context;
 
-    _.vars = context ? Object.create(context.vars) : {};
+    _.vars = context ? Object.create(context.vars) : Object.create(null);
 });
 
 Context.definePrototype({
@@ -1587,8 +1587,21 @@ Context.definePrototype({
 
         var value;
 
-        if (path.length === 1) {
-            value = _.vars[path[0]];
+        if (!prop &&
+            path[0] !== 'this' &&
+            path[0] !== '.' &&
+            path[0] !== '~'
+        ) {
+            value = _.vars;
+
+            for (i = 0; value && i < path.length; i++) {
+
+                if (value !== null && value !== void(0)) {
+                    value = value[path[i]];
+                } else {
+                    value = void(0);
+                }
+            }
 
             if (value !== void(0)) {
                 return value;
@@ -1597,7 +1610,7 @@ Context.definePrototype({
 
         value = (prop ? _.props : _.data);
 
-        for (; value && i < path.length; i++) {
+        for (i = 0; value && i < path.length; i++) {
 
             if (value !== null && value !== void(0)) {
                 value = value[path[i]];
