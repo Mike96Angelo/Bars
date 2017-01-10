@@ -10,18 +10,21 @@
         </script>
         <script id="bars-template" type="text/x-handlebars-template">
   <ul>
-    {{#each @sort(persons, 'name')}}
-    <li>{{@number(@index) + 1}} - {{name}}</li>
+    {{#each @sort(persons, 'name') i=@index}}
+    <li>{{i + 1}} - {{name}}</li>
     {{/each}}
   </ul>
 
+  {{#with y=x}}
+
   {{#if x < 5}}
     <span>x is less then 5</span>
-  {{else if x > 5}}
+  {{else if y > 5}}
     <span>x is greater then 5</span>
   {{else}}
     <span>x is equal to 5</span>
   {{/if}}
+  {{/with}}
   <br>
   <br>
   {{>? t }}
