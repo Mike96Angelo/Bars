@@ -3,10 +3,10 @@
     <head>
         <title>Bars Demo</title>
         <script id="bars-template-title-u" type="text/x-handlebars-template">
-            <span>{{@upperCase(title)}}</span>
+            <span>{{@upperCase(tt)}}</span>
         </script>
         <script id="bars-template-title-l" type="text/x-handlebars-template">
-            <span>{{@lowerCase(title)}}</span>
+            <span>{{@lowerCase(tt)}}</span>
         </script>
         <script id="bars-template" type="text/x-handlebars-template">
   <ul>
@@ -27,7 +27,7 @@
   {{/with}}
   <br>
   <br>
-  {{>? t }}
+  {{>? t tt = title}}
         </script>
         <script src="bars.js"></script>
     </head>

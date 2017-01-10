@@ -1429,6 +1429,8 @@ function renderPartial(bars, struct, context) {
         );
     }
 
+    context = context.contextWithVars(makeVars(context, struct.map, bars));
+
     return renderChildrenNodes(bars, partial.fragment, context);
 }
 
@@ -4410,7 +4412,7 @@ function isArray(obj) {
 },{}],65:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.5.3",
+  "version": "0.6.1",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
