@@ -12,14 +12,12 @@
 ### Block - *implemented*
 
 ```handlebars
-{{#<name> <expression> <context-map>?}}
+{{#<name> <expression> [<context-map>]}}
 
-{{else[ <name> <expression> <context-map>?]}}
+{{else[ <name> <expression> [<context-map>]]}}
 
 {{/<name>}}
 ```
-NOTE: *context-map not implemented*
-
 #### Built in Block helpers:
 - if `<condition>`
 - with `<object>`
@@ -28,18 +26,14 @@ NOTE: *context-map not implemented*
 ### Partial - *implemented*
 
 ```handlebars
-{{><name> <expression | context-map>?}}
+{{><name> [<expression>] [<context-map>]}}
 ```
-NOTE: *context-map not implemented*
-
 ### Partial Router - *not implemented*
 
 ```handlebars
-{{>?<name-expression> <expression | context-map>?}}
+{{>?<name-expression> [<expression>] [<context-map>]}}
 ```
 The result of the name-expression tell the partail router which partial to render.
-
-NOTE: *context-map not implemented*
 
 ### Insert - *implemented*
 
@@ -142,7 +136,7 @@ null
 - sum(arr[, prop])
 - ave(arr[, prop])
 
-## Bars Context Map
+## Bars Context Map - *implemented*
 
 ```javascript
 <name>=<expression> <name>=<expression> ...

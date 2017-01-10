@@ -65,7 +65,7 @@ $ npm install bars
 THE CAT IN THE HAT
 ```
 
-For all features see [Bars Spec](bars-spec.md).
+For docs and examples [Bars Language Docs](docs/docs.md).
 * [Try Bars](https://jsfiddle.net/bba4kk3d/5/).
 * [Benchmark](http://jsfiddle.net/yE9Z9/97/)
 
