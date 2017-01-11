@@ -41,7 +41,7 @@ Example:
 var App = require('bars/app');
 /*
  * use require('bars/compiled/app')
- * if templates your templates are already compiled.
+ * if your templates are already compiled.
  */
 
 var options = {
@@ -103,7 +103,7 @@ Example:
 var Bars = require('bars');
 /*
  * use require('bars/compiled')
- * if templates your templates are already compiled.
+ * if your templates are already compiled.
  */
 
 var bars = new Bars();
