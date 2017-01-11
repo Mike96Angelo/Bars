@@ -50,7 +50,6 @@ x = {{x}}
                 tlTemplate = document.getElementById('bars-template-title-l').innerHTML;
 
             app = new App({
-                element: '#bars-output',
                 index: indexTemplate,
                 partials: {
                     tu: tuTemplate,
@@ -92,6 +91,8 @@ x = {{x}}
                state.x--;
                app.render();
            });
+
+           app.appendTo('#bars-output');
 
 
             /*

@@ -18,12 +18,6 @@ var registerBarsOptions = require('./register-bars-options');
 var App = Generator.generate(function App(options, state) {
     var _ = this;
 
-    utils.assertError(
-        options.element &&
-        Ineractions.$(options.element)[0] instanceof Element,
-        'Option element must be of type Element or a valid css selector.'
-    );
-
     _.state = state;
     _.bars = new App.Bars();
     registerBarsOptions(_.bars, options);
@@ -41,8 +35,7 @@ var App = Generator.generate(function App(options, state) {
 
     _.dom = _.bars.build(indexTemplate, _.state);
 
-    _.dom.appendTo(Ineractions.$(options.element)[0]);
-    _.interactions = new Ineractions(options.element);
+    _.interactions = new Ineractions(_.dom.rootNode);
 });
 
 App.definePrototype({
@@ -60,6 +53,17 @@ App.definePrototype({
         var _ = this;
 
         _.dom.update(_.state);
+    },
+    appendTo: function appendTo(element) {
+        var _ = this;
+
+        utils.assertError(
+            element &&
+            Ineractions.$(element)[0] instanceof Element,
+            'Option element must be of type Element or a valid css selector.'
+        );
+
+        _.dom.appendTo(Ineractions.$(element)[0]);
     }
 });
 
@@ -17276,7 +17280,7 @@ function isArray(obj) {
 },{}],98:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.7.0",
+  "version": "0.8.1",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
