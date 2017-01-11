@@ -40,26 +40,21 @@ x = {{x}}
   <br>
   {{>? t tt = title}}
         </script>
-        <script src="bars.js"></script>
+        <script src="bars-app.js"></script>
     </head>
     <body>
         <div id="bars-output"></div>
         <script type="text/javascript">
-            var bars = new window.Bars(),
-                index = document.getElementById('bars-template').innerHTML,
-                tu = document.getElementById('bars-template-title-u').innerHTML,
-                tl = document.getElementById('bars-template-title-l').innerHTML;
+            var indexTemplate = document.getElementById('bars-template').innerHTML,
+                tuTemplate = document.getElementById('bars-template-title-u').innerHTML,
+                tlTemplate = document.getElementById('bars-template-title-l').innerHTML;
 
-            compiledIndex = bars.preCompile(index, 'index.bars', 'DOM', {minify:true});
-            compiledTu = bars.preCompile(tu, 'tu.bars', 'DOM', {minify:true});
-            compiledTl = bars.preCompile(tl, 'tl.bars', 'DOM', {minify:true});
-
-            app = new Bars.App({
+            app = new App({
                 element: '#bars-output',
-                index: compiledIndex,
+                index: indexTemplate,
                 partials: {
-                    tu: compiledTu,
-                    tl: compiledTl,
+                    tu: tuTemplate,
+                    tl: tlTemplate,
                 },
                 transforms:{
                     sbl: function (arr) {
