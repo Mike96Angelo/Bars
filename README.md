@@ -65,6 +65,6 @@ $ npm install bars
 THE CAT IN THE HAT
 ```
 
-[Bars Language and Docs](docs/js-api.md).
+[Bars Language and Docs](docs/js-interface.md).
 * [Try Bars](https://jsfiddle.net/bba4kk3d/5/).
 * [Benchmark](http://jsfiddle.net/yE9Z9/97/)
