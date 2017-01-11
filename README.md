@@ -18,6 +18,10 @@ $ npm install bars
 
 # What Bars Looks Like
 
+[Bars Language and Docs](docs/js-interface.md).
+* [Try Bars](https://jsfiddle.net/bba4kk3d/5/).
+* [Benchmark](http://jsfiddle.net/yE9Z9/97/)
+
 ### Bars:
 ```handlebars
 <ul>
@@ -64,7 +68,3 @@ $ npm install bars
 
 THE CAT IN THE HAT
 ```
-
-[Bars Language and Docs](docs/js-interface.md).
-* [Try Bars](https://jsfiddle.net/bba4kk3d/5/).
-* [Benchmark](http://jsfiddle.net/yE9Z9/97/)
