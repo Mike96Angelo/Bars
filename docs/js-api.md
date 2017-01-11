@@ -21,12 +21,25 @@
         * [Renderer.appendTo(element)](#rendererappendtoelement)
 
 # App
+Bars App is a simple wrapper around Bars that gives you a cleaner interface.  Bars App also gives you a nice way to bind DOM interactions/events to functionality within your app.
+
+![Bars Render Cycle](bars-render-cycle.png)
+
 # App.Bars
+App contains an accessible reference to [Bars](#bars) for your convenience.
+
 # Class: App
+
 # app.state
+App state is an object/structure from which the app view is rendered.
+
 # app.render()
+This is the method you would call to update the app view.  After you manipulate the app state you should call this method to update the view.
+
 # app.on(events, target, listener)
 # app.appendTo(element)
+Use this method to add the app to the page.
+
 # Bars
 # Class: Bars
 # Bars.compile(template)
