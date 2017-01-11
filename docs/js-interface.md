@@ -29,10 +29,10 @@ Bars App is a simple wrapper around Bars that gives you a cleaner interface.  Ba
 
 ![Bars Render Cycle](bars-render-cycle.png)
 
-# App.Bars
+## App.Bars
 App contains an accessible reference to [Bars](#bars) for your convenience.
 
-# Class: App
+## Class: App
 * *options* `Object` Options including: template, partials, and transforms.
 * *state* `Object` An object which is the App State used to render the App View.
 
@@ -59,13 +59,13 @@ var state = {};
 var app = new App(options, state);
 ```
 
-# app.state
+## app.state
 App state is an object/structure from which the app view is rendered.
 
-# app.render()
+## app.render()
 This is the method you would call to update the app view.  After you manipulate the app state you should call this method to update the view.
 
-# app.on(events, target, listener)
+## app.on(events, target, listener)
 * *events* `String` A space separated list of events to listen for.
 * *target* `String` A CCS style selector to select the target element.
 * *listener* `Function` A listener function that gets call on `events`.
@@ -83,7 +83,7 @@ app.on('click', '.something', function (evnt, $el) {
 });
 ```
 
-# app.appendTo(element)
+## app.appendTo(element)
 * *element* `Element` The target element to append the app view to.
 
 Use this method to add the app to the page.
@@ -96,7 +96,7 @@ app.appendTo(document.body);
 # Bars
 Bars is a lightweight high performance HTML aware templating engine.  Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen.
 
-# Class: Bars
+## Class: Bars
 
 Example:
 ```javascript
@@ -108,7 +108,7 @@ var Bars = require('bars');
 
 var bars = new Bars();
 ```
-# bars.compile(template)
+## bars.compile(template)
 * *template* `String` A Bars template string.
 
 Returns a new [Renderer](#class-renderer) created from the `template`.
@@ -123,7 +123,7 @@ Example:
 var renderer = bars.compile('<h1>Hello, {{name}}.</h1>');
 ```
 
-# bars.preCompile(template)
+## bars.preCompile(template)
 * *template* `String` A Bars template string.
 
 Returns a object structure representing the `template`.
@@ -136,7 +136,7 @@ Example:
 var myCompiledTemplate = bars.preCompile('<h1>Hello, {{name}}.</h1>');
 ```
 
-# bars.build(compiledTemplate)
+## bars.build(compiledTemplate)
 * *compiledTemplate* `Object` A Bars compiled template.
 
 Returns a new [Renderer](#class-renderer) created from the `compiledTemplate`.
@@ -146,7 +146,7 @@ Example:
 var renderer = bars.build(myComiledTemplate);
 ```
 
-# bars.registerBlock(name, func)
+## bars.registerBlock(name, func)
 * *name* `String` The name of the block helper.
 * *func* `Function` The block helper function.
 
@@ -180,7 +180,7 @@ bars.registerBlock('unless',
  */
 ```
 
-# bars.registerPartial(name, template)
+## bars.registerPartial(name, template)
 * *name* `String` The name of the partial.
 * *template* `String|CompiledTemplate` The template for the partial.
 
@@ -196,7 +196,7 @@ bars.registerPartial('person', 'I am a partial');
  */
 ```
 
-# bars.registerTransform(name, func)
+## bars.registerTransform(name, func)
 * *name* `String` The name of the transform helper.
 * *func* `Function` The transform helper function.
 
@@ -217,10 +217,10 @@ bars.registerTransform('upperCase', function upperCase(a) {
 # Renderer
 A renderer is an object that can render/update a DOM view.
 
-# Class: Renderer
+## Class: Renderer
 * *compiledTemplate* `Object` An object structure containing a pattern for rendering.
 
-# renderer.update(data)
+## renderer.update(data)
 * *data* `Object` Object context for rendering update.
 
 Returns *this* [Renderer](#renderer)
@@ -232,7 +232,7 @@ Example:
 renderer.update({name: 'Bob'});
 ```
 
-# renderer.appendTo(element)
+## renderer.appendTo(element)
 * *element*: `Element` The target element to append the app view to.
 
 Returns *this* [Renderer](#class-renderer).
