@@ -67,6 +67,11 @@ Parentheses:
 (<expression>)
 ```
 
+Brackets:
+```
+<value>[<expression>]
+```
+
 Unary:
 ```
 ! <value>
@@ -89,6 +94,8 @@ Binary
 <value> != <value>
 <value> === <value>
 <value> !== <value>
+
+<value> . <value-name>
 ```
 
 ## Transform
@@ -161,6 +168,11 @@ The string contents of the variable `name` will be rendered.
 {{person.name}}
 ```
 The string contents of the variable `person.name` will be rendered.
+
+```
+{{person['name']}}
+```
+The string contents of the variable `person['name']` will be rendered.
 
 ```
 {{x + y}}
