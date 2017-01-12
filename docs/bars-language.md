@@ -364,8 +364,8 @@ The partial whose name is stored in the variable `page` will be rendered.  As th
 
 example:
 ```
-<div id="{{id}}" data:{{data}}></div>
+<div id="{{id}}" someData:{{someData}}></div>
 ```
 
 Attributes are regular HTML Attributes.
-Properties are JavaScript properties set on the JavaScript DOM element interface.  These properties could be very useful if a DOM element is to preform any form of manipulation to the state when triggered by an event (e.g. click).
+Properties are JavaScript properties accessible on the JavaScript DOM element interface as a getter function `element.data('someData')`.  These properties could be very useful if a DOM element is to preform any form of manipulation to the state when triggered by an event (e.g. click).

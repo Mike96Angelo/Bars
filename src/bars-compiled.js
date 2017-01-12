@@ -1405,19 +1405,24 @@ var PROP_MAP = {
 
 function renderAttrsAndProps(bars, struct, context) {
     var i,
-        props = {
-            data: {}
-        },
+        _data = {},
+        props = {},
         attrs = {};
+
+    function get(name) {
+        return _data[name];
+    }
+
+    props.data = get;
 
     for (i = 0; i < struct.attrs.length; i++) {
         var attr = struct.attrs[i];
         attrs[attr.name] = renderChildrenTexts(bars, attr, context);
     }
 
+
     for (i = 0; i < struct.props.length; i++) {
-        props.data[struct.props[i].name] = execute(struct.props[i].expression, bars.transforms,
-            context);
+        _data[struct.props[i].name] = execute(struct.props[i].expression, bars.transforms, context);
     }
 
     props.attributes = attrs;
@@ -4531,7 +4536,7 @@ function isArray(obj) {
 },{}],67:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.9.0",
+  "version": "0.9.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

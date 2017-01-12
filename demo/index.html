@@ -9,97 +9,83 @@
             <span>{{@lowerCase(tt)}}</span>
         </script>
         <script id="bars-template" type="text/x-handlebars-template">
-  <ul>
-    {{#each persons i=@index}}
-    <li>{{i + 1}} - {{name}}</li>
-    {{/each}}
-  </ul>
-  <br>
-  <br>
-<span data:{{this}} class="test-add">x++</span>
-<br>
-<span state:{{this}} class="test-min">x--</span>
-<br>
-x = {{x}}
-<br>
-  <br>
-  {{#if this.x < 5}}
-    <span>x is less then 5</span>
-  {{else if this['x'] > 5}}
-    <span>x is greater then 5</span>
-  {{else}}
-    <span>x is equal to 5</span>
-  {{/if}}
-  <br>
-  <br>
-  {{#with t = test}}
-
-  <span data:{{t}} class="test">{{t.one.two.three}}</span>
-  {{/with}}
-  <br>
-  <br>
-  {{>? t tt = title}}
+<h2>To Do</h2>
+<input id="new-list" data:{{this}}/>
+<ul>
+{{#with todos=todos}}
+{{#each todos todo=this}}
+    <li>
+        <span>{{text}}</span> |
+        <span class="list-complete" data:{{this}}>{{(complete && 'done') || 'not done' }}</span>
+        | <span class="list-del" data:{{todo}} todos:{{todos}}>delete</span>
+    </li>
+{{else}}
+<li>
+    <span>Nothing left to do.</span>
+</li>
+{{/each}}
+{{/with}}
+</ul>
         </script>
         <script src="bars-app.js"></script>
     </head>
     <body>
-        <div id="bars-output"></div>
+        <div id="bars-output" class="som"></div>
         <script type="text/javascript">
-            var indexTemplate = document.getElementById('bars-template').innerHTML,
-                tuTemplate = document.getElementById('bars-template-title-u').innerHTML,
-                tlTemplate = document.getElementById('bars-template-title-l').innerHTML;
+        var indexTemplate = document.getElementById('bars-template').innerHTML,
+        tuTemplate = document.getElementById('bars-template-title-u').innerHTML,
+        tlTemplate = document.getElementById('bars-template-title-l').innerHTML;
 
-            app = new App({
-                index: indexTemplate,
-                partials: {
-                    tu: tuTemplate,
-                    tl: tlTemplate,
-                },
-                transforms:{
-                    sbl: function (arr) {
-                        return arr.sort(function (a,b){
-                            return a.name.length - b.name.length;
-                        });
-                    }
-                }
+        app = new App({
+            index: indexTemplate,
+            partials: {
+                tu: tuTemplate,
+                tl: tlTemplate,
             },
-            {
-               persons: [
-                  { name: 'John' ,id:'a'},
-                  { name: 'Jane' ,id:'b' },
-                  { name: 'Jim' ,id:'c' },
-               ],
-               x:0,
-               title: 'The Cat in the Hat',
-               t:'tu',
-               test:{one:{two:{three:'four'}}}
-           });
+            transforms:{
+                sbl: function (arr) {
+                    return arr.sort(function (a,b){
+                        return a.name.length - b.name.length;
+                    });
+                }
+            }
+        },
+        {
+            todos: []
+        });
 
-           app.on('click', '.test', function (evt, $el){
-               var data = $el.prop('data').data;
-               alert(JSON.stringify(data));
-           });
+        app.on('click', '.list-complete', function (evt, $el){
+            var data = $el.prop('data')('data');
+            data.complete = !data.complete;
+            app.render();
+        });
 
-           app.on('click', '.test-add', function (evt, $el){
-               var data = $el.prop('data').data;
-               data.x++;
-               app.render();
-           });
+        app.on('click', '.list-del', function (evt, $el){
+            var data = $el.prop('data')('data');
+            var todos = $el.prop('data')('todos');
 
-           app.on('click', '.test-min', function (evt, $el){
-               var state = $el.prop('data').state;
-               state.x--;
-               app.render();
-           });
+            todos.splice(todos.indexOf(data), 1);
 
-           app.appendTo('#bars-output');
+            app.render();
+        });
+
+        app.on('change', '#new-list', function (evt, $el){
+            var state = $el.prop('data')('data');
+            state.todos.unshift({
+                text: $el.val()
+            });
+            $el.val('');
+            app.render();
+        });
+
+        app.appendTo('#bars-output');
 
 
-            /*
-             * now open you Inspector
-             * and try changing barsData
-             * and updating the domFrag
-             */
+        /*
+         * now open you Inspector
+         * and try changing barsData
+         * and updating the domFrag
+         */
         </script>
     </body>
 </html>
