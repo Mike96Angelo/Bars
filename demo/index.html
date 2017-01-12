@@ -16,16 +16,16 @@
   </ul>
   <br>
   <br>
-<span data:{{.}} class="test-add">x++</span>
+<span data:{{this}} class="test-add">x++</span>
 <br>
-<span state:{{.}} class="test-min">x--</span>
+<span state:{{this}} class="test-min">x--</span>
 <br>
 x = {{x}}
 <br>
   <br>
-  {{#if x < 5}}
+  {{#if this.x < 5}}
     <span>x is less then 5</span>
-  {{else if x > 5}}
+  {{else if this['x'] > 5}}
     <span>x is greater then 5</span>
   {{else}}
     <span>x is equal to 5</span>

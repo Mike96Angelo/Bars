@@ -1013,23 +1013,6 @@ var compileit = require('compileit'),
     AssignmentToken = Token.tokens.assignment,
     utils = require('../utils');
 
-var ExpressionToken = compileit.Token.generate(
-    function ExpressionToken(code) {
-        var _ = this;
-
-        compileit.Token.call(_, code, 'expression');
-    }
-);
-
-// function opS(ch) {
-//     return ch === 0x0021 ||
-//         (0x0025 <= ch && ch <= 0x0026) ||
-//         (0x002a <= ch && ch <= 0x002b) ||
-//         ch === 0x002d ||
-//         ch === 0x002f ||
-//         (0x003c <= ch && ch <= 0x003e) ||
-//         ch === 0x007c;
-// }
 function opS(ch) {
     return ch === 0x0021 ||
         (0x0025 <= ch && ch <= 0x0026) ||
@@ -1064,15 +1047,28 @@ function isAND(ch) {
 function parseParentheses(mode, code, tokens, flags, scope, parseMode) {
     var index = code.index,
         length = code.length,
-        expression,
-        args;
+        operator,
+        args,
+        p, b;
 
-    if (code.codePointAt(index) === 0x0028) { // ^[(]$
-        expression = new ExpressionToken(code);
+    if (
+        (p = code.codePointAt(index) === 0x0028) || // ^[(]$
+        (b = code.codePointAt(index) === 0x005b) // ^[\[]$
+    ) {
+        operator = new OperatorToken(code);
         code.index++;
-        expression.parentheses = true;
+
+        if (p) {
+            operator.parentheses = true;
+        } else if (b) {
+            operator.brackets = true;
+        }
+
+        operator.operator = '.';
+
         args = [];
-        scope.push(expression);
+        scope.push(operator);
+
         parseMode('LOGIC-EXP', args, flags);
         // do more here
 
@@ -1080,9 +1076,24 @@ function parseParentheses(mode, code, tokens, flags, scope, parseMode) {
 
         if (args.length > 1) throw 'OPERATOR OPERAND MISMATCH';
 
-        return args[0];
-    } else if (code.codePointAt(index) === 0x0029) { // ^[)]$
-        if (scope.token && scope.token.parentheses) {
+        operator.operands.push(args[0]);
+
+        if (p) {
+            return args[0];
+        } else if (b) {
+            return operator;
+        }
+    } else if (
+        (p = code.codePointAt(index) === 0x0029) || // ^[)]$
+        (b = code.codePointAt(index) === 0x005d) // ^[\]]$
+    ) {
+        if (
+            OperatorToken.isCreation(scope.token) &&
+            (
+                (p && scope.token.parentheses) ||
+                (b && scope.token.brackets)
+            )
+        ) {
             code.index++;
             scope.close();
             parseMode.close();
@@ -1091,7 +1102,7 @@ function parseParentheses(mode, code, tokens, flags, scope, parseMode) {
             throw code.makeError(
                 index,
                 index + 1,
-                'Unexpected token: )'
+                'Unexpected token: ' + code.charAt(index)
             );
         }
     }
@@ -1150,6 +1161,7 @@ function parseOperator(mode, code, tokens, flags, scope, parseMode) {
             operator.operator !== '!' &&
             (!preToken ||
                 (!preToken.saturated &&
+                    !preToken.brackets &&
                     OperatorToken.isCreation(preToken)
                 )
             )
@@ -1303,132 +1315,49 @@ function parseExpressionValue(mode, code, tokens, flags, scope, parseMode) {
     var index = code.index,
         length = code.length,
         ch = code.codePointAt(index),
-        nextCh,
-        value,
-        style,
-        /* ~ */
-        name = ch === 0x007e,
-        /* @ */
-        at = ch === 0x0040,
-        dot,
-        devider,
-        dotdot;
-
+        prop = ch === 0x0040;
 
     if (!utils.isHTMLIdentifierStart(ch) &&
-        !name &&
-        !at &&
-        ch !== 0x002e /* . */
+        !prop
     ) {
         return null;
     }
 
     value = new ValueToken(code);
-    var path = [],
-        nameVal = '';
 
-    if (name || at) { /* @ */
-        path.push(code.charAt(index));
+    value.path = [];
+
+    if (prop) {
+        value.path.push('@');
         index++;
     }
 
+    var name = '';
+
     for (; index < length; index++) {
         ch = code.codePointAt(index);
-        nextCh = code.codePointAt(index + 1);
 
         if (utils.isHTMLIdentifier(ch)) {
-            if (!devider && (dot || dotdot)) {
-                throw code.makeError(
-                    index, index + 1,
-                    'Unexpected Token: ' +
-                    JSON.stringify(code.charAt(index)) +
-                    '.'
-                );
-            }
-
-            if (devider && !utils.isHTMLIdentifierStart(ch)) {
-                throw code.makeError(
-                    index, index + 1,
-                    'Unexpected Token: Expected <[A-Za-z]> but found ' +
-                    JSON.stringify(code.charAt(index)) +
-                    '.'
-                );
-            }
-
-            nameVal += code.charAt(index);
-
-            name = true;
-            devider = false;
-        } else if (!(name && at) && (name || dotdot || dot) && ch === 0x002f) { /* / */
-            if (style === 0 || devider) {
-                throw code.makeError(
-                    index, index + 1,
-                    'Unexpected Token: ' +
-                    JSON.stringify(code.charAt(index)) +
-                    '.'
-                );
-            }
-
-            if (nameVal) {
-                path.push(nameVal);
-                nameVal = '';
-            }
-
-            style = 1;
-            dotdot = false;
-            devider = true;
-        } else if (!name && ch === 0x002e && nextCh === 0x002e) { /* .. */
-            if (dot || style === 0) {
-                throw code.makeError(
-                    index, index + 1,
-                    'Unexpected Token: ' +
-                    JSON.stringify(code.charAt(index)) +
-                    '.'
-                );
-            }
-            index++;
-            path.push('..');
-            style = 1;
-            dotdot = true;
-            devider = false;
-        } else if (!at && ch === 0x002e) { /* . */
-            if (style === 1 || devider) {
-                throw code.makeError(
-                    index, index + 1,
-                    'Unexpected Token: ' +
-                    JSON.stringify(code.charAt(index)) +
-                    '.'
-                );
-            }
-
-            if (name) {
-                style = 0;
-                devider = true;
-
-                if (nameVal) {
-                    path.push(nameVal);
-                    nameVal = '';
-                }
-            }
-            dot = true;
+            name += code.charAt(index);
         } else {
             break;
         }
     }
 
-    if (nameVal) {
-        path.push(nameVal);
-        nameVal = '';
+    if (!name) {
+        throw code.makeError(
+            value.range[0], value.range[1],
+            'Unexpected Token: ' +
+            JSON.stringify(value.source())
+            .slice(1, -1)
+        );
     }
 
-    if (index > code.index) {
-        code.index = index;
-        value.close();
-        value.path = path;
-        return value;
-    }
+    value.path.push(name);
+    code.index = index;
+    value.close();
 
-    return null;
+    return value;
 }
 
 module.exports = parseExpressionValue;
@@ -3085,7 +3014,7 @@ BarsToken.definePrototype({
     writable: true
 }, {
     indentLevel: '',
-    // JSONuseObject: true
+    JSONuseObject: true
 });
 
 BarsToken.definePrototype({
@@ -3387,6 +3316,7 @@ var ENTITIES = require('./html-entities');
 
 var Token = require('../tokens'),
     AssignmentToken = Token.tokens.assignment,
+    LiteralToken = Token.tokens.literal,
     ValueToken = Token.tokens.value,
     OperatorToken = Token.tokens.operator;
 
@@ -3509,172 +3439,154 @@ var OpPresidence = {
     ao: ['||', '&&']
 };
 
+function lookupExpression(tokens, code) {
+    for (var i = 0; i < tokens.length; i++) {
+        prevToken = tokens[i - 1];
+        token = tokens[i];
+        nextToken = tokens[i + 1];
+        var dels = 3;
+
+        if (
+            OperatorToken.isCreation(token) &&
+            token.operator === '.' &&
+            !token.saturated
+        ) {
+            if (!OperatorToken.isCreation(prevToken) ||
+                prevToken.saturated
+            ) {
+                token.operands.unshift(prevToken);
+
+                if (token.operands.length === 1) {
+                    if (isName(nextToken)) {
+                        var lit = new LiteralToken(code);
+                        lit.range = nextToken.range;
+                        lit.loc = nextToken.loc;
+                        lit.value = nextToken.path[0];
+                        lit.closed = true;
+                        token.operands.push(lit);
+                    } else {
+                        throw code.makeError(
+                            token.range[0],
+                            token.range[2],
+                            'Unexpected token: ' +
+                            JSON.stringify(token.source())
+                            .slice(1, -1)
+                        );
+                    }
+                } else {
+                    dels = 2;
+                }
+            } else {
+                throw code.makeError(
+                    token.range[0],
+                    token.range[2],
+                    'Unexpected token: ' +
+                    JSON.stringify(token.source())
+                    .slice(1, -1)
+                );
+            }
+
+            token.saturated = true;
+            tokens.splice(Math.max(0, i - 1), dels, token);
+
+            i--;
+        }
+    }
+}
+
+function unaryExpression(tokens, code) {
+    for (var i = tokens.length - 1; i >= 0; i--) {
+        token = tokens[i];
+        nextToken = tokens[i + 1];
+
+        if (
+            OperatorToken.isCreation(token) &&
+            token.operator === '!'
+        ) {
+            if (!OperatorToken.isCreation(nextToken) ||
+                nextToken.saturated
+            ) {
+                token.operands.push(nextToken);
+            } else {
+                console.log(token);
+                throw code.makeError(
+                    token.range[0],
+                    token.range[2],
+                    'Unexpected token: ' +
+                    JSON.stringify(token.source())
+                    .slice(1, -1)
+                );
+            }
+
+            token.saturated = true;
+            tokens.splice(i, 2, token);
+        }
+    }
+}
+
+function binaryExpression(tokens, key, code) {
+    for (var i = 0; i < tokens.length; i++) {
+        prevToken = tokens[i - 1];
+        token = tokens[i];
+        nextToken = tokens[i + 1];
+        // console.log(
+        //     i, '\n',
+        //     prevToken && prevToken.constructor.name,
+        //     token && token.constructor.name,
+        //     nextToken && nextToken.constructor.name
+        // );
+
+        if (
+            OperatorToken.isCreation(token) &&
+            !token.saturated &&
+            OpPresidence[key].indexOf(token.operator) !== -1
+
+        ) {
+            if (!OperatorToken.isCreation(prevToken) ||
+                prevToken.saturated
+            ) {
+                token.operands.push(prevToken);
+
+                if (!OperatorToken.isCreation(nextToken) ||
+                    nextToken.saturated
+                ) {
+                    token.operands.push(nextToken);
+                } else {
+                    throw code.makeError(
+                        token.range[0],
+                        token.range[2],
+                        'Unexpected token: ' +
+                        JSON.stringify(token.source())
+                        .slice(1, -1)
+                    );
+                }
+            } else {
+                throw code.makeError(
+                    token.range[0],
+                    token.range[2],
+                    'Unexpected token: ' +
+                    JSON.stringify(token.source())
+                    .slice(1, -1)
+                );
+            }
+            token.saturated = true;
+            tokens.splice(i - 1, 3, token);
+            i--;
+        }
+    }
+}
+
 function makeExpressionTree(tokens, code) {
-    var i, temp = [],
-        token,
-        errL = null,
-        errR = null;
+    lookupExpression(tokens, code);
+    unaryExpression(tokens, code);
 
-    for (i = tokens.length - 1; i >= 0; i--) {
-        token = tokens[i];
-        if (!token.saturated &&
-            OperatorToken.isCreation(token) &&
-            token.operator === '!'
-        ) {
-            token.saturated = true;
-            token.operands.push(temp.shift());
-
-            if (!token.operands[token.operands.length - 1]) {
-                errR = token;
-            }
+    for (var key in OpPresidence) {
+        if (OpPresidence.hasOwnProperty(key)) {
+            binaryExpression(tokens, key, code);
         }
-        temp.unshift(token);
     }
 
-    tokens = temp;
-    temp = [];
-
-    for (i = tokens.length - 1; i >= 0; i--) {
-        token = tokens[i];
-        if (!token.saturated &&
-            OperatorToken.isCreation(token) &&
-            token.operator === '!'
-        ) {
-            token.saturated = true;
-            token.operands.push(temp.shift());
-
-            if (!token.operands[token.operands.length - 1]) {
-                errR = token;
-            }
-        }
-        temp.unshift(token);
-    }
-
-    tokens = temp;
-    temp = [];
-
-    for (i = 0; i < tokens.length; i++) {
-        token = tokens[i];
-        if (!token.saturated &&
-            OperatorToken.isCreation(token) &&
-            OpPresidence.dm.indexOf(token.operator) !== -1
-        ) {
-            token.saturated = true;
-            token.operands.push(temp.pop());
-
-            if (!token.operands[token.operands.length - 1]) {
-                errL = token;
-            }
-
-            token.operands.push(tokens[++i]);
-
-            if (!token.operands[token.operands.length - 1]) {
-                errR = token;
-            }
-        }
-        temp.push(token);
-    }
-
-    tokens = temp;
-    temp = [];
-
-    for (i = 0; i < tokens.length; i++) {
-        token = tokens[i];
-        if (!token.saturated &&
-            OperatorToken.isCreation(token) &&
-            OpPresidence.as.indexOf(token.operator) !== -1
-        ) {
-            token.saturated = true;
-            token.operands.push(temp.pop());
-
-            if (!token.operands[token.operands.length - 1]) {
-                errL = token;
-            }
-
-            token.operands.push(tokens[++i]);
-
-            if (!token.operands[token.operands.length - 1]) {
-                errR = token;
-            }
-        }
-        temp.push(token);
-    }
-
-    tokens = temp;
-    temp = [];
-
-    for (i = 0; i < tokens.length; i++) {
-        token = tokens[i];
-        if (!token.saturated &&
-            OperatorToken.isCreation(token) &&
-            OpPresidence.c.indexOf(token.operator) !== -1
-        ) {
-            token.saturated = true;
-            token.operands.push(temp.pop());
-
-            if (!token.operands[token.operands.length - 1]) {
-                errL = token;
-            }
-
-            token.operands.push(tokens[++i]);
-
-            if (!token.operands[token.operands.length - 1]) {
-                errR = token;
-            }
-        }
-        temp.push(token);
-    }
-
-    tokens = temp;
-    temp = [];
-
-    for (i = 0; i < tokens.length; i++) {
-        token = tokens[i];
-        if (!token.saturated &&
-            OperatorToken.isCreation(token) &&
-            OpPresidence.ao.indexOf(token.operator) !== -1
-        ) {
-            token.saturated = true;
-            token.operands.push(temp.pop());
-
-            if (!token.operands[token.operands.length - 1]) {
-                errL = token;
-            }
-
-            token.operands.push(tokens[++i]);
-
-            if (!token.operands[token.operands.length - 1]) {
-                errR = token;
-            }
-        }
-        temp.push(token);
-    }
-
-    tokens = temp;
-
-    if (errL) {
-        throw code.makeError(
-            errL.range[0],
-            errL.range[1],
-            'Missing left-hand operand for: ' +
-            JSON.stringify(
-                errL.source()
-            )
-            .slice(1, -1)
-        );
-    }
-
-    if (errR) {
-        throw code.makeError(
-            errR.range[0],
-            errR.range[1],
-            'Missing right-hand operand for: ' +
-            JSON.stringify(
-                errR.source()
-            )
-            .slice(1, -1)
-        );
-    }
+    // console.log(expressionTree(tokens[0]));
 
     return tokens;
 }
@@ -3684,6 +3596,7 @@ exports.makeExpressionTree = makeExpressionTree;
 function isName(token) {
     return ValueToken.isCreation(token) &&
         token.path.length === 1 &&
+        token.path[0] !== 'this' &&
         token.path[0] !== '~' &&
         token.path[0] !== '..' &&
         token.path[0] !== '.' &&
@@ -3693,47 +3606,55 @@ function isName(token) {
 function sortArgsAndContextMap(tokens, code) {
     var i,
         temp = [],
-        token1,
-        token2,
-        token3;
+        prevToken,
+        token,
+        nextToken;
 
     for (i = 0; i < tokens.length; i++) {
-        token1 = tokens[i];
-        token2 = tokens[i + 1];
-        token3 = tokens[i + 2];
+
+        prevToken = tokens[i - 1];
+        token = tokens[i];
+        nextToken = tokens[i + 1];
 
         if (
-            isName(token1) &&
-            AssignmentToken.isCreation(token2)
+            AssignmentToken.isCreation(token)
         ) {
-            token2.name = token1.path[0];
+            if (isName(prevToken)) {
+                token.name = prevToken.path[0];
 
-            if (!AssignmentToken.isCreation(token3)) {
-                token2.expression = token3;
-                temp.push(token2);
-                i += 2;
+                if (!AssignmentToken.isCreation(nextToken)) {
+                    token.expression = nextToken;
+                } else {
+                    throw code.makeError(
+                        token.range[0],
+                        token.range[2],
+                        'Unexpected token: ' +
+                        JSON.stringify(token.source())
+                        .slice(1, -1)
+                    );
+                }
             } else {
                 throw code.makeError(
-                    token2.range[0],
-                    token2.range[2],
+                    token.range[0],
+                    token.range[2],
                     'Unexpected token: ' +
-                    JSON.stringify(token2.source())
+                    JSON.stringify(token.source())
                     .slice(1, -1)
                 );
             }
-        } else {
-            temp.push(token1);
+
+            tokens.splice(i - 1, 3, token);
         }
     }
 
     var map = [];
     var args = [];
 
-    for (i = 0; i < temp.length; i++) {
-        if (AssignmentToken.isCreation(temp[i])) {
-            map.push(temp[i]);
+    for (i = 0; i < tokens.length; i++) {
+        if (AssignmentToken.isCreation(tokens[i])) {
+            map.push(tokens[i]);
         } else {
-            args.push(temp[i]);
+            args.push(tokens[i]);
         }
     }
 
@@ -3743,6 +3664,33 @@ function sortArgsAndContextMap(tokens, code) {
     };
 }
 exports.sortArgsAndContextMap = sortArgsAndContextMap;
+
+
+function expressionTree(op, d) {
+    d = d || 0;
+
+    if (!op) return '';
+
+    var s = '';
+
+    s += (op.operator || op.value || op.name || op.path.join()) + '\n';
+
+    if (op.operator) {
+        d += 2;
+        var sp = (new Array(d + 1))
+            .join(' ');
+        s += sp;
+        s += expressionTree(op.operands[0], d);
+
+        if (op.operands[1]) {
+            s += sp;
+            s += expressionTree(op.operands[1], d);
+        }
+    }
+
+    return s;
+
+}
 
 },{"../tokens":31,"./html-entities":43,"./self-closing-tags":45}],45:[function(require,module,exports){
 module.exports=[
@@ -3776,6 +3724,7 @@ function makeVars(context, map, bars) {
     for (var i = 0; i < map.length; i++) {
         vars[map[i].name] = execute(map[i].expression, bars.transforms, context);
     }
+    // console.log(vars);
     return vars;
 }
 
@@ -4051,69 +4000,26 @@ var Context = Generator.generate(function Context(data, props, context, cleanVar
 });
 
 Context.definePrototype({
-    lookup: function lookup(path, prop) {
+    lookup: function lookup(path) {
         var _ = this,
             i = 0;
 
         if (path[0] === '@') {
-            prop = true;
-            path = path.slice(1);
-        }
-
-        if (path[0] === '~' && _.context) {
-            return _.context.lookup(path, prop);
-        }
-
-        if (path[0] === '..' && _.context) {
-            return _.context.lookup(
-                path.slice(1), prop
-            );
+            console.log(_.props[path[1]]);
+            return _.props[path[1]];
         }
 
         if (
-            path[0] === 'this' ||
-            path[0] === '.' ||
-            path[0] === '~'
+            path[0] === 'this'
         ) {
-            i = 1;
+            return _.data;
         }
 
-        var value;
-
-        if (!prop &&
-            path.length &&
-            path[0] !== 'this' &&
-            path[0] !== '.' &&
-            path[0] !== '~'
-        ) {
-            value = _.vars;
-
-            for (i = 0; value && i < path.length; i++) {
-
-                if (value !== null && value !== void(0)) {
-                    value = value[path[i]];
-                } else {
-                    value = void(0);
-                }
-            }
-
-            if (value !== void(0)) {
-                return value;
-            }
+        if (path[0] in _.vars) {
+            return _.vars[path[0]];
         }
 
-        value = (prop ? _.props : _.data);
-
-        for (i = 0; value && i < path.length; i++) {
-
-            if (value !== null && value !== void(0)) {
-                value = value[path[i]];
-            } else {
-                value = void(0);
-            }
-        }
-
-        return value;
+        return _.data[path[0]];
     },
     newContext: function newContext(data, props, cleanVars) {
         return new Context(data, props, this, cleanVars);
@@ -4155,9 +4061,7 @@ function execute(syntaxTree, transforms, context) {
         } else if (
             token.type === 'value'
         ) {
-            // console.log(token.path);
             result = context.lookup(token.path);
-            // console.log(result);
         } else if (
             token.type === 'operator' &&
             token.operands.length === 1
@@ -4205,12 +4109,29 @@ function execute(syntaxTree, transforms, context) {
 module.exports = execute;
 
 },{"./logic":51}],51:[function(require,module,exports){
+/*Look up*/
+exports.lookup = function add(a, b) {
+    // return a ? a[b] : void(0); // soft
+    return a[b]; // hard
+};
+exports['.'] = exports.lookup;
+
 /* Arithmetic */
-exports.add      = function add      (a, b) { return a + b; };
-exports.subtract = function subtract (a, b) { return a - b; };
-exports.multiply = function multiply (a, b) { return a * b; };
-exports.devide   = function devide   (a, b) { return a / b; };
-exports.mod      = function mod      (a, b) { return a % b; };
+exports.add = function add(a, b) {
+    return a + b;
+};
+exports.subtract = function subtract(a, b) {
+    return a - b;
+};
+exports.multiply = function multiply(a, b) {
+    return a * b;
+};
+exports.devide = function devide(a, b) {
+    return a / b;
+};
+exports.mod = function mod(a, b) {
+    return a % b;
+};
 
 exports['+'] = exports.add;
 exports['-'] = exports.subtract;
@@ -4220,36 +4141,58 @@ exports['%'] = exports.mod;
 
 /* Logic */
 
-exports.not = function not (a) { return !a; };
+exports.not = function not(a) {
+    return !a;
+};
 
 exports['!'] = exports.not;
 
-exports.or        = function or         (a, b) { return a || b; };
-exports.and       = function and        (a, b) { return a && b; };
+exports.or = function or(a, b) {
+    return a || b;
+};
+exports.and = function and(a, b) {
+    return a && b;
+};
 
 exports['||'] = exports.or;
 exports['&&'] = exports.and;
 
 /* Comparison */
 
-exports.strictequals    = function strictequals     (a, b) { return a === b; };
-exports.strictnotequals = function strictnotequals  (a, b) { return a !== b; };
+exports.strictequals = function strictequals(a, b) {
+    return a === b;
+};
+exports.strictnotequals = function strictnotequals(a, b) {
+    return a !== b;
+};
 
 exports['==='] = exports.strictequals;
 exports['!=='] = exports.strictnotequals;
 
-exports.equals    = function equals     (a, b) { return a == b; };
-exports.notequals = function notequals  (a, b) { return a != b; };
-exports.ltequals  = function ltequals   (a, b) { return a <= b; };
-exports.gtequals  = function gtequals   (a, b) { return a >= b; };
+exports.equals = function equals(a, b) {
+    return a == b;
+};
+exports.notequals = function notequals(a, b) {
+    return a != b;
+};
+exports.ltequals = function ltequals(a, b) {
+    return a <= b;
+};
+exports.gtequals = function gtequals(a, b) {
+    return a >= b;
+};
 
 exports['=='] = exports.equals;
 exports['!='] = exports.notequals;
 exports['<='] = exports.ltequals;
 exports['>='] = exports.gtequals;
 
-exports.lt = function lt (a, b) { return a < b; };
-exports.gt = function gt (a, b) { return a > b; };
+exports.lt = function lt(a, b) {
+    return a < b;
+};
+exports.gt = function gt(a, b) {
+    return a > b;
+};
 
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
@@ -6921,7 +6864,7 @@ function isArray(obj) {
 },{}],94:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

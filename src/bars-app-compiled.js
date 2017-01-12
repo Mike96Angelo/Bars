@@ -1333,7 +1333,7 @@ BarsToken.definePrototype({
     writable: true
 }, {
     indentLevel: '',
-    // JSONuseObject: true
+    JSONuseObject: true
 });
 
 BarsToken.definePrototype({
@@ -1534,6 +1534,7 @@ function makeVars(context, map, bars) {
     for (var i = 0; i < map.length; i++) {
         vars[map[i].name] = execute(map[i].expression, bars.transforms, context);
     }
+    // console.log(vars);
     return vars;
 }
 
@@ -1809,69 +1810,26 @@ var Context = Generator.generate(function Context(data, props, context, cleanVar
 });
 
 Context.definePrototype({
-    lookup: function lookup(path, prop) {
+    lookup: function lookup(path) {
         var _ = this,
             i = 0;
 
         if (path[0] === '@') {
-            prop = true;
-            path = path.slice(1);
-        }
-
-        if (path[0] === '~' && _.context) {
-            return _.context.lookup(path, prop);
-        }
-
-        if (path[0] === '..' && _.context) {
-            return _.context.lookup(
-                path.slice(1), prop
-            );
+            console.log(_.props[path[1]]);
+            return _.props[path[1]];
         }
 
         if (
-            path[0] === 'this' ||
-            path[0] === '.' ||
-            path[0] === '~'
+            path[0] === 'this'
         ) {
-            i = 1;
+            return _.data;
         }
 
-        var value;
-
-        if (!prop &&
-            path.length &&
-            path[0] !== 'this' &&
-            path[0] !== '.' &&
-            path[0] !== '~'
-        ) {
-            value = _.vars;
-
-            for (i = 0; value && i < path.length; i++) {
-
-                if (value !== null && value !== void(0)) {
-                    value = value[path[i]];
-                } else {
-                    value = void(0);
-                }
-            }
-
-            if (value !== void(0)) {
-                return value;
-            }
+        if (path[0] in _.vars) {
+            return _.vars[path[0]];
         }
 
-        value = (prop ? _.props : _.data);
-
-        for (i = 0; value && i < path.length; i++) {
-
-            if (value !== null && value !== void(0)) {
-                value = value[path[i]];
-            } else {
-                value = void(0);
-            }
-        }
-
-        return value;
+        return _.data[path[0]];
     },
     newContext: function newContext(data, props, cleanVars) {
         return new Context(data, props, this, cleanVars);
@@ -1913,9 +1871,7 @@ function execute(syntaxTree, transforms, context) {
         } else if (
             token.type === 'value'
         ) {
-            // console.log(token.path);
             result = context.lookup(token.path);
-            // console.log(result);
         } else if (
             token.type === 'operator' &&
             token.operands.length === 1
@@ -1963,12 +1919,29 @@ function execute(syntaxTree, transforms, context) {
 module.exports = execute;
 
 },{"./logic":29}],29:[function(require,module,exports){
+/*Look up*/
+exports.lookup = function add(a, b) {
+    // return a ? a[b] : void(0); // soft
+    return a[b]; // hard
+};
+exports['.'] = exports.lookup;
+
 /* Arithmetic */
-exports.add      = function add      (a, b) { return a + b; };
-exports.subtract = function subtract (a, b) { return a - b; };
-exports.multiply = function multiply (a, b) { return a * b; };
-exports.devide   = function devide   (a, b) { return a / b; };
-exports.mod      = function mod      (a, b) { return a % b; };
+exports.add = function add(a, b) {
+    return a + b;
+};
+exports.subtract = function subtract(a, b) {
+    return a - b;
+};
+exports.multiply = function multiply(a, b) {
+    return a * b;
+};
+exports.devide = function devide(a, b) {
+    return a / b;
+};
+exports.mod = function mod(a, b) {
+    return a % b;
+};
 
 exports['+'] = exports.add;
 exports['-'] = exports.subtract;
@@ -1978,36 +1951,58 @@ exports['%'] = exports.mod;
 
 /* Logic */
 
-exports.not = function not (a) { return !a; };
+exports.not = function not(a) {
+    return !a;
+};
 
 exports['!'] = exports.not;
 
-exports.or        = function or         (a, b) { return a || b; };
-exports.and       = function and        (a, b) { return a && b; };
+exports.or = function or(a, b) {
+    return a || b;
+};
+exports.and = function and(a, b) {
+    return a && b;
+};
 
 exports['||'] = exports.or;
 exports['&&'] = exports.and;
 
 /* Comparison */
 
-exports.strictequals    = function strictequals     (a, b) { return a === b; };
-exports.strictnotequals = function strictnotequals  (a, b) { return a !== b; };
+exports.strictequals = function strictequals(a, b) {
+    return a === b;
+};
+exports.strictnotequals = function strictnotequals(a, b) {
+    return a !== b;
+};
 
 exports['==='] = exports.strictequals;
 exports['!=='] = exports.strictnotequals;
 
-exports.equals    = function equals     (a, b) { return a == b; };
-exports.notequals = function notequals  (a, b) { return a != b; };
-exports.ltequals  = function ltequals   (a, b) { return a <= b; };
-exports.gtequals  = function gtequals   (a, b) { return a >= b; };
+exports.equals = function equals(a, b) {
+    return a == b;
+};
+exports.notequals = function notequals(a, b) {
+    return a != b;
+};
+exports.ltequals = function ltequals(a, b) {
+    return a <= b;
+};
+exports.gtequals = function gtequals(a, b) {
+    return a >= b;
+};
 
 exports['=='] = exports.equals;
 exports['!='] = exports.notequals;
 exports['<='] = exports.ltequals;
 exports['>='] = exports.gtequals;
 
-exports.lt = function lt (a, b) { return a < b; };
-exports.gt = function gt (a, b) { return a > b; };
+exports.lt = function lt(a, b) {
+    return a < b;
+};
+exports.gt = function gt(a, b) {
+    return a > b;
+};
 
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
@@ -14901,7 +14896,7 @@ function isArray(obj) {
 },{}],73:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
