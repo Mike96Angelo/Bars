@@ -1815,7 +1815,7 @@ Context.definePrototype({
             i = 0;
 
         if (path[0] === '@') {
-            console.log(_.props[path[1]]);
+            // console.log(_.props[path[1]]);
             return _.props[path[1]];
         }
 
