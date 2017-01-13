@@ -92,7 +92,9 @@ Ineractions.definePrototype({
         var _ = this;
 
         return function (event) {
-            return listener.call(_, event, $(this));
+            $target = $(this);
+            $target.data = $target.prop('data');
+            return listener.call(_, event, $target);
         };
     },
     on: function on(events, target, listener) {
@@ -14901,7 +14903,7 @@ function isArray(obj) {
 },{}],73:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

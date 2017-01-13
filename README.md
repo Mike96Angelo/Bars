@@ -55,7 +55,7 @@ var app = new App(
         // partials: {},
         // transforms: {}
     },
-    
+
     // State
     {
         todos: [
@@ -67,7 +67,7 @@ var app = new App(
 );
 
 app.on('click', '.list-complete', function (evt, $el){
-    var todo = $el.prop('data')('todo');
+    var todo = $el.data('todo');
 
     todo.complete = !todo.complete;
 
@@ -75,8 +75,8 @@ app.on('click', '.list-complete', function (evt, $el){
 });
 
 app.on('click', '.list-del', function (evt, $el){
-    var todo = $el.prop('data')('todo');
-    var todos = $el.prop('data')('todos');
+    var todo = $el.data('todo');
+    var todos = $el.data('todos');
 
     todos.splice(todos.indexOf(todo), 1);
 
@@ -84,7 +84,7 @@ app.on('click', '.list-del', function (evt, $el){
 });
 
 app.on('change', '#new-list', function (evt, $el){
-    var todos = $el.prop('data')('todos');
+    var todos = $el.data('todos');
 
     todos.unshift({
         text: $el.val()
