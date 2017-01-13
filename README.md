@@ -37,9 +37,9 @@ $ npm install bars
         </div>
     </li>
 {{else}}
-<li>
-    <span>You have nothing left to do.</span>
-</li>
+    <li>
+        <span>You have nothing left to do.</span>
+    </li>
 {{/each}}
 {{/with}}
 </ul>
