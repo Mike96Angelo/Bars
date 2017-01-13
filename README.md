@@ -20,7 +20,7 @@ $ npm install bars
 
 [Bars Language and Docs](docs/js-interface.md).
 * [Demo App](https://mike96angelo.github.io/Bars/demo/)
-* [JSFiddle](https://jsfiddle.net/ufcdxm4q/)
+* [JSFiddle](https://jsfiddle.net/ufcdxm4q/1/)
 
 ### index.bars:
 ```handlebars
