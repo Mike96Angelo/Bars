@@ -22,49 +22,77 @@ $ npm install bars
 * [Demo App](https://mike96angelo.github.io/Bars/demo/)
 * [JSFiddle](https://jsfiddle.net/ufcdxm4q/)
 
-### Bars:
+### index.bars:
 ```handlebars
+<h2>To Do App</h2>
+<input id="new-list" todos:{{todos}} placeholder="Add something to your list..." />
 <ul>
-{{#each persons}}
-   <li>{{@index + 1}} - {{name}}</li>
-{{/each}}
-</ul>
-
-{{#if x < 5}}
-   <span>x is less then 5</span>
-{{else if x > 5}}
-    <span>x is greater then 5</span>
+{{#with todos=todos}}
+{{#each todos}}
+    <li>
+        <div>
+            <span class="list-complete {{complete && 'done'}}" todo:{{this}}></span>
+            <span class="list">{{text}}</span>
+            <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
+        </div>
+    </li>
 {{else}}
-   <span>x is equal to 5</span>
-{{/if}}
-
-{{@upperCase(title)}}
-```
-### Object:
-```javascript
-{
-   persons: [
-      { name: 'John' },
-      { name: 'Jane' },
-      { name: 'Jim' },
-   ],
-   x: 2,
-   title: 'The Cat in the Hat'
-}
-```
-
-### Output:
-##### *text representation*
-```handlebars
-<ul>
-   <li>1 - John</li>
-   <li>2 - Jane</li>
-   <li>3 - Jim</li>
+<li>
+    <span>You have nothing left to do.</span>
+</li>
+{{/each}}
+{{/with}}
 </ul>
+```
+### app.js:
+```javascript
 
+var app = new App(
+    // options
+    {
+        index: require('./index.bars'),
+        // partials: {},
+        // transforms: {}
+    },
+    
+    // State
+    {
+        todos: [
+            {
+                text: 'Buy eggs'
+            }
+        ]
+    }
+);
 
-   x is less then 5
+app.on('click', '.list-complete', function (evt, $el){
+    var todo = $el.prop('data')('todo');
 
+    todo.complete = !todo.complete;
 
-THE CAT IN THE HAT
+    app.render();
+});
+
+app.on('click', '.list-del', function (evt, $el){
+    var todo = $el.prop('data')('todo');
+    var todos = $el.prop('data')('todos');
+
+    todos.splice(todos.indexOf(todo), 1);
+
+    app.render();
+});
+
+app.on('change', '#new-list', function (evt, $el){
+    var todos = $el.prop('data')('todos');
+
+    todos.unshift({
+        text: $el.val()
+    });
+
+    $el.val('');
+
+    app.render();
+});
+
+app.appendTo(document.body);
 ```
