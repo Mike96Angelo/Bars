@@ -1,91 +1,160 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Bars Demo</title>
-        <script id="bars-template-title-u" type="text/x-handlebars-template">
-            <span>{{@upperCase(tt)}}</span>
-        </script>
-        <script id="bars-template-title-l" type="text/x-handlebars-template">
-            <span>{{@lowerCase(tt)}}</span>
-        </script>
-        <script id="bars-template" type="text/x-handlebars-template">
-<h2>To Do</h2>
-<input id="new-list" data:{{this}}/>
-<ul>
-{{#with todos=todos}}
-{{#each todos todo=this}}
+<head>
+<title>To Do App</title>
+
+<style>
+*, *:before, *:after {
+    margin: 0;
+    padding: 0;
+}
+
+ul, li {
+    list-style: none;
+}
+
+input {
+    width: 250px;
+    outline: none;
+    padding: 5px;
+
+    margin-top: 10px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+#bars-output {
+    padding: 10px;
+    text-align: center;
+}
+
+li > div {
+    display: inline-block;
+    width: 250px;
+}
+
+.list,
+.list-complete,
+.list-del {
+    display: inline-block;
+    height: 20px;
+    float: left;
+}
+
+.list {
+    text-align: left;
+    padding-left: 10px;
+}
+
+.list-complete,
+.list-del {
+    cursor: pointer;
+    width: 20px;
+    color: rgba(0, 0, 0, 0.5);
+}
+
+.list-complete.done{
+    background: #FCBA02;
+}
+
+.list-complete {
+    box-sizing: border-box;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+.list-del {
+    float: right;
+}
+</style>
+
+<script id="bars-template" type="text/x-handlebars-template">
+    <h2>To Do App</h2>
+    <input id="new-list" todos:{{todos}} placeholder="Add something to your list..." />
+    <ul>
+    {{#with todos=todos}}
+    {{#each todos}}
+        <li>
+            <div>
+                <span class="list-complete {{complete && 'done'}}" todo:{{this}}></span>
+                <span class="list">{{text}}</span>
+                <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
+            </div>
+        </li>
+    {{else}}
     <li>
-        <span>{{text}}</span> |
-        <span class="list-complete" data:{{this}}>{{(complete && 'done') || 'not done' }}</span>
-        | <span class="list-del" data:{{todo}} todos:{{todos}}>delete</span>
+        <span>You have nothing left to do.</span>
     </li>
-{{else}}
-<li>
-    <span>Nothing left to do.</span>
-</li>
-{{/each}}
-{{/with}}
-</ul>
-        </script>
-        <script src="bars-app.js"></script>
-    </head>
-    <body>
-        <div id="bars-output" class="som"></div>
-        <script type="text/javascript">
-        var indexTemplate = document.getElementById('bars-template').innerHTML,
-        tuTemplate = document.getElementById('bars-template-title-u').innerHTML,
-        tlTemplate = document.getElementById('bars-template-title-l').innerHTML;
+    {{/each}}
+    {{/with}}
+    </ul>
+</script>
 
-        app = new App({
-            index: indexTemplate,
-            partials: {
-                tu: tuTemplate,
-                tl: tlTemplate,
-            },
-            transforms:{
-                sbl: function (arr) {
-                    return arr.sort(function (a,b){
-                        return a.name.length - b.name.length;
-                    });
+<script src="bars-app.js"></script>
+</head>
+<body>
+
+<div id="bars-output"></div>
+
+<script type="text/javascript">
+    function loadData() {
+        var todos = localStorage.getItem('todos');
+        todos = todos && JSON.parse(todos);
+
+        return todos || {
+            todos: [
+                {
+                    text: 'Buy eggs'
                 }
-            }
-        },
+            ]
+        };
+    }
+
+    function storeData(todos) {
+        localStorage.setItem('todos', JSON.stringify(todos));
+
+        return todos;
+    }
+
+    var app = new App(
         {
-            todos: []
+            index: document.getElementById('bars-template').innerHTML,
+            // partials: {},
+            // transforms: {}
+        },
+        loadData()
+    );
+
+    app.on('click', '.list-complete', function (evt, $el){
+        var todo = $el.prop('data')('todo');
+        todo.complete = !todo.complete;
+        app.render();
+        storeData(app.state);
+    });
+
+    app.on('click', '.list-del', function (evt, $el){
+        var todo = $el.prop('data')('todo');
+        var todos = $el.prop('data')('todos');
+
+        todos.splice(todos.indexOf(todo), 1);
+
+        app.render();
+        storeData(app.state);
+    });
+
+    app.on('change', '#new-list', function (evt, $el){
+        var todos = $el.prop('data')('todos');
+
+        todos.unshift({
+            text: $el.val()
         });
 
-        app.on('click', '.list-complete', function (evt, $el){
-            var data = $el.prop('data')('data');
-            data.complete = !data.complete;
-            app.render();
-        });
+        $el.val('');
+        app.render();
+        storeData(app.state);
+    });
 
-        app.on('click', '.list-del', function (evt, $el){
-            var data = $el.prop('data')('data');
-            var todos = $el.prop('data')('todos');
-
-            todos.splice(todos.indexOf(data), 1);
-
-            app.render();
-        });
-
-        app.on('change', '#new-list', function (evt, $el){
-            var state = $el.prop('data')('data');
-            state.todos.unshift({
-                text: $el.val()
-            });
-            $el.val('');
-            app.render();
-        });
-
-        app.appendTo('#bars-output');
-
-
-        /*
-         * now open you Inspector
-         * and try changing barsData
-         * and updating the domFrag
-         */
-        </script>
-    </body>
+    app.appendTo('#bars-output');
+</script>
+</body>
 </html>
