@@ -78,8 +78,7 @@ app.on('click', '.something', function (evnt, $el) {
     alert('you clicked on something');
 
     // to access data bound to the target
-    // use $el[0].data('prop-name')
-    // or $el.prop('data')('prop-name')
+    // use $el.data('prop-name')
 
     // if you manipulate part of the app state
     // call app.render()
