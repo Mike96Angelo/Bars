@@ -46,6 +46,7 @@ $ npm install bars
 ```
 ### app.js:
 ```javascript
+var App = require('bars/app');
 
 var app = new App(
     // options
