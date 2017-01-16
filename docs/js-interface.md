@@ -98,7 +98,7 @@ app.appendTo(document.body);
 ```
 
 # Bars
-Bars is a lightweight high performance HTML aware templating engine.  Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen.
+Bars is a lightweight high performance HTML aware templating engine. Bars emits DOM rather than DOM-strings, this means the DOM state is preserved even if data updates happen. Bars can also emit DOM-strings for backend templating if desired. This way one can use Bars for both static content generation and dynamic web application views.
 
 ## Class: Bars
 
@@ -236,7 +236,7 @@ Renders DOM-string text with `data`.
 
 Example:
 ```javascript
-var renderText = renderer.text({name: 'Bob'}, {tabs: false, indent: 2});
+var renderedText = renderer.text({name: 'Bob'}, {tabs: false, indent: 2});
 ```
 
 ## renderer.update(data)
