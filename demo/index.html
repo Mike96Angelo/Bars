@@ -149,8 +149,11 @@ li > div {
         });
 
         $el.val('');
-        app.render();
+
         storeData(app.state);
+        app.state = loadData();
+
+        app.render();
     });
 
     app.appendTo('#bars-output');

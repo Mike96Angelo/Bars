@@ -21,6 +21,7 @@
         * [bars.registerTransform(name, func)](#barsregistertransformname-func)
 * [Renderer](#renderer)
     * [Class: Renderer](#class-renderer)
+        * [Renderer.text(data[, options])](#renderertextdata-options)
         * [Renderer.update(data)](#rendererupdatedata)
         * [Renderer.appendTo(element)](#rendererappendtoelement)
 
@@ -223,6 +224,21 @@ A renderer is an object that can render/update a DOM view.
 
 ## Class: Renderer
 * *compiledTemplate* `Object` An object structure containing a pattern for rendering.
+
+## renderer.text(data[, options])
+* *data* `Object` Object context for rendering update.
+* *options* `Object` Options for indentation.
+    * *tabs* `Boolean` Use tabs for indentation.
+    * *indent* `Number` Number of spaces to indent with if not using tabs.
+
+Returns DOM-string text.
+
+Renders DOM-string text with `data`.
+
+Example:
+```javascript
+var renderText = renderer.text({name: 'Bob'}, {tabs: false, indent: 2});
+```
 
 ## renderer.update(data)
 * *data* `Object` Object context for rendering update.
