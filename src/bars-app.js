@@ -1,13 +1,15 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.App = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var Bars = require('./lib/bars');
+var Map = require('./lib/utils/map');
 
 var App = require('./lib/app');
 
 App.Bars = Bars;
+App.Map = Map;
 
 module.exports = App;
 
-},{"./lib/app":3,"./lib/bars":7}],2:[function(require,module,exports){
+},{"./lib/app":3,"./lib/bars":7,"./lib/utils/map":65}],2:[function(require,module,exports){
 var Generator = require('generate-js');
 var utils = require('compileit/lib/utils');
 
@@ -71,7 +73,7 @@ App.definePrototype({
 
 module.exports = App;
 
-},{"./interactions":4,"./register-bars-options":5,"compileit/lib/utils":64,"generate-js":66}],3:[function(require,module,exports){
+},{"./interactions":4,"./register-bars-options":5,"compileit/lib/utils":72,"generate-js":73}],3:[function(require,module,exports){
 module.exports = require('./app');
 
 },{"./app":2}],4:[function(require,module,exports){
@@ -114,7 +116,7 @@ Ineractions.definePrototype({
 
 module.exports = Ineractions;
 
-},{"generate-js":66,"jquery":71}],5:[function(require,module,exports){
+},{"generate-js":73,"jquery":76}],5:[function(require,module,exports){
 function registerConfig(bars, options) {
     var key;
 
@@ -216,7 +218,7 @@ Bars.definePrototype({
 
 module.exports = Bars;
 
-},{"../package":99,"./blocks":8,"./compiler/tokens":35,"./renderer":52,"./transforms":56,"generate-js":66}],7:[function(require,module,exports){
+},{"../package":97,"./blocks":8,"./compiler/tokens":35,"./renderer":60,"./transforms":64,"generate-js":73}],7:[function(require,module,exports){
 var Bars = require('./bars-runtime'),
     compile = require('./compiler');
 
@@ -291,7 +293,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":66}],9:[function(require,module,exports){
+},{"generate-js":73}],9:[function(require,module,exports){
 var compileit = require('compileit');
 var parsers = require('./parsers');
 
@@ -320,7 +322,7 @@ var parseModes = {
         parsers.parseHTMLTagEnd,
         parsers.parseWhitspace,
         parsers.parseHTMLAttr,
-        parsers.parseBarsMarkup
+        // parsers.parseBarsMarkup
     ],
     'VALUE': [
         parsers.parseHTMLAttrEnd,
@@ -392,7 +394,7 @@ function compile(str, file, mode, flags) {
 
 module.exports = compile;
 
-},{"./parsers":28,"./tokens":35,"compileit":59}],10:[function(require,module,exports){
+},{"./parsers":28,"./tokens":35,"compileit":67}],10:[function(require,module,exports){
 module.exports = require('./compiler');
 
 },{"./compiler":9}],11:[function(require,module,exports){
@@ -1342,7 +1344,7 @@ function parseExpressionOperator(mode, code, tokens, flags, scope, parseMode) {
 
 module.exports = parseExpressionOperator;
 
-},{"../tokens":35,"../utils":48,"compileit":59}],20:[function(require,module,exports){
+},{"../tokens":35,"../utils":48,"compileit":67}],20:[function(require,module,exports){
 // parseExpressionTransformEnd
 var Token = require('../tokens');
 
@@ -2882,7 +2884,7 @@ ProgramToken.definePrototype({
 
 Token.tokens.program = ProgramToken;
 
-},{"../../../package":99,"./token":44}],41:[function(require,module,exports){
+},{"../../../package":97,"./token":44}],41:[function(require,module,exports){
 var Token = require('./token');
 
 var PropToken = Token.generate(
@@ -3204,7 +3206,7 @@ BarsToken.definePrototype({
 
 module.exports = BarsToken;
 
-},{"compileit":59}],45:[function(require,module,exports){
+},{"compileit":67}],45:[function(require,module,exports){
 var Token = require('./token');
 
 var TransformToken = Token.generate(
@@ -3859,8 +3861,161 @@ module.exports=[
 ]
 
 },{}],50:[function(require,module,exports){
-var h = require('virtual-dom/h');
-var execute = require('../runtime/execute');
+var BarsNode = require('./bars-node'),
+    NODES = require('./nodes'),
+    ac = require('../text-renderer')
+    .ac;
+
+/**
+ * [AttrNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+AttrNode = BarsNode.generate(
+    function AttrNode(bars, struct) {
+        BarsNode.call(this);
+        var _ = this;
+
+        _.bars = bars;
+        _.name = struct.name;
+        _.nodes = struct.nodes;
+    }
+);
+
+AttrNode.definePrototype({
+    isDOM: true,
+    update: function update(context) {
+        var _ = this;
+
+        _.val = ac(_.nodes, _.bars, context)
+            .slice(2, -1);
+
+        _._elementAppendTo();
+    },
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+
+        parent = parent || _.getParent();
+
+        parent = parent && parent.$el;
+
+        if (parent instanceof Element) {
+            parent.setAttribute(_.name, _.val);
+        }
+    },
+    _elementRemove: function _elementRemove() {
+        var _ = this,
+            parent = _.parent.$el;
+
+        if (parent instanceof Element) {
+            parent.removeAttribute(_.name);
+        }
+    }
+});
+
+NODES.attr = AttrNode;
+
+},{"../text-renderer":59,"./bars-node":51,"./nodes":55}],51:[function(require,module,exports){
+var Generator = require('generate-js');
+
+function insertAfter(newNode, referenceNode) {
+    referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+}
+
+var BarsNode = Generator.generate(
+    function BarsNode() {}
+);
+
+BarsNode.definePrototype({
+    update: function update(context) {
+        var _ = this;
+
+        var $parent = _.getParent();
+
+        _.prevDOM = $parent && $parent.lastUpdated;
+
+        _._update(context);
+
+        _._elementAppendTo();
+
+        if (_.isDOM && $parent) $parent.lastUpdated = _;
+    },
+
+    _update: function _update() {
+        console.warn('_update method not implemented.');
+    },
+
+    appendChild: function appendChild(child) {
+        var _ = this;
+
+        _.nodes.push(child);
+        child.parent = _;
+    },
+
+    appendTo: function appendTo(parent) {
+        var _ = this;
+
+        if (parent instanceof Element) {
+            _._elementAppendTo(parent);
+        }
+
+        if (BarsNode.isCreation(parent)) {
+            parent.appendChild(_);
+        }
+    },
+
+    remove: function remove() {
+        var _ = this,
+            index = _.parent.nodes.indexOf(_);
+
+        if (index >= 0) {
+            _.parent.nodes.splice(index, 1);
+        }
+
+        _._elementRemove();
+    },
+
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+        parent = parent || _.getParent();
+
+        parent = parent && parent.$el;
+
+        if (_.prevDOM && _.prevDOM.$el && _.prevDOM.$el.nextSibling !== _.$el) {
+            insertAfter(_.$el, _.prevDOM.$el);
+        } else if (parent && parent !== _.$el.parentNode) {
+            parent.appendChild(_.$el);
+        }
+
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        if (_.isDOM && _.$el.parentNode instanceof Element) {
+            _.$el.parentNode.removeChild(_.$el);
+        }
+    },
+
+    getParent: function getParent() {
+        var _ = this,
+            parent = _;
+
+        do {
+            parent = parent.parent;
+        } while (parent && !parent.isDOM);
+
+        return parent;
+    }
+});
+
+
+module.exports = BarsNode;
+
+},{"generate-js":73}],52:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
 
 function makeVars(context, map, bars) {
     var vars = {};
@@ -3871,229 +4026,438 @@ function makeVars(context, map, bars) {
     return vars;
 }
 
-function renderTextNode(bars, struct, context) {
-    return struct.value;
-}
+BlockNode = BarsNode.generate(
+    function BlockNode(bars, struct) {
+        BarsNode.call(this);
 
-var PROP_MAP = {
-    'class': 'className'
-};
+        var _ = this;
+        var nodes = struct.nodes || [];
 
-function renderAttrsAndProps(bars, struct, context) {
-    var i,
-        _data = {},
-        props = {},
-        attrs = {};
+        _.bars = bars;
 
-    function get(name) {
-        return _data[name];
-    }
+        _.name = struct.name;
+        _.arguments = struct.arguments;
+        _.map = struct.map;
+        _.consequent = struct.consequent;
+        _.alternate = struct.alternate;
 
-    props.data = get;
+        _.consMap = new Map();
+        _.altsMap = new Map();
 
-    for (i = 0; i < struct.attrs.length; i++) {
-        var attr = struct.attrs[i];
-        attrs[attr.name] = renderChildrenTexts(bars, attr, context);
-    }
+        _.nodes = [];
 
-
-    for (i = 0; i < struct.props.length; i++) {
-        _data[struct.props[i].name] = execute(struct.props[i].expression, bars.transforms, context);
-    }
-
-    props.attributes = attrs;
-    // var key = context.lookup(['@', 'key']);
-    // props.key = /[^0-9]/.test(key) ? key : context.lookup(['id']); What is this supposed to do?
-
-    return props;
-}
-
-function renderInsert(bars, struct, context) {
-    return execute(struct.expression, bars.transforms, context);
-}
-
-function renderChildrenTexts(bars, struct, context) {
-    var children = [];
-    if (!struct || !struct.nodes) return children.join('');
-    for (var i = 0; i < struct.nodes.length; i++) {
-        var child = struct.nodes[i];
-
-        if (child.type === 'text') {
-            children.push(child.value);
-        } else if (child.type === 'insert') {
-            children.push(renderInsert(bars, child, context));
-        } else if (child.type === 'block') {
-            children.push(renderBlockAsTexts(bars, child, context));
+        for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            _.appendChild(new NODES[node.type](bars, node));
         }
     }
+);
 
-    return children.join('');
-}
+BlockNode.definePrototype({
+    _update: function _update(context) {
+        var _ = this,
+            i;
 
-function renderBlockAsTexts(bars, struct, context) {
-    var nodes = [];
+        var cons = [];
 
-    function consequent(new_context) {
-        new_context = new_context || context;
-        new_context = new_context.contextWithVars(makeVars(new_context, struct.map, bars));
-        nodes.push(renderTypeAsTexts(bars, struct.consequent, new_context));
-    }
-
-    function alternate(new_context) {
-        if (new_context) {
-            new_context = new_context.contextWithVars(makeVars(new_context, struct.map, bars));
+        function consequent(new_context) {
+            new_context = new_context || context;
+            new_context = new_context.contextWithVars(
+                makeVars(new_context, _.map, _.bars)
+            );
+            cons.push(new_context);
         }
-        nodes.push(renderTypeAsTexts(bars, struct.alternate, new_context || context));
-    }
 
-    var blockFunc = bars.blocks[struct.name];
+        var alts = [];
 
-    if (typeof blockFunc !== 'function') {
-        throw 'Missing Block helper: ' + struct.name;
-    }
-
-    blockFunc(
-        struct.arguments.map(function (expression) {
-            return execute(expression, bars.transforms, context);
-        }),
-        consequent,
-        alternate,
-        context
-    );
-
-    return nodes.join('');
-}
-
-function renderBlockAsNodes(bars, struct, context) {
-    var nodes = [];
-
-    function consequent(new_context) {
-        new_context = new_context || context;
-        new_context = new_context.contextWithVars(makeVars(new_context, struct.map, bars));
-        nodes = nodes.concat(renderTypeAsNodes(bars, struct.consequent, new_context));
-    }
-
-    function alternate(new_context) {
-        if (new_context) {
-            new_context = new_context.contextWithVars(makeVars(new_context, struct.map, bars));
+        function alternate(new_context) {
+            if (new_context) {
+                new_context = new_context.contextWithVars(
+                    makeVars(new_context, _.map, _.bars)
+                );
+            }
+            alts.push(new_context || context);
         }
-        nodes = nodes.concat(renderTypeAsNodes(bars, struct.alternate, new_context || context));
-    }
 
-    var blockFunc = bars.blocks[struct.name];
+        var blockFunc = _.bars.blocks[_.name];
 
-    if (typeof blockFunc !== 'function') {
-        throw 'Missing Block helper: ' + struct.name;
-    }
+        if (typeof blockFunc !== 'function') {
+            throw 'Missing Block helper: ' + _.name;
+        }
 
-    blockFunc(
-        struct.arguments.map(function (expression) {
-            return execute(expression, bars.transforms, context);
-        }),
-        consequent,
-        alternate,
-        context
-    );
-
-    return nodes;
-}
-
-function renderPartial(bars, struct, context) {
-    var name = struct.name;
-    if (typeof struct.name === 'object') {
-        name = execute(struct.name, bars.transforms, context);
-    }
-
-    var partial = bars.partials[name];
-
-    if (struct.expression) {
-        context = context.newContext(
-            execute(struct.expression, bars.transforms, context),
-            null,
-            true
+        blockFunc(
+            _.arguments.map(function (expression) {
+                return execute(expression, _.bars.transforms, context);
+            }),
+            consequent,
+            alternate,
+            context
         );
-    }
 
-    context = context.contextWithVars(makeVars(context, struct.map, bars));
+        var newNodes = [];
 
-    return renderChildrenNodes(bars, partial.fragment, context);
-}
+        if (cons.length) {
+            for (i = 0; i < cons.length; i++) {
+                newNodes.push(
+                    _.consMap.get(cons[i].data) ||
+                    new NODES[_.consequent.type](_.bars, _.consequent)
+                );
+            }
+            _.consMap.clear();
 
-function renderChildrenNodes(bars, struct, context) {
-    var children = [];
-    if (!struct || !struct.nodes) return children;
-    for (var i = 0; i < struct.nodes.length; i++) {
-        var child = struct.nodes[i];
+            for (i = 0; i < cons.length; i++) {
+                _.consMap.set(cons[i].data, newNodes[i]);
+            }
 
-        if (child.type === 'tag') {
-            children.push(renderTagNode(bars, child, context));
-        } else if (child.type === 'text') {
-            children.push(renderTextNode(bars, child, context));
-        } else if (child.type === 'insert') {
-            children.push(renderInsert(bars, child, context));
-        } else if (child.type === 'block') {
-            children = children.concat(renderBlockAsNodes(bars, child, context));
-        } else if (child.type === 'partial') {
-            children = children.concat(renderPartial(bars, child, context));
+            for (i = 0; i < _.nodes.length; i++) {
+                if (newNodes.indexOf(_.nodes[i]) === -1) {
+                    _.nodes[i].remove();
+                }
+            }
+
+            _.nodes = [];
+
+            for (i = 0; i < newNodes.length; i++) {
+                _.appendChild(newNodes[i]);
+            }
+
+            for (i = 0; i < _.nodes.length; i++) {
+                _.nodes[i].update(cons[i]);
+            }
+        } else {
+            for (i = 0; i < alts.length; i++) {
+                newNodes.push(
+                    _.altsMap.get(alts[i]) ||
+                    new NODES[_.alternate.type](_.bars, _.alternate)
+                );
+            }
+            _.altsMap.clear();
+
+            for (i = 0; i < alts.length; i++) {
+                _.altsMap.set(alts[i], newNodes[i]);
+            }
+
+            for (i = 0; i < _.nodes.length; i++) {
+                if (newNodes.indexOf(_.nodes[i]) === -1) {
+                    _.nodes[i].remove();
+                }
+            }
+
+            _.nodes = [];
+
+            for (i = 0; i < newNodes.length; i++) {
+                _.appendChild(newNodes[i]);
+            }
+
+            for (i = 0; i < _.nodes.length; i++) {
+                _.nodes[i].update(cons[i]);
+            }
+        }
+    },
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+        parent = parent || _.getParent();
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementAppendTo(parent);
+        }
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementRemove();
         }
     }
+});
 
-    return children;
-}
+NODES.block = BlockNode;
 
-function renderTagNode(bars, struct, context) {
-    return h(
-        struct.name,
-        renderAttrsAndProps(bars, struct, context),
-        renderChildrenNodes(bars, struct, context)
-    );
-}
+},{"../../runtime/execute":62,"./bars-node":51,"./nodes":55}],53:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
 
-function renderTypeAsNodes(bars, struct, context) {
-    if (!struct) return [];
-    if (struct.type === 'tag') {
-        return [renderTagNode(bars, struct, context)];
-    } else if (struct.type === 'text') {
-        return [renderTextNode(bars, struct, context)];
-    } else if (struct.type === 'insert') {
-        return [renderInsert(bars, struct, context)];
-    } else if (struct.type === 'block') {
-        return renderBlockAsNodes(bars, struct, context);
-    } else if (struct.type === 'fragment') {
-        return renderChildrenNodes(bars, struct, context);
-    } else if (struct.type === 'partial') {
-        return renderPartial(bars, struct, context);
+Fragment = BarsNode.generate(
+    function Fragment(bars, struct) {
+        BarsNode.call(this);
+
+        var _ = this;
+        var nodes = struct.nodes || [];
+
+        // _.$el = document.createDocumentFragment();
+        _.nodes = [];
+
+        for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            _.appendChild(new NODES[node.type](bars, node));
+        }
+    }
+);
+
+Fragment.definePrototype({
+    _update: function _update(context) {
+        var _ = this,
+            i;
+
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
+        }
+    },
+
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+        parent = parent || _.getParent();
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementAppendTo(parent);
+        }
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementRemove();
+        }
+    }
+});
+
+NODES.fragment = Fragment;
+
+},{"../../runtime/execute":62,"./bars-node":51,"./nodes":55}],54:[function(require,module,exports){
+var NODES = require('./nodes');
+
+require('./block-node');
+require('./partial-node');
+require('./fragment-node');
+require('./tag-node');
+require('./attr-node');
+require('./text-node');
+
+module.exports = NODES;
+
+},{"./attr-node":50,"./block-node":52,"./fragment-node":53,"./nodes":55,"./partial-node":56,"./tag-node":57,"./text-node":58}],55:[function(require,module,exports){
+var NODES = {};
+
+module.exports = NODES;
+
+},{}],56:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
+
+function makeVars(context, map, bars) {
+    var vars = {};
+    for (var i = 0; i < map.length; i++) {
+        vars[map[i].name] = execute(map[i].expression, bars.transforms, context);
     }
 
-    throw 'unknown type: ' + struct.type;
+    return vars;
 }
 
-function renderTypeAsTexts(bars, struct, context) {
-    if (!struct) return [];
-    if (struct.type === 'text') {
-        return struct.value;
-    } else if (struct.type === 'insert') {
-        return renderInsert(bars, struct, context);
-    } else if (struct.type === 'block') {
-        return renderBlockAsTexts(bars, struct, context);
-    } else if (struct.type === 'fragment') {
-        return renderChildrenTexts(bars, struct, context);
+PartialNode = BarsNode.generate(
+    function PartialNode(bars, struct) {
+        BarsNode.call(this);
+
+        var _ = this;
+        var nodes = struct.nodes || [];
+
+        _.bars = bars;
+
+        _.name = struct.name;
+        _.expression = struct.expression;
+        _.map = struct.map;
+
+        _.nodes = [];
+
+        _.fragMap = new Map();
     }
-    throw 'unknown type: ' + struct.type;
-}
+);
 
-function render(bars, struct, context) {
-    return h(
-        'div', {
-            key: struct.fragment.key
-        },
-        renderChildrenNodes(bars, struct.fragment, context)
-    );
-}
+PartialNode.definePrototype({
+    _update: function _update(context) {
+        var _ = this,
+            i, name = _.name;
 
-module.exports = render;
+        if (typeof _.name === 'object') {
+            name = execute(_.name, _.bars.transforms, context);
+        }
 
-},{"../runtime/execute":54,"virtual-dom/h":74}],51:[function(require,module,exports){
+        var frag = _.fragMap.get(name);
+
+        if (!frag) {
+            var partial = _.bars.partials[name];
+
+            if (!partial) {
+                throw 'error';
+            }
+
+            frag = new NODES.fragment(_.bars, partial.fragment);
+
+            _.fragMap.set(name, frag);
+        }
+
+        if (_.expression) {
+            context = context.newContext(
+                execute(_.expression, _.bars.transforms, context),
+                null,
+                true
+            );
+        }
+
+        context = context.contextWithVars(makeVars(context, _.map, _.bars));
+
+        if (_.nodes[0] !== frag) {
+            if (_.nodes[0]) {
+                _.nodes[0].remove();
+            }
+
+            _.nodes = [];
+
+            _.appendChild(frag);
+        }
+
+        frag.update(context);
+    },
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+        parent = parent || _.getParent();
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementAppendTo(parent);
+        }
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementRemove();
+        }
+    }
+});
+
+NODES.partial = PartialNode;
+
+},{"../../runtime/execute":62,"./bars-node":51,"./nodes":55}],57:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
+
+TagNode = BarsNode.generate(
+    function TagNode(bars, struct) {
+        BarsNode.call(this);
+
+        var _ = this,
+            nodes = struct.nodes || [],
+            attrs = struct.attrs || [],
+            i;
+
+        _.bars = bars;
+
+        _.$el = document.createElement(struct.name);
+        _.attrs = [];
+        _.nodes = [];
+        _.props = struct.props || [];
+
+        for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            _.appendChild(new NODES[node.type](bars, node));
+        }
+
+        for (i = 0; i < attrs.length; i++) {
+            var attr = attrs[i];
+            _.addAttr(new NODES[attr.type](bars, attr));
+        }
+    }
+);
+
+TagNode.definePrototype({
+    isDOM: true,
+    _update: function _update(context) {
+        var _ = this,
+            i,
+            _data = {};
+
+        for (i = 0; i < _.props.length; i++) {
+            _data[_.props[i].name] = execute(
+                _.props[i].expression,
+                _.bars.transforms,
+                context
+            );
+        }
+
+        _.$el.data = function data(key) {
+            return _data[key];
+        };
+
+        for (i = 0; i < _.attrs.length; i++) {
+            _.attrs[i].update(context);
+        }
+
+        _.lastUpdated = null;
+
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
+        }
+
+        _.lastUpdated = null;
+    },
+
+    addAttr: function addAttr(child) {
+        var _ = this;
+
+        _.attrs.push(child);
+        child.parent = _;
+    }
+});
+
+NODES.tag = TagNode;
+
+},{"../../runtime/execute":62,"./bars-node":51,"./nodes":55}],58:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
+
+/**
+ * [TextNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+TextNode = BarsNode.generate(
+    function TextNode(bars, struct) {
+        BarsNode.call(this);
+        var _ = this;
+
+        _.$el = document.createTextNode(struct.value);
+
+        _.bars = bars;
+
+        _.expression = struct.expression;
+    }
+);
+
+TextNode.definePrototype({
+    isDOM: true,
+    appendChild: function appendChild(child) {
+        console.warn('appendChild CANNOT be called on TextNodes.');
+    },
+
+    _update: function _update(context) {
+        var _ = this;
+
+        if (_.expression) {
+            _.$el.textContent = execute(_.expression, _.bars.transforms, context);
+        }
+    },
+});
+
+NODES.text = TextNode;
+NODES.insert = TextNode;
+
+},{"../../runtime/execute":62,"./bars-node":51,"./nodes":55}],59:[function(require,module,exports){
 var execute = require('../runtime/execute');
 
 function makeVars(context, map, bars) {
@@ -4114,20 +4478,20 @@ function repeat(a, n) {
     return r;
 }
 
-function abb(token, indentWith, bars, context) {
+function abb(token, bars, context) {
     var r = '';
 
     function consequent(new_context) {
         new_context = new_context || context;
         new_context = new_context.contextWithVars(makeVars(new_context, token.map, bars));
-        r += ac(token.consequent.nodes, indentWith, bars, new_context);
+        r += ac(token.consequent.nodes, bars, new_context);
     }
 
     function alternate(new_context) {
         if (new_context) {
             new_context = new_context.contextWithVars(makeVars(new_context, token.map, bars));
         }
-        r += ac(token.alternate.nodes, indentWith, bars, new_context || context);
+        r += ac(token.alternate.nodes, bars, new_context || context);
     }
 
     var blockFunc = bars.blocks[token.name];
@@ -4148,7 +4512,7 @@ function abb(token, indentWith, bars, context) {
     return r;
 }
 
-function ac(tokens, indentWith, bars, context) {
+function ac(tokens, bars, context) {
     if (tokens.length === 0) {
         return '';
     }
@@ -4163,7 +4527,7 @@ function ac(tokens, indentWith, bars, context) {
             var val = execute(token.expression, bars.transforms, context);
             r += val !== void(0) ? val : '';
         } else if (token.type === 'block') {
-            r += abb(token, indentWith, bars, context);
+            r += abb(token, bars, context);
         }
     }
 
@@ -4172,10 +4536,10 @@ function ac(tokens, indentWith, bars, context) {
     return r;
 }
 
-function a(token, indentWith, bars, context) {
+function a(token, bars, context) {
     var r = ' ';
     r += token.name;
-    r += ac(token.nodes, indentWith, bars, context);
+    r += ac(token.nodes, bars, context);
 
     return r;
 }
@@ -4279,7 +4643,7 @@ function h(token, indentWith, indent, bars, context) {
     r += '<' + token.name;
 
     for (var i = 0; i < token.attrs.length; i++) {
-        r += a(token.attrs[i], indentWith, bars, context);
+        r += a(token.attrs[i], bars, context);
     }
 
     if (token.isSelfClosing || token.selfClosed) {
@@ -4301,13 +4665,16 @@ function render(fragment, indentWith, bars, context) {
     return hc(fragment.nodes, indentWith, -1, bars, context);
 }
 
+render.ac = ac;
+
 module.exports = render;
 
-},{"../runtime/execute":54}],52:[function(require,module,exports){
+},{"../runtime/execute":62}],60:[function(require,module,exports){
 var Generator = require('generate-js');
 var ContextN = require('./runtime/context-n');
-var renderV = require('./render/render');
+// var renderV = require('./render/render');
 var renderT = require('./render/text-renderer');
+var NODES = require('./render/dom-renderer');
 
 var diff = require('virtual-dom/diff');
 var patch = require('virtual-dom/patch');
@@ -4327,18 +4694,34 @@ var Renderer = Generator.generate(function Renderer(bars, struct, state) {
 
     _.bars = bars;
     _.struct = struct;
-    _.tree = renderV(_.bars, _.struct, new ContextN(state));
-    _.rootNode = createElement(_.tree);
+    // _.tree = renderV(_.bars, _.struct, new ContextN(state));
+    // _.rootNode = createElement(_.tree);
+
+    _.struct.fragment.name = 'div';
+
+    _.dom = new NODES.tag(_.bars, _.struct.fragment);
+
+    _.rootNode = _.dom.$el;
+
+    if (state) {
+        _.update(state);
+    }
 });
 
 Renderer.definePrototype({
+    // update: function update(state) {
+    //     var _ = this;
+    //
+    //     var newTree = renderV(_.bars, _.struct, new ContextN(state));
+    //     var patches = diff(_.tree, newTree);
+    //     patch(_.rootNode, patches);
+    //     _.tree = newTree;
+    // },
+
     update: function update(state) {
         var _ = this;
 
-        var newTree = renderV(_.bars, _.struct, new ContextN(state));
-        var patches = diff(_.tree, newTree);
-        patch(_.rootNode, patches);
-        _.tree = newTree;
+        _.dom.update(new ContextN(state));
     },
     text: function text(state, options) {
         var _ = this;
@@ -4358,7 +4741,7 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./render/render":50,"./render/text-renderer":51,"./runtime/context-n":53,"generate-js":66,"virtual-dom/create-element":72,"virtual-dom/diff":73,"virtual-dom/patch":75}],53:[function(require,module,exports){
+},{"./render/dom-renderer":54,"./render/text-renderer":59,"./runtime/context-n":61,"generate-js":73,"virtual-dom/create-element":77,"virtual-dom/diff":78,"virtual-dom/patch":79}],61:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Context = Generator.generate(function Context(data, props, context, cleanVars) {
@@ -4423,7 +4806,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":66}],54:[function(require,module,exports){
+},{"generate-js":73}],62:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
@@ -4485,7 +4868,7 @@ function execute(syntaxTree, transforms, context) {
 
 module.exports = execute;
 
-},{"./logic":55}],55:[function(require,module,exports){
+},{"./logic":63}],63:[function(require,module,exports){
 /*Look up*/
 exports.lookup = function add(a, b) {
     // return a ? a[b] : void(0); // soft
@@ -4574,7 +4957,7 @@ exports.gt = function gt(a, b) {
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
 
-},{}],56:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Transform = Generator.generate(function Transform() {});
@@ -4659,121 +5042,154 @@ Transform.definePrototype({
 
 module.exports = Transform;
 
-},{"generate-js":66}],57:[function(require,module,exports){
-/*!
- * Cross-Browser Split 1.1.1
- * Copyright 2007-2012 Steven Levithan <stevenlevithan.com>
- * Available under the MIT License
- * ECMAScript compliant, uniform cross-browser split method
- */
+},{"generate-js":73}],65:[function(require,module,exports){
+var Generator = require('generate-js');
 
-/**
- * Splits a string into an array of strings using a regex or string separator. Matches of the
- * separator are not included in the result array. However, if `separator` is a regex that contains
- * capturing groups, backreferences are spliced into the result each time `separator` is matched.
- * Fixes browser bugs compared to the native `String.prototype.split` and can be used reliably
- * cross-browser.
- * @param {String} str String to split.
- * @param {RegExp|String} separator Regex or string to use for separating the string.
- * @param {Number} [limit] Maximum number of items to include in the result array.
- * @returns {Array} Array of substrings.
- * @example
- *
- * // Basic use
- * split('a b c d', ' ');
- * // -> ['a', 'b', 'c', 'd']
- *
- * // With limit
- * split('a b c d', ' ', 2);
- * // -> ['a', 'b']
- *
- * // Backreferences in result array
- * split('..word1 word2..', /([a-z]+)(\d+)/i);
- * // -> ['..', 'word', '1', ' ', 'word', '2', '..']
- */
-module.exports = (function split(undef) {
+var MapIterator = Generator.generate(function MapIterator(map, keys, values) {
+    var _ = this;
 
-  var nativeSplit = String.prototype.split,
-    compliantExecNpcg = /()??/.exec("")[1] === undef,
-    // NPCG: nonparticipating capturing group
-    self;
-
-  self = function(str, separator, limit) {
-    // If `separator` is not a regex, use `nativeSplit`
-    if (Object.prototype.toString.call(separator) !== "[object RegExp]") {
-      return nativeSplit.call(str, separator, limit);
+    if (!Map.isCreation(map)) {
+        throw new TypeError('Cannot construct MapIterator from non-Map objects.');
     }
-    var output = [],
-      flags = (separator.ignoreCase ? "i" : "") + (separator.multiline ? "m" : "") + (separator.extended ? "x" : "") + // Proposed for ES6
-      (separator.sticky ? "y" : ""),
-      // Firefox 3+
-      lastLastIndex = 0,
-      // Make `global` and avoid `lastIndex` issues by working with a copy
-      separator = new RegExp(separator.source, flags + "g"),
-      separator2, match, lastIndex, lastLength;
-    str += ""; // Type-convert
-    if (!compliantExecNpcg) {
-      // Doesn't need flags gy, but they don't hurt
-      separator2 = new RegExp("^" + separator.source + "$(?!\\s)", flags);
-    }
-    /* Values for `limit`, per the spec:
-     * If undefined: 4294967295 // Math.pow(2, 32) - 1
-     * If 0, Infinity, or NaN: 0
-     * If positive number: limit = Math.floor(limit); if (limit > 4294967295) limit -= 4294967296;
-     * If negative number: 4294967296 - Math.floor(Math.abs(limit))
-     * If other: Type-convert, then use the above rules
-     */
-    limit = limit === undef ? -1 >>> 0 : // Math.pow(2, 32) - 1
-    limit >>> 0; // ToUint32(limit)
-    while (match = separator.exec(str)) {
-      // `separator.lastIndex` is not reliable cross-browser
-      lastIndex = match.index + match[0].length;
-      if (lastIndex > lastLastIndex) {
-        output.push(str.slice(lastLastIndex, match.index));
-        // Fix browsers whose `exec` methods don't consistently return `undefined` for
-        // nonparticipating capturing groups
-        if (!compliantExecNpcg && match.length > 1) {
-          match[0].replace(separator2, function() {
-            for (var i = 1; i < arguments.length - 2; i++) {
-              if (arguments[i] === undef) {
-                match[i] = undef;
-              }
-            }
-          });
+
+
+    _.keys = keys;
+    _.values = values;
+    _.index = 0;
+
+    _.map = map;
+});
+
+MapIterator.definePrototype({
+    next: function next() {
+        var _ = this,
+            value,
+            done = _.index >= _.map.size;
+
+        if (_.keys && _.values) {
+            value = [_.map._keys[_.index], _.map._values[_.index]];
+        } else if (_.keys) {
+            value = _.map._keys[_.index];
+        } else if (_.values) {
+            value = _.map._values[_.index];
+        } else {
+            done = true;
         }
-        if (match.length > 1 && match.index < str.length) {
-          Array.prototype.push.apply(output, match.slice(1));
-        }
-        lastLength = match[0].length;
-        lastLastIndex = lastIndex;
-        if (output.length >= limit) {
-          break;
-        }
-      }
-      if (separator.lastIndex === match.index) {
-        separator.lastIndex++; // Avoid an infinite loop
-      }
+
+        _.index++;
+
+        return {
+            value: value,
+            done: done
+        };
     }
-    if (lastLastIndex === str.length) {
-      if (lastLength || !separator.test("")) {
-        output.push("");
-      }
-    } else {
-      output.push(str.slice(lastLastIndex));
+});
+
+var Map = Generator.generate(function Map(arr) {
+    var _ = this;
+    _.clear();
+
+    if (arr) {
+        for (var i = 0; i < arr.length; i++) {
+            _.set(arr[i][0], arr[i][1]);
+        }
     }
-    return output.length > limit ? output.slice(0, limit) : output;
-  };
+});
 
-  return self;
-})();
+Map.definePrototype({
+    size: {
+        get: function get() {
+            var _ = this;
 
-},{}],58:[function(require,module,exports){
+            return this._keys.length;
+        }
+    },
+    get: function get(key) {
+        var _ = this;
 
-},{}],59:[function(require,module,exports){
+        var index = _._keys.indexOf(key);
+
+        return _._values[index];
+    },
+    set: function set(key, value) {
+        var _ = this;
+
+        var index = _._keys.indexOf(key);
+
+        if (index === -1) {
+            _._keys.push(key);
+            _._values.push(value);
+        } else {
+            _._values[index] = value;
+        }
+
+        return _;
+    },
+    has: function has(key) {
+        var _ = this;
+
+        return _._keys.indexOf(key) !== -1;
+    },
+    delete: function _delete(key) {
+        var _ = this;
+
+        var index = _._keys.indexOf(key);
+        var r = index !== -1;
+
+        if (r) {
+            _._keys.splice(index, 1);
+            _._values.splice(index, 1);
+        }
+
+        return r;
+    },
+    clear: function clear() {
+        var _ = this;
+        _._keys = [];
+        _._values = [];
+        return _;
+    },
+    keys: function keys() {
+        var _ = this;
+
+        return new MapIterator(_, true, false);
+    },
+    forEach: function forEach(func, thus) {
+        var _ = this;
+
+        for (var i = 0; i < _.keys.length; i++) {
+            func.call(thus || _, _._values[i], _.keys[i], thus || _);
+        }
+
+        return _;
+    },
+    values: function values() {
+        var _ = this;
+
+        return new MapIterator(_, false, true);
+    },
+    entries: function entries() {
+        var _ = this;
+
+        return new MapIterator(_, true, true);
+    }
+});
+
+module.exports = Map;
+
+if (typeof window === 'object') {
+    if (!window.Map) {
+        window.Map = Map;
+    }
+}
+
+},{"generate-js":73}],66:[function(require,module,exports){
+
+},{}],67:[function(require,module,exports){
 exports.Compiler = require('./lib/compiler');
 exports.Token = require('./lib/token');
 
-},{"./lib/compiler":61,"./lib/token":63}],60:[function(require,module,exports){
+},{"./lib/compiler":69,"./lib/token":71}],68:[function(require,module,exports){
 var Generator = require('generate-js'),
     utils = require('./utils');
 
@@ -4955,7 +5371,7 @@ CodeBuffer.definePrototype({
 
 module.exports = CodeBuffer;
 
-},{"./utils":64,"generate-js":66}],61:[function(require,module,exports){
+},{"./utils":72,"generate-js":73}],69:[function(require,module,exports){
 var Generator = require('generate-js'),
     Scope = require('./scope'),
     Token = require('./token'),
@@ -5110,7 +5526,7 @@ Compiler.definePrototype({
 
 module.exports = Compiler;
 
-},{"./code-buffer":60,"./scope":62,"./token":63,"./utils":64,"generate-js":66}],62:[function(require,module,exports){
+},{"./code-buffer":68,"./scope":70,"./token":71,"./utils":72,"generate-js":73}],70:[function(require,module,exports){
 var Generator = require('generate-js'),
     Token = require('./token'),
     utils = require('./utils');
@@ -5195,7 +5611,7 @@ Scope.definePrototype({
 
 module.exports = Scope;
 
-},{"./token":63,"./utils":64,"generate-js":66}],63:[function(require,module,exports){
+},{"./token":71,"./utils":72,"generate-js":73}],71:[function(require,module,exports){
 var Generator = require('generate-js'),
     utils = require('./utils');
 
@@ -5260,7 +5676,7 @@ Token.definePrototype({
 
 module.exports = Token;
 
-},{"./utils":64,"generate-js":66}],64:[function(require,module,exports){
+},{"./utils":72,"generate-js":73}],72:[function(require,module,exports){
 /**
  * Assert Error function.
  * @param  {Boolean} condition Whether or not to throw error.
@@ -5337,29 +5753,7 @@ function bufferSlice(code, range, format) {
 }
 exports.bufferSlice = bufferSlice;
 
-},{}],65:[function(require,module,exports){
-'use strict';
-
-var OneVersionConstraint = require('individual/one-version');
-
-var MY_VERSION = '7';
-OneVersionConstraint('ev-store', MY_VERSION);
-
-var hashKey = '__EV_STORE_KEY@' + MY_VERSION;
-
-module.exports = EvStore;
-
-function EvStore(elem) {
-    var hash = elem[hashKey];
-
-    if (!hash) {
-        hash = elem[hashKey] = {};
-    }
-
-    return hash;
-}
-
-},{"individual/one-version":69}],66:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -5721,7 +6115,7 @@ function EvStore(elem) {
 
 }());
 
-},{}],67:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 (function (global){
 var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
@@ -5740,61 +6134,14 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":58}],68:[function(require,module,exports){
-(function (global){
-'use strict';
-
-/*global window, global*/
-
-var root = typeof window !== 'undefined' ?
-    window : typeof global !== 'undefined' ?
-    global : {};
-
-module.exports = Individual;
-
-function Individual(key, value) {
-    if (key in root) {
-        return root[key];
-    }
-
-    root[key] = value;
-
-    return value;
-}
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],69:[function(require,module,exports){
-'use strict';
-
-var Individual = require('./index.js');
-
-module.exports = OneVersion;
-
-function OneVersion(moduleName, version, defaultValue) {
-    var key = '__INDIVIDUAL_ONE_VERSION_' + moduleName;
-    var enforceKey = key + '_ENFORCE_SINGLETON';
-
-    var versionValue = Individual(enforceKey, version);
-
-    if (versionValue !== version) {
-        throw new Error('Can only have one copy of ' +
-            moduleName + '.\n' +
-            'You already have version ' + versionValue +
-            ' installed.\n' +
-            'This means you cannot install version ' + version);
-    }
-
-    return Individual(key, defaultValue);
-}
-
-},{"./index.js":68}],70:[function(require,module,exports){
+},{"min-document":66}],75:[function(require,module,exports){
 "use strict";
 
 module.exports = function isObject(x) {
 	return typeof x === "object" && x !== null;
 };
 
-},{}],71:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.1.1
  * https://jquery.com/
@@ -16016,27 +16363,22 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],72:[function(require,module,exports){
+},{}],77:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":77}],73:[function(require,module,exports){
+},{"./vdom/create-element.js":81}],78:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":97}],74:[function(require,module,exports){
-var h = require("./virtual-hyperscript/index.js")
-
-module.exports = h
-
-},{"./virtual-hyperscript/index.js":84}],75:[function(require,module,exports){
+},{"./vtree/diff.js":95}],79:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":80}],76:[function(require,module,exports){
+},{"./vdom/patch.js":84}],80:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -16135,7 +16477,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":88,"is-object":70}],77:[function(require,module,exports){
+},{"../vnode/is-vhook.js":88,"is-object":75}],81:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -16183,7 +16525,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":86,"../vnode/is-vnode.js":89,"../vnode/is-vtext.js":90,"../vnode/is-widget.js":91,"./apply-properties":76,"global/document":67}],78:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":86,"../vnode/is-vnode.js":89,"../vnode/is-vtext.js":90,"../vnode/is-widget.js":91,"./apply-properties":80,"global/document":74}],82:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -16270,7 +16612,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],79:[function(require,module,exports){
+},{}],83:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -16423,7 +16765,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":91,"../vnode/vpatch.js":94,"./apply-properties":76,"./update-widget":81}],80:[function(require,module,exports){
+},{"../vnode/is-widget.js":91,"../vnode/vpatch.js":93,"./apply-properties":80,"./update-widget":85}],84:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -16505,7 +16847,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":77,"./dom-index":78,"./patch-op":79,"global/document":67,"x-is-array":98}],81:[function(require,module,exports){
+},{"./create-element":81,"./dom-index":82,"./patch-op":83,"global/document":74,"x-is-array":96}],85:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -16522,250 +16864,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":91}],82:[function(require,module,exports){
-'use strict';
-
-var EvStore = require('ev-store');
-
-module.exports = EvHook;
-
-function EvHook(value) {
-    if (!(this instanceof EvHook)) {
-        return new EvHook(value);
-    }
-
-    this.value = value;
-}
-
-EvHook.prototype.hook = function (node, propertyName) {
-    var es = EvStore(node);
-    var propName = propertyName.substr(3);
-
-    es[propName] = this.value;
-};
-
-EvHook.prototype.unhook = function(node, propertyName) {
-    var es = EvStore(node);
-    var propName = propertyName.substr(3);
-
-    es[propName] = undefined;
-};
-
-},{"ev-store":65}],83:[function(require,module,exports){
-'use strict';
-
-module.exports = SoftSetHook;
-
-function SoftSetHook(value) {
-    if (!(this instanceof SoftSetHook)) {
-        return new SoftSetHook(value);
-    }
-
-    this.value = value;
-}
-
-SoftSetHook.prototype.hook = function (node, propertyName) {
-    if (node[propertyName] !== this.value) {
-        node[propertyName] = this.value;
-    }
-};
-
-},{}],84:[function(require,module,exports){
-'use strict';
-
-var isArray = require('x-is-array');
-
-var VNode = require('../vnode/vnode.js');
-var VText = require('../vnode/vtext.js');
-var isVNode = require('../vnode/is-vnode');
-var isVText = require('../vnode/is-vtext');
-var isWidget = require('../vnode/is-widget');
-var isHook = require('../vnode/is-vhook');
-var isVThunk = require('../vnode/is-thunk');
-
-var parseTag = require('./parse-tag.js');
-var softSetHook = require('./hooks/soft-set-hook.js');
-var evHook = require('./hooks/ev-hook.js');
-
-module.exports = h;
-
-function h(tagName, properties, children) {
-    var childNodes = [];
-    var tag, props, key, namespace;
-
-    if (!children && isChildren(properties)) {
-        children = properties;
-        props = {};
-    }
-
-    props = props || properties || {};
-    tag = parseTag(tagName, props);
-
-    // support keys
-    if (props.hasOwnProperty('key')) {
-        key = props.key;
-        props.key = undefined;
-    }
-
-    // support namespace
-    if (props.hasOwnProperty('namespace')) {
-        namespace = props.namespace;
-        props.namespace = undefined;
-    }
-
-    // fix cursor bug
-    if (tag === 'INPUT' &&
-        !namespace &&
-        props.hasOwnProperty('value') &&
-        props.value !== undefined &&
-        !isHook(props.value)
-    ) {
-        props.value = softSetHook(props.value);
-    }
-
-    transformProperties(props);
-
-    if (children !== undefined && children !== null) {
-        addChild(children, childNodes, tag, props);
-    }
-
-
-    return new VNode(tag, props, childNodes, key, namespace);
-}
-
-function addChild(c, childNodes, tag, props) {
-    if (typeof c === 'string') {
-        childNodes.push(new VText(c));
-    } else if (typeof c === 'number') {
-        childNodes.push(new VText(String(c)));
-    } else if (isChild(c)) {
-        childNodes.push(c);
-    } else if (isArray(c)) {
-        for (var i = 0; i < c.length; i++) {
-            addChild(c[i], childNodes, tag, props);
-        }
-    } else if (c === null || c === undefined) {
-        return;
-    } else {
-        throw UnexpectedVirtualElement({
-            foreignObject: c,
-            parentVnode: {
-                tagName: tag,
-                properties: props
-            }
-        });
-    }
-}
-
-function transformProperties(props) {
-    for (var propName in props) {
-        if (props.hasOwnProperty(propName)) {
-            var value = props[propName];
-
-            if (isHook(value)) {
-                continue;
-            }
-
-            if (propName.substr(0, 3) === 'ev-') {
-                // add ev-foo support
-                props[propName] = evHook(value);
-            }
-        }
-    }
-}
-
-function isChild(x) {
-    return isVNode(x) || isVText(x) || isWidget(x) || isVThunk(x);
-}
-
-function isChildren(x) {
-    return typeof x === 'string' || isArray(x) || isChild(x);
-}
-
-function UnexpectedVirtualElement(data) {
-    var err = new Error();
-
-    err.type = 'virtual-hyperscript.unexpected.virtual-element';
-    err.message = 'Unexpected virtual child passed to h().\n' +
-        'Expected a VNode / Vthunk / VWidget / string but:\n' +
-        'got:\n' +
-        errorString(data.foreignObject) +
-        '.\n' +
-        'The parent vnode is:\n' +
-        errorString(data.parentVnode)
-        '\n' +
-        'Suggested fix: change your `h(..., [ ... ])` callsite.';
-    err.foreignObject = data.foreignObject;
-    err.parentVnode = data.parentVnode;
-
-    return err;
-}
-
-function errorString(obj) {
-    try {
-        return JSON.stringify(obj, null, '    ');
-    } catch (e) {
-        return String(obj);
-    }
-}
-
-},{"../vnode/is-thunk":87,"../vnode/is-vhook":88,"../vnode/is-vnode":89,"../vnode/is-vtext":90,"../vnode/is-widget":91,"../vnode/vnode.js":93,"../vnode/vtext.js":95,"./hooks/ev-hook.js":82,"./hooks/soft-set-hook.js":83,"./parse-tag.js":85,"x-is-array":98}],85:[function(require,module,exports){
-'use strict';
-
-var split = require('browser-split');
-
-var classIdSplit = /([\.#]?[a-zA-Z0-9\u007F-\uFFFF_:-]+)/;
-var notClassId = /^\.|#/;
-
-module.exports = parseTag;
-
-function parseTag(tag, props) {
-    if (!tag) {
-        return 'DIV';
-    }
-
-    var noId = !(props.hasOwnProperty('id'));
-
-    var tagParts = split(tag, classIdSplit);
-    var tagName = null;
-
-    if (notClassId.test(tagParts[1])) {
-        tagName = 'DIV';
-    }
-
-    var classes, part, type, i;
-
-    for (i = 0; i < tagParts.length; i++) {
-        part = tagParts[i];
-
-        if (!part) {
-            continue;
-        }
-
-        type = part.charAt(0);
-
-        if (!tagName) {
-            tagName = part;
-        } else if (type === '.') {
-            classes = classes || [];
-            classes.push(part.substring(1, part.length));
-        } else if (type === '#' && noId) {
-            props.id = part.substring(1, part.length);
-        }
-    }
-
-    if (classes) {
-        if (props.className) {
-            classes.push(props.className);
-        }
-
-        props.className = classes.join(' ');
-    }
-
-    return props.namespace ? tagName : tagName.toUpperCase();
-}
-
-},{"browser-split":57}],86:[function(require,module,exports){
+},{"../vnode/is-widget.js":91}],86:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -16853,80 +16952,6 @@ module.exports = "2"
 
 },{}],93:[function(require,module,exports){
 var version = require("./version")
-var isVNode = require("./is-vnode")
-var isWidget = require("./is-widget")
-var isThunk = require("./is-thunk")
-var isVHook = require("./is-vhook")
-
-module.exports = VirtualNode
-
-var noProperties = {}
-var noChildren = []
-
-function VirtualNode(tagName, properties, children, key, namespace) {
-    this.tagName = tagName
-    this.properties = properties || noProperties
-    this.children = children || noChildren
-    this.key = key != null ? String(key) : undefined
-    this.namespace = (typeof namespace === "string") ? namespace : null
-
-    var count = (children && children.length) || 0
-    var descendants = 0
-    var hasWidgets = false
-    var hasThunks = false
-    var descendantHooks = false
-    var hooks
-
-    for (var propName in properties) {
-        if (properties.hasOwnProperty(propName)) {
-            var property = properties[propName]
-            if (isVHook(property) && property.unhook) {
-                if (!hooks) {
-                    hooks = {}
-                }
-
-                hooks[propName] = property
-            }
-        }
-    }
-
-    for (var i = 0; i < count; i++) {
-        var child = children[i]
-        if (isVNode(child)) {
-            descendants += child.count || 0
-
-            if (!hasWidgets && child.hasWidgets) {
-                hasWidgets = true
-            }
-
-            if (!hasThunks && child.hasThunks) {
-                hasThunks = true
-            }
-
-            if (!descendantHooks && (child.hooks || child.descendantHooks)) {
-                descendantHooks = true
-            }
-        } else if (!hasWidgets && isWidget(child)) {
-            if (typeof child.destroy === "function") {
-                hasWidgets = true
-            }
-        } else if (!hasThunks && isThunk(child)) {
-            hasThunks = true;
-        }
-    }
-
-    this.count = count + descendants
-    this.hasWidgets = hasWidgets
-    this.hasThunks = hasThunks
-    this.hooks = hooks
-    this.descendantHooks = descendantHooks
-}
-
-VirtualNode.prototype.version = version
-VirtualNode.prototype.type = "VirtualNode"
-
-},{"./is-thunk":87,"./is-vhook":88,"./is-vnode":89,"./is-widget":91,"./version":92}],94:[function(require,module,exports){
-var version = require("./version")
 
 VirtualPatch.NONE = 0
 VirtualPatch.VTEXT = 1
@@ -16949,19 +16974,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":92}],95:[function(require,module,exports){
-var version = require("./version")
-
-module.exports = VirtualText
-
-function VirtualText(text) {
-    this.text = String(text)
-}
-
-VirtualText.prototype.version = version
-VirtualText.prototype.type = "VirtualText"
-
-},{"./version":92}],96:[function(require,module,exports){
+},{"./version":92}],94:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -17021,7 +17034,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":88,"is-object":70}],97:[function(require,module,exports){
+},{"../vnode/is-vhook":88,"is-object":75}],95:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -17450,7 +17463,7 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":86,"../vnode/is-thunk":87,"../vnode/is-vnode":89,"../vnode/is-vtext":90,"../vnode/is-widget":91,"../vnode/vpatch":94,"./diff-props":96,"x-is-array":98}],98:[function(require,module,exports){
+},{"../vnode/handle-thunk":86,"../vnode/is-thunk":87,"../vnode/is-vnode":89,"../vnode/is-vtext":90,"../vnode/is-widget":91,"../vnode/vpatch":93,"./diff-props":94,"x-is-array":96}],96:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
@@ -17460,10 +17473,10 @@ function isArray(obj) {
     return toString.call(obj) === "[object Array]"
 }
 
-},{}],99:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.9.4",
+  "version": "1.0.0",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
@@ -17491,9 +17504,7 @@ module.exports={
   "dependencies": {
     "compileit": "^1.0.1",
     "generate-js": "^3.1.2",
-    "jquery": "^3.1.1",
-    "source-map": "^0.5.6",
-    "virtual-dom": "^2.1.1"
+    "jquery": "^3.1.1"
   },
   "devDependencies": {
     "browserify": "^13.1.1",
@@ -17502,7 +17513,8 @@ module.exports={
     "gulp-minify": "0.0.14",
     "stringify": "^5.1.0",
     "vinyl-buffer": "^1.0.0",
-    "vinyl-source-stream": "^1.1.0"
+    "vinyl-source-stream": "^1.1.0",
+    "virtual-dom": "^2.1.1"
   }
 }
 

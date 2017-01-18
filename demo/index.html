@@ -9,6 +9,10 @@
     padding: 0;
 }
 
+ul {
+    min-height: 25px;
+}
+
 ul, li {
     list-style: none;
 }
@@ -32,6 +36,16 @@ li > div {
     display: inline-block;
     width: 250px;
 }
+li {
+    height: 25px;
+    opacity: 1;
+    transition: height 0.2s, opacity 0.2s;
+    overflow: hidden;
+}
+li.del {
+    height: 0;
+    opacity: 0;
+}
 
 .list,
 .list-complete,
@@ -53,30 +67,33 @@ li > div {
     color: rgba(0, 0, 0, 0.5);
 }
 
-.list-complete.done{
-    background: #FCBA02;
+.list-complete.done {
+    border-width: 10px;
+    border-color: rgb(50, 200, 75);
 }
 
 .list-complete {
     box-sizing: border-box;
-    border: 1px solid rgba(0, 0, 0, 0.2);
     border-radius: 10px;
+    border-width: 2px;
+    border-color: #cccccc;
+    border-style: solid;
+    transition: border-width 0.2s;
 }
 
 .list-del {
     float: right;
 }
 </style>
-
 <script id="bars-template" type="text/x-handlebars-template">
     <h2>To Do App</h2>
     <input id="new-list" todos:{{todos}} placeholder="Add something to your list..." />
     <ul>
     {{#with todos=todos}}
     {{#each todos}}
-        <li>
+        <li class="{{(del && 'del')||''}}">
             <div>
-                <span class="list-complete {{complete && 'done'}}" todo:{{this}}></span>
+                <span class="list-complete {{(complete && 'done') || ''}}" todo:{{this}}></span>
                 <span class="list">{{text}}</span>
                 <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
             </div>
@@ -135,25 +152,34 @@ li > div {
         var todo = $el.data('todo');
         var todos = $el.data('todos');
 
-        todos.splice(todos.indexOf(todo), 1);
-
+        todo.del = true;
         app.render();
-        storeData(app.state);
+
+        setTimeout(function () {
+            todos.splice(todos.indexOf(todo), 1);
+
+            app.render();
+            storeData(app.state);
+        }, 200);
     });
 
     app.on('change', '#new-list', function (evt, $el){
         var todos = $el.data('todos');
 
-        todos.unshift({
+        var todo = {
+            del: true,
             text: $el.val()
-        });
+        };
 
+        todos.unshift(todo);
+        app.render();
         $el.val('');
 
-        storeData(app.state);
-        app.state = loadData();
-
-        app.render();
+        setTimeout(function () {
+            delete todo.del;
+            app.render();
+            storeData(app.state);
+        },0);
     });
 
     app.appendTo('#bars-output');

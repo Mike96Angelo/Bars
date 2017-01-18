@@ -74,7 +74,7 @@ App.definePrototype({
 
 module.exports = App;
 
-},{"./interactions":5,"./register-bars-options":6,"compileit/lib/utils":39,"generate-js":41}],4:[function(require,module,exports){
+},{"./interactions":5,"./register-bars-options":6,"compileit/lib/utils":46,"generate-js":47}],4:[function(require,module,exports){
 module.exports = require('./app');
 
 },{"./app":3}],5:[function(require,module,exports){
@@ -117,7 +117,7 @@ Ineractions.definePrototype({
 
 module.exports = Ineractions;
 
-},{"generate-js":41,"jquery":46}],6:[function(require,module,exports){
+},{"generate-js":47,"jquery":50}],6:[function(require,module,exports){
 function registerConfig(bars, options) {
     var key;
 
@@ -219,7 +219,7 @@ Bars.definePrototype({
 
 module.exports = Bars;
 
-},{"../package":74,"./blocks":8,"./compiler/tokens":13,"./renderer":27,"./transforms":31,"generate-js":41}],8:[function(require,module,exports){
+},{"../package":71,"./blocks":8,"./compiler/tokens":13,"./renderer":35,"./transforms":39,"generate-js":47}],8:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Blocks = Generator.generate(function Blocks() {});
@@ -276,7 +276,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":41}],9:[function(require,module,exports){
+},{"generate-js":47}],9:[function(require,module,exports){
 var Token = require('./token');
 
 var AssignmentToken = Token.generate(
@@ -1061,7 +1061,7 @@ ProgramToken.definePrototype({
 
 Token.tokens.program = ProgramToken;
 
-},{"../../../package":74,"./token":22}],19:[function(require,module,exports){
+},{"../../../package":71,"./token":22}],19:[function(require,module,exports){
 var Token = require('./token');
 
 var PropToken = Token.generate(
@@ -1383,7 +1383,7 @@ BarsToken.definePrototype({
 
 module.exports = BarsToken;
 
-},{"compileit":34}],23:[function(require,module,exports){
+},{"compileit":41}],23:[function(require,module,exports){
 var Token = require('./token');
 
 var TransformToken = Token.generate(
@@ -1532,8 +1532,161 @@ ValueToken.definePrototype({
 Token.tokens.value = ValueToken;
 
 },{"./token":22}],25:[function(require,module,exports){
-var h = require('virtual-dom/h');
-var execute = require('../runtime/execute');
+var BarsNode = require('./bars-node'),
+    NODES = require('./nodes'),
+    ac = require('../text-renderer')
+    .ac;
+
+/**
+ * [AttrNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+AttrNode = BarsNode.generate(
+    function AttrNode(bars, struct) {
+        BarsNode.call(this);
+        var _ = this;
+
+        _.bars = bars;
+        _.name = struct.name;
+        _.nodes = struct.nodes;
+    }
+);
+
+AttrNode.definePrototype({
+    isDOM: true,
+    update: function update(context) {
+        var _ = this;
+
+        _.val = ac(_.nodes, _.bars, context)
+            .slice(2, -1);
+
+        _._elementAppendTo();
+    },
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+
+        parent = parent || _.getParent();
+
+        parent = parent && parent.$el;
+
+        if (parent instanceof Element) {
+            parent.setAttribute(_.name, _.val);
+        }
+    },
+    _elementRemove: function _elementRemove() {
+        var _ = this,
+            parent = _.parent.$el;
+
+        if (parent instanceof Element) {
+            parent.removeAttribute(_.name);
+        }
+    }
+});
+
+NODES.attr = AttrNode;
+
+},{"../text-renderer":34,"./bars-node":26,"./nodes":30}],26:[function(require,module,exports){
+var Generator = require('generate-js');
+
+function insertAfter(newNode, referenceNode) {
+    referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+}
+
+var BarsNode = Generator.generate(
+    function BarsNode() {}
+);
+
+BarsNode.definePrototype({
+    update: function update(context) {
+        var _ = this;
+
+        var $parent = _.getParent();
+
+        _.prevDOM = $parent && $parent.lastUpdated;
+
+        _._update(context);
+
+        _._elementAppendTo();
+
+        if (_.isDOM && $parent) $parent.lastUpdated = _;
+    },
+
+    _update: function _update() {
+        console.warn('_update method not implemented.');
+    },
+
+    appendChild: function appendChild(child) {
+        var _ = this;
+
+        _.nodes.push(child);
+        child.parent = _;
+    },
+
+    appendTo: function appendTo(parent) {
+        var _ = this;
+
+        if (parent instanceof Element) {
+            _._elementAppendTo(parent);
+        }
+
+        if (BarsNode.isCreation(parent)) {
+            parent.appendChild(_);
+        }
+    },
+
+    remove: function remove() {
+        var _ = this,
+            index = _.parent.nodes.indexOf(_);
+
+        if (index >= 0) {
+            _.parent.nodes.splice(index, 1);
+        }
+
+        _._elementRemove();
+    },
+
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+        parent = parent || _.getParent();
+
+        parent = parent && parent.$el;
+
+        if (_.prevDOM && _.prevDOM.$el && _.prevDOM.$el.nextSibling !== _.$el) {
+            insertAfter(_.$el, _.prevDOM.$el);
+        } else if (parent && parent !== _.$el.parentNode) {
+            parent.appendChild(_.$el);
+        }
+
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        if (_.isDOM && _.$el.parentNode instanceof Element) {
+            _.$el.parentNode.removeChild(_.$el);
+        }
+    },
+
+    getParent: function getParent() {
+        var _ = this,
+            parent = _;
+
+        do {
+            parent = parent.parent;
+        } while (parent && !parent.isDOM);
+
+        return parent;
+    }
+});
+
+
+module.exports = BarsNode;
+
+},{"generate-js":47}],27:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
 
 function makeVars(context, map, bars) {
     var vars = {};
@@ -1544,229 +1697,438 @@ function makeVars(context, map, bars) {
     return vars;
 }
 
-function renderTextNode(bars, struct, context) {
-    return struct.value;
-}
+BlockNode = BarsNode.generate(
+    function BlockNode(bars, struct) {
+        BarsNode.call(this);
 
-var PROP_MAP = {
-    'class': 'className'
-};
+        var _ = this;
+        var nodes = struct.nodes || [];
 
-function renderAttrsAndProps(bars, struct, context) {
-    var i,
-        _data = {},
-        props = {},
-        attrs = {};
+        _.bars = bars;
 
-    function get(name) {
-        return _data[name];
-    }
+        _.name = struct.name;
+        _.arguments = struct.arguments;
+        _.map = struct.map;
+        _.consequent = struct.consequent;
+        _.alternate = struct.alternate;
 
-    props.data = get;
+        _.consMap = new Map();
+        _.altsMap = new Map();
 
-    for (i = 0; i < struct.attrs.length; i++) {
-        var attr = struct.attrs[i];
-        attrs[attr.name] = renderChildrenTexts(bars, attr, context);
-    }
+        _.nodes = [];
 
-
-    for (i = 0; i < struct.props.length; i++) {
-        _data[struct.props[i].name] = execute(struct.props[i].expression, bars.transforms, context);
-    }
-
-    props.attributes = attrs;
-    // var key = context.lookup(['@', 'key']);
-    // props.key = /[^0-9]/.test(key) ? key : context.lookup(['id']); What is this supposed to do?
-
-    return props;
-}
-
-function renderInsert(bars, struct, context) {
-    return execute(struct.expression, bars.transforms, context);
-}
-
-function renderChildrenTexts(bars, struct, context) {
-    var children = [];
-    if (!struct || !struct.nodes) return children.join('');
-    for (var i = 0; i < struct.nodes.length; i++) {
-        var child = struct.nodes[i];
-
-        if (child.type === 'text') {
-            children.push(child.value);
-        } else if (child.type === 'insert') {
-            children.push(renderInsert(bars, child, context));
-        } else if (child.type === 'block') {
-            children.push(renderBlockAsTexts(bars, child, context));
+        for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            _.appendChild(new NODES[node.type](bars, node));
         }
     }
+);
 
-    return children.join('');
-}
+BlockNode.definePrototype({
+    _update: function _update(context) {
+        var _ = this,
+            i;
 
-function renderBlockAsTexts(bars, struct, context) {
-    var nodes = [];
+        var cons = [];
 
-    function consequent(new_context) {
-        new_context = new_context || context;
-        new_context = new_context.contextWithVars(makeVars(new_context, struct.map, bars));
-        nodes.push(renderTypeAsTexts(bars, struct.consequent, new_context));
-    }
-
-    function alternate(new_context) {
-        if (new_context) {
-            new_context = new_context.contextWithVars(makeVars(new_context, struct.map, bars));
+        function consequent(new_context) {
+            new_context = new_context || context;
+            new_context = new_context.contextWithVars(
+                makeVars(new_context, _.map, _.bars)
+            );
+            cons.push(new_context);
         }
-        nodes.push(renderTypeAsTexts(bars, struct.alternate, new_context || context));
-    }
 
-    var blockFunc = bars.blocks[struct.name];
+        var alts = [];
 
-    if (typeof blockFunc !== 'function') {
-        throw 'Missing Block helper: ' + struct.name;
-    }
-
-    blockFunc(
-        struct.arguments.map(function (expression) {
-            return execute(expression, bars.transforms, context);
-        }),
-        consequent,
-        alternate,
-        context
-    );
-
-    return nodes.join('');
-}
-
-function renderBlockAsNodes(bars, struct, context) {
-    var nodes = [];
-
-    function consequent(new_context) {
-        new_context = new_context || context;
-        new_context = new_context.contextWithVars(makeVars(new_context, struct.map, bars));
-        nodes = nodes.concat(renderTypeAsNodes(bars, struct.consequent, new_context));
-    }
-
-    function alternate(new_context) {
-        if (new_context) {
-            new_context = new_context.contextWithVars(makeVars(new_context, struct.map, bars));
+        function alternate(new_context) {
+            if (new_context) {
+                new_context = new_context.contextWithVars(
+                    makeVars(new_context, _.map, _.bars)
+                );
+            }
+            alts.push(new_context || context);
         }
-        nodes = nodes.concat(renderTypeAsNodes(bars, struct.alternate, new_context || context));
-    }
 
-    var blockFunc = bars.blocks[struct.name];
+        var blockFunc = _.bars.blocks[_.name];
 
-    if (typeof blockFunc !== 'function') {
-        throw 'Missing Block helper: ' + struct.name;
-    }
+        if (typeof blockFunc !== 'function') {
+            throw 'Missing Block helper: ' + _.name;
+        }
 
-    blockFunc(
-        struct.arguments.map(function (expression) {
-            return execute(expression, bars.transforms, context);
-        }),
-        consequent,
-        alternate,
-        context
-    );
-
-    return nodes;
-}
-
-function renderPartial(bars, struct, context) {
-    var name = struct.name;
-    if (typeof struct.name === 'object') {
-        name = execute(struct.name, bars.transforms, context);
-    }
-
-    var partial = bars.partials[name];
-
-    if (struct.expression) {
-        context = context.newContext(
-            execute(struct.expression, bars.transforms, context),
-            null,
-            true
+        blockFunc(
+            _.arguments.map(function (expression) {
+                return execute(expression, _.bars.transforms, context);
+            }),
+            consequent,
+            alternate,
+            context
         );
-    }
 
-    context = context.contextWithVars(makeVars(context, struct.map, bars));
+        var newNodes = [];
 
-    return renderChildrenNodes(bars, partial.fragment, context);
-}
+        if (cons.length) {
+            for (i = 0; i < cons.length; i++) {
+                newNodes.push(
+                    _.consMap.get(cons[i].data) ||
+                    new NODES[_.consequent.type](_.bars, _.consequent)
+                );
+            }
+            _.consMap.clear();
 
-function renderChildrenNodes(bars, struct, context) {
-    var children = [];
-    if (!struct || !struct.nodes) return children;
-    for (var i = 0; i < struct.nodes.length; i++) {
-        var child = struct.nodes[i];
+            for (i = 0; i < cons.length; i++) {
+                _.consMap.set(cons[i].data, newNodes[i]);
+            }
 
-        if (child.type === 'tag') {
-            children.push(renderTagNode(bars, child, context));
-        } else if (child.type === 'text') {
-            children.push(renderTextNode(bars, child, context));
-        } else if (child.type === 'insert') {
-            children.push(renderInsert(bars, child, context));
-        } else if (child.type === 'block') {
-            children = children.concat(renderBlockAsNodes(bars, child, context));
-        } else if (child.type === 'partial') {
-            children = children.concat(renderPartial(bars, child, context));
+            for (i = 0; i < _.nodes.length; i++) {
+                if (newNodes.indexOf(_.nodes[i]) === -1) {
+                    _.nodes[i].remove();
+                }
+            }
+
+            _.nodes = [];
+
+            for (i = 0; i < newNodes.length; i++) {
+                _.appendChild(newNodes[i]);
+            }
+
+            for (i = 0; i < _.nodes.length; i++) {
+                _.nodes[i].update(cons[i]);
+            }
+        } else {
+            for (i = 0; i < alts.length; i++) {
+                newNodes.push(
+                    _.altsMap.get(alts[i]) ||
+                    new NODES[_.alternate.type](_.bars, _.alternate)
+                );
+            }
+            _.altsMap.clear();
+
+            for (i = 0; i < alts.length; i++) {
+                _.altsMap.set(alts[i], newNodes[i]);
+            }
+
+            for (i = 0; i < _.nodes.length; i++) {
+                if (newNodes.indexOf(_.nodes[i]) === -1) {
+                    _.nodes[i].remove();
+                }
+            }
+
+            _.nodes = [];
+
+            for (i = 0; i < newNodes.length; i++) {
+                _.appendChild(newNodes[i]);
+            }
+
+            for (i = 0; i < _.nodes.length; i++) {
+                _.nodes[i].update(cons[i]);
+            }
+        }
+    },
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+        parent = parent || _.getParent();
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementAppendTo(parent);
+        }
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementRemove();
         }
     }
+});
 
-    return children;
-}
+NODES.block = BlockNode;
 
-function renderTagNode(bars, struct, context) {
-    return h(
-        struct.name,
-        renderAttrsAndProps(bars, struct, context),
-        renderChildrenNodes(bars, struct, context)
-    );
-}
+},{"../../runtime/execute":37,"./bars-node":26,"./nodes":30}],28:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
 
-function renderTypeAsNodes(bars, struct, context) {
-    if (!struct) return [];
-    if (struct.type === 'tag') {
-        return [renderTagNode(bars, struct, context)];
-    } else if (struct.type === 'text') {
-        return [renderTextNode(bars, struct, context)];
-    } else if (struct.type === 'insert') {
-        return [renderInsert(bars, struct, context)];
-    } else if (struct.type === 'block') {
-        return renderBlockAsNodes(bars, struct, context);
-    } else if (struct.type === 'fragment') {
-        return renderChildrenNodes(bars, struct, context);
-    } else if (struct.type === 'partial') {
-        return renderPartial(bars, struct, context);
+Fragment = BarsNode.generate(
+    function Fragment(bars, struct) {
+        BarsNode.call(this);
+
+        var _ = this;
+        var nodes = struct.nodes || [];
+
+        // _.$el = document.createDocumentFragment();
+        _.nodes = [];
+
+        for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            _.appendChild(new NODES[node.type](bars, node));
+        }
+    }
+);
+
+Fragment.definePrototype({
+    _update: function _update(context) {
+        var _ = this,
+            i;
+
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
+        }
+    },
+
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+        parent = parent || _.getParent();
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementAppendTo(parent);
+        }
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementRemove();
+        }
+    }
+});
+
+NODES.fragment = Fragment;
+
+},{"../../runtime/execute":37,"./bars-node":26,"./nodes":30}],29:[function(require,module,exports){
+var NODES = require('./nodes');
+
+require('./block-node');
+require('./partial-node');
+require('./fragment-node');
+require('./tag-node');
+require('./attr-node');
+require('./text-node');
+
+module.exports = NODES;
+
+},{"./attr-node":25,"./block-node":27,"./fragment-node":28,"./nodes":30,"./partial-node":31,"./tag-node":32,"./text-node":33}],30:[function(require,module,exports){
+var NODES = {};
+
+module.exports = NODES;
+
+},{}],31:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
+
+function makeVars(context, map, bars) {
+    var vars = {};
+    for (var i = 0; i < map.length; i++) {
+        vars[map[i].name] = execute(map[i].expression, bars.transforms, context);
     }
 
-    throw 'unknown type: ' + struct.type;
+    return vars;
 }
 
-function renderTypeAsTexts(bars, struct, context) {
-    if (!struct) return [];
-    if (struct.type === 'text') {
-        return struct.value;
-    } else if (struct.type === 'insert') {
-        return renderInsert(bars, struct, context);
-    } else if (struct.type === 'block') {
-        return renderBlockAsTexts(bars, struct, context);
-    } else if (struct.type === 'fragment') {
-        return renderChildrenTexts(bars, struct, context);
+PartialNode = BarsNode.generate(
+    function PartialNode(bars, struct) {
+        BarsNode.call(this);
+
+        var _ = this;
+        var nodes = struct.nodes || [];
+
+        _.bars = bars;
+
+        _.name = struct.name;
+        _.expression = struct.expression;
+        _.map = struct.map;
+
+        _.nodes = [];
+
+        _.fragMap = new Map();
     }
-    throw 'unknown type: ' + struct.type;
-}
+);
 
-function render(bars, struct, context) {
-    return h(
-        'div', {
-            key: struct.fragment.key
-        },
-        renderChildrenNodes(bars, struct.fragment, context)
-    );
-}
+PartialNode.definePrototype({
+    _update: function _update(context) {
+        var _ = this,
+            i, name = _.name;
 
-module.exports = render;
+        if (typeof _.name === 'object') {
+            name = execute(_.name, _.bars.transforms, context);
+        }
 
-},{"../runtime/execute":29,"virtual-dom/h":49}],26:[function(require,module,exports){
+        var frag = _.fragMap.get(name);
+
+        if (!frag) {
+            var partial = _.bars.partials[name];
+
+            if (!partial) {
+                throw 'error';
+            }
+
+            frag = new NODES.fragment(_.bars, partial.fragment);
+
+            _.fragMap.set(name, frag);
+        }
+
+        if (_.expression) {
+            context = context.newContext(
+                execute(_.expression, _.bars.transforms, context),
+                null,
+                true
+            );
+        }
+
+        context = context.contextWithVars(makeVars(context, _.map, _.bars));
+
+        if (_.nodes[0] !== frag) {
+            if (_.nodes[0]) {
+                _.nodes[0].remove();
+            }
+
+            _.nodes = [];
+
+            _.appendChild(frag);
+        }
+
+        frag.update(context);
+    },
+    _elementAppendTo: function _elementAppendTo(parent) {
+        var _ = this;
+        parent = parent || _.getParent();
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementAppendTo(parent);
+        }
+    },
+
+    _elementRemove: function _elementRemove() {
+        var _ = this;
+
+        for (var i = 0; i < _.nodes.length; i++) {
+            _.nodes[i]._elementRemove();
+        }
+    }
+});
+
+NODES.partial = PartialNode;
+
+},{"../../runtime/execute":37,"./bars-node":26,"./nodes":30}],32:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
+
+TagNode = BarsNode.generate(
+    function TagNode(bars, struct) {
+        BarsNode.call(this);
+
+        var _ = this,
+            nodes = struct.nodes || [],
+            attrs = struct.attrs || [],
+            i;
+
+        _.bars = bars;
+
+        _.$el = document.createElement(struct.name);
+        _.attrs = [];
+        _.nodes = [];
+        _.props = struct.props || [];
+
+        for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            _.appendChild(new NODES[node.type](bars, node));
+        }
+
+        for (i = 0; i < attrs.length; i++) {
+            var attr = attrs[i];
+            _.addAttr(new NODES[attr.type](bars, attr));
+        }
+    }
+);
+
+TagNode.definePrototype({
+    isDOM: true,
+    _update: function _update(context) {
+        var _ = this,
+            i,
+            _data = {};
+
+        for (i = 0; i < _.props.length; i++) {
+            _data[_.props[i].name] = execute(
+                _.props[i].expression,
+                _.bars.transforms,
+                context
+            );
+        }
+
+        _.$el.data = function data(key) {
+            return _data[key];
+        };
+
+        for (i = 0; i < _.attrs.length; i++) {
+            _.attrs[i].update(context);
+        }
+
+        _.lastUpdated = null;
+
+        for (i = 0; i < _.nodes.length; i++) {
+            _.nodes[i].update(context);
+        }
+
+        _.lastUpdated = null;
+    },
+
+    addAttr: function addAttr(child) {
+        var _ = this;
+
+        _.attrs.push(child);
+        child.parent = _;
+    }
+});
+
+NODES.tag = TagNode;
+
+},{"../../runtime/execute":37,"./bars-node":26,"./nodes":30}],33:[function(require,module,exports){
+var BarsNode = require('./bars-node');
+var NODES = require('./nodes');
+var execute = require('../../runtime/execute');
+
+/**
+ * [TextNode description]
+ * @param {[type]} bars    [description]
+ * @param {[type]} struct  [description]
+ */
+TextNode = BarsNode.generate(
+    function TextNode(bars, struct) {
+        BarsNode.call(this);
+        var _ = this;
+
+        _.$el = document.createTextNode(struct.value);
+
+        _.bars = bars;
+
+        _.expression = struct.expression;
+    }
+);
+
+TextNode.definePrototype({
+    isDOM: true,
+    appendChild: function appendChild(child) {
+        console.warn('appendChild CANNOT be called on TextNodes.');
+    },
+
+    _update: function _update(context) {
+        var _ = this;
+
+        if (_.expression) {
+            _.$el.textContent = execute(_.expression, _.bars.transforms, context);
+        }
+    },
+});
+
+NODES.text = TextNode;
+NODES.insert = TextNode;
+
+},{"../../runtime/execute":37,"./bars-node":26,"./nodes":30}],34:[function(require,module,exports){
 var execute = require('../runtime/execute');
 
 function makeVars(context, map, bars) {
@@ -1787,20 +2149,20 @@ function repeat(a, n) {
     return r;
 }
 
-function abb(token, indentWith, bars, context) {
+function abb(token, bars, context) {
     var r = '';
 
     function consequent(new_context) {
         new_context = new_context || context;
         new_context = new_context.contextWithVars(makeVars(new_context, token.map, bars));
-        r += ac(token.consequent.nodes, indentWith, bars, new_context);
+        r += ac(token.consequent.nodes, bars, new_context);
     }
 
     function alternate(new_context) {
         if (new_context) {
             new_context = new_context.contextWithVars(makeVars(new_context, token.map, bars));
         }
-        r += ac(token.alternate.nodes, indentWith, bars, new_context || context);
+        r += ac(token.alternate.nodes, bars, new_context || context);
     }
 
     var blockFunc = bars.blocks[token.name];
@@ -1821,7 +2183,7 @@ function abb(token, indentWith, bars, context) {
     return r;
 }
 
-function ac(tokens, indentWith, bars, context) {
+function ac(tokens, bars, context) {
     if (tokens.length === 0) {
         return '';
     }
@@ -1836,7 +2198,7 @@ function ac(tokens, indentWith, bars, context) {
             var val = execute(token.expression, bars.transforms, context);
             r += val !== void(0) ? val : '';
         } else if (token.type === 'block') {
-            r += abb(token, indentWith, bars, context);
+            r += abb(token, bars, context);
         }
     }
 
@@ -1845,10 +2207,10 @@ function ac(tokens, indentWith, bars, context) {
     return r;
 }
 
-function a(token, indentWith, bars, context) {
+function a(token, bars, context) {
     var r = ' ';
     r += token.name;
-    r += ac(token.nodes, indentWith, bars, context);
+    r += ac(token.nodes, bars, context);
 
     return r;
 }
@@ -1952,7 +2314,7 @@ function h(token, indentWith, indent, bars, context) {
     r += '<' + token.name;
 
     for (var i = 0; i < token.attrs.length; i++) {
-        r += a(token.attrs[i], indentWith, bars, context);
+        r += a(token.attrs[i], bars, context);
     }
 
     if (token.isSelfClosing || token.selfClosed) {
@@ -1974,13 +2336,16 @@ function render(fragment, indentWith, bars, context) {
     return hc(fragment.nodes, indentWith, -1, bars, context);
 }
 
+render.ac = ac;
+
 module.exports = render;
 
-},{"../runtime/execute":29}],27:[function(require,module,exports){
+},{"../runtime/execute":37}],35:[function(require,module,exports){
 var Generator = require('generate-js');
 var ContextN = require('./runtime/context-n');
-var renderV = require('./render/render');
+// var renderV = require('./render/render');
 var renderT = require('./render/text-renderer');
+var NODES = require('./render/dom-renderer');
 
 var diff = require('virtual-dom/diff');
 var patch = require('virtual-dom/patch');
@@ -2000,18 +2365,34 @@ var Renderer = Generator.generate(function Renderer(bars, struct, state) {
 
     _.bars = bars;
     _.struct = struct;
-    _.tree = renderV(_.bars, _.struct, new ContextN(state));
-    _.rootNode = createElement(_.tree);
+    // _.tree = renderV(_.bars, _.struct, new ContextN(state));
+    // _.rootNode = createElement(_.tree);
+
+    _.struct.fragment.name = 'div';
+
+    _.dom = new NODES.tag(_.bars, _.struct.fragment);
+
+    _.rootNode = _.dom.$el;
+
+    if (state) {
+        _.update(state);
+    }
 });
 
 Renderer.definePrototype({
+    // update: function update(state) {
+    //     var _ = this;
+    //
+    //     var newTree = renderV(_.bars, _.struct, new ContextN(state));
+    //     var patches = diff(_.tree, newTree);
+    //     patch(_.rootNode, patches);
+    //     _.tree = newTree;
+    // },
+
     update: function update(state) {
         var _ = this;
 
-        var newTree = renderV(_.bars, _.struct, new ContextN(state));
-        var patches = diff(_.tree, newTree);
-        patch(_.rootNode, patches);
-        _.tree = newTree;
+        _.dom.update(new ContextN(state));
     },
     text: function text(state, options) {
         var _ = this;
@@ -2031,7 +2412,7 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./render/render":25,"./render/text-renderer":26,"./runtime/context-n":28,"generate-js":41,"virtual-dom/create-element":47,"virtual-dom/diff":48,"virtual-dom/patch":50}],28:[function(require,module,exports){
+},{"./render/dom-renderer":29,"./render/text-renderer":34,"./runtime/context-n":36,"generate-js":47,"virtual-dom/create-element":51,"virtual-dom/diff":52,"virtual-dom/patch":53}],36:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Context = Generator.generate(function Context(data, props, context, cleanVars) {
@@ -2096,7 +2477,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":41}],29:[function(require,module,exports){
+},{"generate-js":47}],37:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
@@ -2158,7 +2539,7 @@ function execute(syntaxTree, transforms, context) {
 
 module.exports = execute;
 
-},{"./logic":30}],30:[function(require,module,exports){
+},{"./logic":38}],38:[function(require,module,exports){
 /*Look up*/
 exports.lookup = function add(a, b) {
     // return a ? a[b] : void(0); // soft
@@ -2247,7 +2628,7 @@ exports.gt = function gt(a, b) {
 exports['<'] = exports.lt;
 exports['>'] = exports.gt;
 
-},{}],31:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var Transform = Generator.generate(function Transform() {});
@@ -2332,121 +2713,13 @@ Transform.definePrototype({
 
 module.exports = Transform;
 
-},{"generate-js":41}],32:[function(require,module,exports){
-/*!
- * Cross-Browser Split 1.1.1
- * Copyright 2007-2012 Steven Levithan <stevenlevithan.com>
- * Available under the MIT License
- * ECMAScript compliant, uniform cross-browser split method
- */
+},{"generate-js":47}],40:[function(require,module,exports){
 
-/**
- * Splits a string into an array of strings using a regex or string separator. Matches of the
- * separator are not included in the result array. However, if `separator` is a regex that contains
- * capturing groups, backreferences are spliced into the result each time `separator` is matched.
- * Fixes browser bugs compared to the native `String.prototype.split` and can be used reliably
- * cross-browser.
- * @param {String} str String to split.
- * @param {RegExp|String} separator Regex or string to use for separating the string.
- * @param {Number} [limit] Maximum number of items to include in the result array.
- * @returns {Array} Array of substrings.
- * @example
- *
- * // Basic use
- * split('a b c d', ' ');
- * // -> ['a', 'b', 'c', 'd']
- *
- * // With limit
- * split('a b c d', ' ', 2);
- * // -> ['a', 'b']
- *
- * // Backreferences in result array
- * split('..word1 word2..', /([a-z]+)(\d+)/i);
- * // -> ['..', 'word', '1', ' ', 'word', '2', '..']
- */
-module.exports = (function split(undef) {
-
-  var nativeSplit = String.prototype.split,
-    compliantExecNpcg = /()??/.exec("")[1] === undef,
-    // NPCG: nonparticipating capturing group
-    self;
-
-  self = function(str, separator, limit) {
-    // If `separator` is not a regex, use `nativeSplit`
-    if (Object.prototype.toString.call(separator) !== "[object RegExp]") {
-      return nativeSplit.call(str, separator, limit);
-    }
-    var output = [],
-      flags = (separator.ignoreCase ? "i" : "") + (separator.multiline ? "m" : "") + (separator.extended ? "x" : "") + // Proposed for ES6
-      (separator.sticky ? "y" : ""),
-      // Firefox 3+
-      lastLastIndex = 0,
-      // Make `global` and avoid `lastIndex` issues by working with a copy
-      separator = new RegExp(separator.source, flags + "g"),
-      separator2, match, lastIndex, lastLength;
-    str += ""; // Type-convert
-    if (!compliantExecNpcg) {
-      // Doesn't need flags gy, but they don't hurt
-      separator2 = new RegExp("^" + separator.source + "$(?!\\s)", flags);
-    }
-    /* Values for `limit`, per the spec:
-     * If undefined: 4294967295 // Math.pow(2, 32) - 1
-     * If 0, Infinity, or NaN: 0
-     * If positive number: limit = Math.floor(limit); if (limit > 4294967295) limit -= 4294967296;
-     * If negative number: 4294967296 - Math.floor(Math.abs(limit))
-     * If other: Type-convert, then use the above rules
-     */
-    limit = limit === undef ? -1 >>> 0 : // Math.pow(2, 32) - 1
-    limit >>> 0; // ToUint32(limit)
-    while (match = separator.exec(str)) {
-      // `separator.lastIndex` is not reliable cross-browser
-      lastIndex = match.index + match[0].length;
-      if (lastIndex > lastLastIndex) {
-        output.push(str.slice(lastLastIndex, match.index));
-        // Fix browsers whose `exec` methods don't consistently return `undefined` for
-        // nonparticipating capturing groups
-        if (!compliantExecNpcg && match.length > 1) {
-          match[0].replace(separator2, function() {
-            for (var i = 1; i < arguments.length - 2; i++) {
-              if (arguments[i] === undef) {
-                match[i] = undef;
-              }
-            }
-          });
-        }
-        if (match.length > 1 && match.index < str.length) {
-          Array.prototype.push.apply(output, match.slice(1));
-        }
-        lastLength = match[0].length;
-        lastLastIndex = lastIndex;
-        if (output.length >= limit) {
-          break;
-        }
-      }
-      if (separator.lastIndex === match.index) {
-        separator.lastIndex++; // Avoid an infinite loop
-      }
-    }
-    if (lastLastIndex === str.length) {
-      if (lastLength || !separator.test("")) {
-        output.push("");
-      }
-    } else {
-      output.push(str.slice(lastLastIndex));
-    }
-    return output.length > limit ? output.slice(0, limit) : output;
-  };
-
-  return self;
-})();
-
-},{}],33:[function(require,module,exports){
-
-},{}],34:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 exports.Compiler = require('./lib/compiler');
 exports.Token = require('./lib/token');
 
-},{"./lib/compiler":36,"./lib/token":38}],35:[function(require,module,exports){
+},{"./lib/compiler":43,"./lib/token":45}],42:[function(require,module,exports){
 var Generator = require('generate-js'),
     utils = require('./utils');
 
@@ -2628,7 +2901,7 @@ CodeBuffer.definePrototype({
 
 module.exports = CodeBuffer;
 
-},{"./utils":39,"generate-js":41}],36:[function(require,module,exports){
+},{"./utils":46,"generate-js":47}],43:[function(require,module,exports){
 var Generator = require('generate-js'),
     Scope = require('./scope'),
     Token = require('./token'),
@@ -2783,7 +3056,7 @@ Compiler.definePrototype({
 
 module.exports = Compiler;
 
-},{"./code-buffer":35,"./scope":37,"./token":38,"./utils":39,"generate-js":41}],37:[function(require,module,exports){
+},{"./code-buffer":42,"./scope":44,"./token":45,"./utils":46,"generate-js":47}],44:[function(require,module,exports){
 var Generator = require('generate-js'),
     Token = require('./token'),
     utils = require('./utils');
@@ -2868,7 +3141,7 @@ Scope.definePrototype({
 
 module.exports = Scope;
 
-},{"./token":38,"./utils":39,"generate-js":41}],38:[function(require,module,exports){
+},{"./token":45,"./utils":46,"generate-js":47}],45:[function(require,module,exports){
 var Generator = require('generate-js'),
     utils = require('./utils');
 
@@ -2933,7 +3206,7 @@ Token.definePrototype({
 
 module.exports = Token;
 
-},{"./utils":39,"generate-js":41}],39:[function(require,module,exports){
+},{"./utils":46,"generate-js":47}],46:[function(require,module,exports){
 /**
  * Assert Error function.
  * @param  {Boolean} condition Whether or not to throw error.
@@ -3010,29 +3283,7 @@ function bufferSlice(code, range, format) {
 }
 exports.bufferSlice = bufferSlice;
 
-},{}],40:[function(require,module,exports){
-'use strict';
-
-var OneVersionConstraint = require('individual/one-version');
-
-var MY_VERSION = '7';
-OneVersionConstraint('ev-store', MY_VERSION);
-
-var hashKey = '__EV_STORE_KEY@' + MY_VERSION;
-
-module.exports = EvStore;
-
-function EvStore(elem) {
-    var hash = elem[hashKey];
-
-    if (!hash) {
-        hash = elem[hashKey] = {};
-    }
-
-    return hash;
-}
-
-},{"individual/one-version":44}],41:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -3394,7 +3645,7 @@ function EvStore(elem) {
 
 }());
 
-},{}],42:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 (function (global){
 var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
@@ -3413,61 +3664,14 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":33}],43:[function(require,module,exports){
-(function (global){
-'use strict';
-
-/*global window, global*/
-
-var root = typeof window !== 'undefined' ?
-    window : typeof global !== 'undefined' ?
-    global : {};
-
-module.exports = Individual;
-
-function Individual(key, value) {
-    if (key in root) {
-        return root[key];
-    }
-
-    root[key] = value;
-
-    return value;
-}
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],44:[function(require,module,exports){
-'use strict';
-
-var Individual = require('./index.js');
-
-module.exports = OneVersion;
-
-function OneVersion(moduleName, version, defaultValue) {
-    var key = '__INDIVIDUAL_ONE_VERSION_' + moduleName;
-    var enforceKey = key + '_ENFORCE_SINGLETON';
-
-    var versionValue = Individual(enforceKey, version);
-
-    if (versionValue !== version) {
-        throw new Error('Can only have one copy of ' +
-            moduleName + '.\n' +
-            'You already have version ' + versionValue +
-            ' installed.\n' +
-            'This means you cannot install version ' + version);
-    }
-
-    return Individual(key, defaultValue);
-}
-
-},{"./index.js":43}],45:[function(require,module,exports){
+},{"min-document":40}],49:[function(require,module,exports){
 "use strict";
 
 module.exports = function isObject(x) {
 	return typeof x === "object" && x !== null;
 };
 
-},{}],46:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.1.1
  * https://jquery.com/
@@ -13689,27 +13893,22 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],47:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":52}],48:[function(require,module,exports){
+},{"./vdom/create-element.js":55}],52:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":72}],49:[function(require,module,exports){
-var h = require("./virtual-hyperscript/index.js")
-
-module.exports = h
-
-},{"./virtual-hyperscript/index.js":59}],50:[function(require,module,exports){
+},{"./vtree/diff.js":69}],53:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":55}],51:[function(require,module,exports){
+},{"./vdom/patch.js":58}],54:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -13808,7 +14007,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":63,"is-object":45}],52:[function(require,module,exports){
+},{"../vnode/is-vhook.js":62,"is-object":49}],55:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -13856,7 +14055,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":61,"../vnode/is-vnode.js":64,"../vnode/is-vtext.js":65,"../vnode/is-widget.js":66,"./apply-properties":51,"global/document":42}],53:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":60,"../vnode/is-vnode.js":63,"../vnode/is-vtext.js":64,"../vnode/is-widget.js":65,"./apply-properties":54,"global/document":48}],56:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -13943,7 +14142,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],54:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -14096,7 +14295,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":66,"../vnode/vpatch.js":69,"./apply-properties":51,"./update-widget":56}],55:[function(require,module,exports){
+},{"../vnode/is-widget.js":65,"../vnode/vpatch.js":67,"./apply-properties":54,"./update-widget":59}],58:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -14178,7 +14377,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":52,"./dom-index":53,"./patch-op":54,"global/document":42,"x-is-array":73}],56:[function(require,module,exports){
+},{"./create-element":55,"./dom-index":56,"./patch-op":57,"global/document":48,"x-is-array":70}],59:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -14195,250 +14394,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":66}],57:[function(require,module,exports){
-'use strict';
-
-var EvStore = require('ev-store');
-
-module.exports = EvHook;
-
-function EvHook(value) {
-    if (!(this instanceof EvHook)) {
-        return new EvHook(value);
-    }
-
-    this.value = value;
-}
-
-EvHook.prototype.hook = function (node, propertyName) {
-    var es = EvStore(node);
-    var propName = propertyName.substr(3);
-
-    es[propName] = this.value;
-};
-
-EvHook.prototype.unhook = function(node, propertyName) {
-    var es = EvStore(node);
-    var propName = propertyName.substr(3);
-
-    es[propName] = undefined;
-};
-
-},{"ev-store":40}],58:[function(require,module,exports){
-'use strict';
-
-module.exports = SoftSetHook;
-
-function SoftSetHook(value) {
-    if (!(this instanceof SoftSetHook)) {
-        return new SoftSetHook(value);
-    }
-
-    this.value = value;
-}
-
-SoftSetHook.prototype.hook = function (node, propertyName) {
-    if (node[propertyName] !== this.value) {
-        node[propertyName] = this.value;
-    }
-};
-
-},{}],59:[function(require,module,exports){
-'use strict';
-
-var isArray = require('x-is-array');
-
-var VNode = require('../vnode/vnode.js');
-var VText = require('../vnode/vtext.js');
-var isVNode = require('../vnode/is-vnode');
-var isVText = require('../vnode/is-vtext');
-var isWidget = require('../vnode/is-widget');
-var isHook = require('../vnode/is-vhook');
-var isVThunk = require('../vnode/is-thunk');
-
-var parseTag = require('./parse-tag.js');
-var softSetHook = require('./hooks/soft-set-hook.js');
-var evHook = require('./hooks/ev-hook.js');
-
-module.exports = h;
-
-function h(tagName, properties, children) {
-    var childNodes = [];
-    var tag, props, key, namespace;
-
-    if (!children && isChildren(properties)) {
-        children = properties;
-        props = {};
-    }
-
-    props = props || properties || {};
-    tag = parseTag(tagName, props);
-
-    // support keys
-    if (props.hasOwnProperty('key')) {
-        key = props.key;
-        props.key = undefined;
-    }
-
-    // support namespace
-    if (props.hasOwnProperty('namespace')) {
-        namespace = props.namespace;
-        props.namespace = undefined;
-    }
-
-    // fix cursor bug
-    if (tag === 'INPUT' &&
-        !namespace &&
-        props.hasOwnProperty('value') &&
-        props.value !== undefined &&
-        !isHook(props.value)
-    ) {
-        props.value = softSetHook(props.value);
-    }
-
-    transformProperties(props);
-
-    if (children !== undefined && children !== null) {
-        addChild(children, childNodes, tag, props);
-    }
-
-
-    return new VNode(tag, props, childNodes, key, namespace);
-}
-
-function addChild(c, childNodes, tag, props) {
-    if (typeof c === 'string') {
-        childNodes.push(new VText(c));
-    } else if (typeof c === 'number') {
-        childNodes.push(new VText(String(c)));
-    } else if (isChild(c)) {
-        childNodes.push(c);
-    } else if (isArray(c)) {
-        for (var i = 0; i < c.length; i++) {
-            addChild(c[i], childNodes, tag, props);
-        }
-    } else if (c === null || c === undefined) {
-        return;
-    } else {
-        throw UnexpectedVirtualElement({
-            foreignObject: c,
-            parentVnode: {
-                tagName: tag,
-                properties: props
-            }
-        });
-    }
-}
-
-function transformProperties(props) {
-    for (var propName in props) {
-        if (props.hasOwnProperty(propName)) {
-            var value = props[propName];
-
-            if (isHook(value)) {
-                continue;
-            }
-
-            if (propName.substr(0, 3) === 'ev-') {
-                // add ev-foo support
-                props[propName] = evHook(value);
-            }
-        }
-    }
-}
-
-function isChild(x) {
-    return isVNode(x) || isVText(x) || isWidget(x) || isVThunk(x);
-}
-
-function isChildren(x) {
-    return typeof x === 'string' || isArray(x) || isChild(x);
-}
-
-function UnexpectedVirtualElement(data) {
-    var err = new Error();
-
-    err.type = 'virtual-hyperscript.unexpected.virtual-element';
-    err.message = 'Unexpected virtual child passed to h().\n' +
-        'Expected a VNode / Vthunk / VWidget / string but:\n' +
-        'got:\n' +
-        errorString(data.foreignObject) +
-        '.\n' +
-        'The parent vnode is:\n' +
-        errorString(data.parentVnode)
-        '\n' +
-        'Suggested fix: change your `h(..., [ ... ])` callsite.';
-    err.foreignObject = data.foreignObject;
-    err.parentVnode = data.parentVnode;
-
-    return err;
-}
-
-function errorString(obj) {
-    try {
-        return JSON.stringify(obj, null, '    ');
-    } catch (e) {
-        return String(obj);
-    }
-}
-
-},{"../vnode/is-thunk":62,"../vnode/is-vhook":63,"../vnode/is-vnode":64,"../vnode/is-vtext":65,"../vnode/is-widget":66,"../vnode/vnode.js":68,"../vnode/vtext.js":70,"./hooks/ev-hook.js":57,"./hooks/soft-set-hook.js":58,"./parse-tag.js":60,"x-is-array":73}],60:[function(require,module,exports){
-'use strict';
-
-var split = require('browser-split');
-
-var classIdSplit = /([\.#]?[a-zA-Z0-9\u007F-\uFFFF_:-]+)/;
-var notClassId = /^\.|#/;
-
-module.exports = parseTag;
-
-function parseTag(tag, props) {
-    if (!tag) {
-        return 'DIV';
-    }
-
-    var noId = !(props.hasOwnProperty('id'));
-
-    var tagParts = split(tag, classIdSplit);
-    var tagName = null;
-
-    if (notClassId.test(tagParts[1])) {
-        tagName = 'DIV';
-    }
-
-    var classes, part, type, i;
-
-    for (i = 0; i < tagParts.length; i++) {
-        part = tagParts[i];
-
-        if (!part) {
-            continue;
-        }
-
-        type = part.charAt(0);
-
-        if (!tagName) {
-            tagName = part;
-        } else if (type === '.') {
-            classes = classes || [];
-            classes.push(part.substring(1, part.length));
-        } else if (type === '#' && noId) {
-            props.id = part.substring(1, part.length);
-        }
-    }
-
-    if (classes) {
-        if (props.className) {
-            classes.push(props.className);
-        }
-
-        props.className = classes.join(' ');
-    }
-
-    return props.namespace ? tagName : tagName.toUpperCase();
-}
-
-},{"browser-split":32}],61:[function(require,module,exports){
+},{"../vnode/is-widget.js":65}],60:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -14480,14 +14436,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":62,"./is-vnode":64,"./is-vtext":65,"./is-widget":66}],62:[function(require,module,exports){
+},{"./is-thunk":61,"./is-vnode":63,"./is-vtext":64,"./is-widget":65}],61:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],63:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -14496,7 +14452,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],64:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -14505,7 +14461,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":67}],65:[function(require,module,exports){
+},{"./version":66}],64:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -14514,91 +14470,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":67}],66:[function(require,module,exports){
+},{"./version":66}],65:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],67:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 module.exports = "2"
 
-},{}],68:[function(require,module,exports){
-var version = require("./version")
-var isVNode = require("./is-vnode")
-var isWidget = require("./is-widget")
-var isThunk = require("./is-thunk")
-var isVHook = require("./is-vhook")
-
-module.exports = VirtualNode
-
-var noProperties = {}
-var noChildren = []
-
-function VirtualNode(tagName, properties, children, key, namespace) {
-    this.tagName = tagName
-    this.properties = properties || noProperties
-    this.children = children || noChildren
-    this.key = key != null ? String(key) : undefined
-    this.namespace = (typeof namespace === "string") ? namespace : null
-
-    var count = (children && children.length) || 0
-    var descendants = 0
-    var hasWidgets = false
-    var hasThunks = false
-    var descendantHooks = false
-    var hooks
-
-    for (var propName in properties) {
-        if (properties.hasOwnProperty(propName)) {
-            var property = properties[propName]
-            if (isVHook(property) && property.unhook) {
-                if (!hooks) {
-                    hooks = {}
-                }
-
-                hooks[propName] = property
-            }
-        }
-    }
-
-    for (var i = 0; i < count; i++) {
-        var child = children[i]
-        if (isVNode(child)) {
-            descendants += child.count || 0
-
-            if (!hasWidgets && child.hasWidgets) {
-                hasWidgets = true
-            }
-
-            if (!hasThunks && child.hasThunks) {
-                hasThunks = true
-            }
-
-            if (!descendantHooks && (child.hooks || child.descendantHooks)) {
-                descendantHooks = true
-            }
-        } else if (!hasWidgets && isWidget(child)) {
-            if (typeof child.destroy === "function") {
-                hasWidgets = true
-            }
-        } else if (!hasThunks && isThunk(child)) {
-            hasThunks = true;
-        }
-    }
-
-    this.count = count + descendants
-    this.hasWidgets = hasWidgets
-    this.hasThunks = hasThunks
-    this.hooks = hooks
-    this.descendantHooks = descendantHooks
-}
-
-VirtualNode.prototype.version = version
-VirtualNode.prototype.type = "VirtualNode"
-
-},{"./is-thunk":62,"./is-vhook":63,"./is-vnode":64,"./is-widget":66,"./version":67}],69:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -14622,19 +14504,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":67}],70:[function(require,module,exports){
-var version = require("./version")
-
-module.exports = VirtualText
-
-function VirtualText(text) {
-    this.text = String(text)
-}
-
-VirtualText.prototype.version = version
-VirtualText.prototype.type = "VirtualText"
-
-},{"./version":67}],71:[function(require,module,exports){
+},{"./version":66}],68:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -14694,7 +14564,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":63,"is-object":45}],72:[function(require,module,exports){
+},{"../vnode/is-vhook":62,"is-object":49}],69:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -15123,7 +14993,7 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":61,"../vnode/is-thunk":62,"../vnode/is-vnode":64,"../vnode/is-vtext":65,"../vnode/is-widget":66,"../vnode/vpatch":69,"./diff-props":71,"x-is-array":73}],73:[function(require,module,exports){
+},{"../vnode/handle-thunk":60,"../vnode/is-thunk":61,"../vnode/is-vnode":63,"../vnode/is-vtext":64,"../vnode/is-widget":65,"../vnode/vpatch":67,"./diff-props":68,"x-is-array":70}],70:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
@@ -15133,10 +15003,10 @@ function isArray(obj) {
     return toString.call(obj) === "[object Array]"
 }
 
-},{}],74:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.9.4",
+  "version": "1.0.0",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
@@ -15164,9 +15034,7 @@ module.exports={
   "dependencies": {
     "compileit": "^1.0.1",
     "generate-js": "^3.1.2",
-    "jquery": "^3.1.1",
-    "source-map": "^0.5.6",
-    "virtual-dom": "^2.1.1"
+    "jquery": "^3.1.1"
   },
   "devDependencies": {
     "browserify": "^13.1.1",
@@ -15175,7 +15043,8 @@ module.exports={
     "gulp-minify": "0.0.14",
     "stringify": "^5.1.0",
     "vinyl-buffer": "^1.0.0",
-    "vinyl-source-stream": "^1.1.0"
+    "vinyl-source-stream": "^1.1.0",
+    "virtual-dom": "^2.1.1"
   }
 }
 
