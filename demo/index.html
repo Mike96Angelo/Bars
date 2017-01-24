@@ -177,8 +177,9 @@ li.del {
 
         setTimeout(function () {
             delete todo.del;
-            app.render();
             storeData(app.state);
+            app.state=loadData();
+            app.render();
         },0);
     });
 
