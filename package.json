@@ -1,6 +1,6 @@
 {
   "name": "bars",
-  "version": "0.9.4",
+  "version": "1.0.6",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

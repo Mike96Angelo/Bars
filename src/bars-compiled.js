@@ -2186,6 +2186,8 @@ Transform.definePrototype({
 module.exports = Transform;
 
 },{"generate-js":36}],27:[function(require,module,exports){
+
+},{}],28:[function(require,module,exports){
 /*!
  * Cross-Browser Split 1.1.1
  * Copyright 2007-2012 Steven Levithan <stevenlevithan.com>
@@ -2292,8 +2294,6 @@ module.exports = (function split(undef) {
 
   return self;
 })();
-
-},{}],28:[function(require,module,exports){
 
 },{}],29:[function(require,module,exports){
 exports.Compiler = require('./lib/compiler');
@@ -3266,7 +3266,7 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":28}],38:[function(require,module,exports){
+},{"min-document":27}],38:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -4069,7 +4069,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":27}],55:[function(require,module,exports){
+},{"browser-split":28}],55:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -4767,7 +4767,7 @@ function isArray(obj) {
 },{}],68:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.9.4",
+  "version": "1.0.6",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

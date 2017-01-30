@@ -320,7 +320,7 @@ var parseModes = {
         parsers.parseHTMLTagEnd,
         parsers.parseWhitspace,
         parsers.parseHTMLAttr,
-        parsers.parseBarsMarkup
+        // parsers.parseBarsMarkup
     ],
     'VALUE': [
         parsers.parseHTMLAttrEnd,
@@ -2057,6 +2057,10 @@ function parseText(mode, code, tokens, flags, scope,
         }
 
         return text;
+    } else if (flags.textExitTag && textExitTag) {
+        code.index += textExitTag;
+        scope.close();
+        parseMode.close();
     }
 
     return null;
@@ -4660,6 +4664,8 @@ Transform.definePrototype({
 module.exports = Transform;
 
 },{"generate-js":66}],57:[function(require,module,exports){
+
+},{}],58:[function(require,module,exports){
 /*!
  * Cross-Browser Split 1.1.1
  * Copyright 2007-2012 Steven Levithan <stevenlevithan.com>
@@ -4766,8 +4772,6 @@ module.exports = (function split(undef) {
 
   return self;
 })();
-
-},{}],58:[function(require,module,exports){
 
 },{}],59:[function(require,module,exports){
 exports.Compiler = require('./lib/compiler');
@@ -5740,7 +5744,7 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":58}],68:[function(require,module,exports){
+},{"min-document":57}],68:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -16765,7 +16769,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":57}],86:[function(require,module,exports){
+},{"browser-split":58}],86:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -17463,7 +17467,7 @@ function isArray(obj) {
 },{}],99:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "0.9.4",
+  "version": "1.0.6",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
