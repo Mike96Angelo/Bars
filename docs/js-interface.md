@@ -9,8 +9,16 @@
     * [Class: App](#class-app)
         * [app.state](#appstate)
         * [app.render()](#apprender)
-        * [app.on(events, target, listener)](#apponevents-target-listener)
+        * [app.on(event, listener)](#apponevent-listener)
         * [app.appendTo(element)](#appappendtoelement)
+        * [app.view](#appview)
+        * [app.document](#appdocument)
+        * [app.window](#appwindow)
+    * [Events: render](#events-render)
+    * [Events: append](#events-append)
+* [Interactions](#interactions)
+    * [Class: Interactions](class-interactions)
+        * [interactions.on(events[, targetSelector], listener)](#interactionsonevents-targetselector-listener)
 * [Bars](#bars)
     * [Class: Bars](#class-bars)
         * [bars.compile(template)](#barscompiletemplate)
@@ -66,24 +74,20 @@ App state is an object/structure from which the app view is rendered.
 ## app.render()
 This is the method you would call to update the app view.  After you manipulate the app state you should call this method to update the view.
 
-## app.on(events, target, listener)
-* *events* `String` A space separated list of events to listen for.
-* *target* `String` A CCS style selector to select the target element.
-* *listener* `Function` A listener function that gets call on `events`.
+## app.on(event, listener)
+* *event* `String` An event to listen for.
+* *listener* `Function` A listener function that gets call on `event`.
 
-Add event listeners to your app to make it interactive.
+Add event listeners to your app.
 
 Example:
 ```javascript
-app.on('click', '.something', function (evnt, $el) {
-    alert('you clicked on something');
+app.on('render', function (state) {
+    console.log('the app view has been rendered');
+});
 
-    // to access data bound to the target
-    // use $el.data('prop-name')
-
-    // if you manipulate part of the app state
-    // call app.render()
-    // to update the app view.
+app.on('append', function (target) {
+    console.log('the app view has been appended to some element', target);
 });
 ```
 
@@ -95,6 +99,78 @@ Use this method to add the app to the page.
 Example:
 ```javascript
 app.appendTo(document.body);
+```
+
+## app.view
+The `app.view` is an [interactions](#class-interactions) whose baseTarget is the rendered view from the [index template](#class-app).
+
+Example:
+```javascript
+app.view.on('click', '.something', function (evt, target) {
+    // access data bound to the target
+    // <div class="something" someData:{{someData}}>
+    var someData = target.data('someData');
+
+    // if you manipulate app.state in anyway you should then call
+    // app.render();
+})
+```
+## app.document
+The `app.document` is an [interactions](#class-interactions) whose baseTarget is `document`.
+
+Example:
+```javascript
+app.document.on('ready', function (evt, target) {
+    console.log('the document is ready');
+    // if you manipulate app.state in anyway you should then call
+    // app.render();
+})
+```
+## app.window
+The `app.window` is an [interactions](#class-interactions) whose baseTarget is `window`.
+
+Example:
+```javascript
+app.window.on('resize', function (evt, target) {
+    console.log('the window has been resized');
+    // if you manipulate app.state in anyway you should then call
+    // app.render();
+})
+```
+
+# Interactions
+Interactions is a simple user input event router.
+
+## Class: Interactions
+* *baseTarget* `Window|Document|Element` The base target for capturing and routing input events.
+
+Example:
+```javascript
+var interactions = new Interactions(baseTarget);
+```
+
+## interactions.on(events[, targetSelector], listener)
+* *events* `String` A space separated list of events to listen for.
+* *targetSelector* `String` A CCS selector to select the target element.
+* *listener* `Function` A listener function that gets call on `events`.
+
+Add event listeners to your `interactions`.
+
+If a `target` is not specified all targets including the `baseTarget` and its descendents will trigger the `listener` on `events`.
+
+Example:
+```javascript
+interactions.on('click', '.something', function (evt, $el) {
+    alert('you clicked on something');
+
+    // target maybe the baseTarget or any of its descendents whos selector matches the target selector.
+});
+
+interactions.on('click', function (evt, target) {
+    alert('you clicked on something');
+
+    // target maybe the baseTarget or any of its descendents.
+});
 ```
 
 # Bars

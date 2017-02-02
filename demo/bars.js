@@ -4190,8 +4190,11 @@ var Renderer = Generator.generate(function Renderer(bars, struct, state) {
 
     _.bars = bars;
     _.struct = struct;
-    _.tree = renderV(_.bars, _.struct, new ContextN(state));
-    _.rootNode = createElement(_.tree);
+
+    if (state) {
+        _.tree = renderV(_.bars, _.struct, new ContextN(state));
+        _.rootNode = createElement(_.tree);
+    }
 });
 
 Renderer.definePrototype({
@@ -4223,9 +4226,12 @@ module.exports = Renderer;
 
 },{"./render/render":47,"./render/text-renderer":48,"./runtime/context-n":50,"generate-js":63,"virtual-dom/create-element":68,"virtual-dom/diff":69,"virtual-dom/patch":71}],50:[function(require,module,exports){
 var Generator = require('generate-js');
+var utils = require('compileit/lib/utils');
 
 var Context = Generator.generate(function Context(data, props, context, cleanVars) {
     var _ = this;
+
+    utils.assertTypeError(data, 'object');
 
     _.data = data;
     _.props = props;
@@ -4245,8 +4251,11 @@ Context.definePrototype({
             i = 0;
 
         if (path[0] === '@') {
-            // console.log(_.props[path[1]]);
-            return _.props[path[1]];
+            if (_.props) {
+                return _.props[path[1]];
+            } else {
+                return void(0);
+            }
         }
 
         if (
@@ -4255,7 +4264,7 @@ Context.definePrototype({
             return _.data;
         }
 
-        if (path[0] in _.vars) {
+        if (_.vars && path[0] in _.vars) {
             return _.vars[path[0]];
         }
 
@@ -4286,7 +4295,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":63}],51:[function(require,module,exports){
+},{"compileit/lib/utils":61,"generate-js":63}],51:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
@@ -4342,7 +4351,7 @@ function execute(syntaxTree, transforms, context) {
     if (syntaxTree) {
         return run(syntaxTree);
     } else {
-        return context.lookup('.');
+        return context.lookup('this');
     }
 }
 
@@ -7104,7 +7113,7 @@ function isArray(obj) {
 },{}],95:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.0.6",
+  "version": "1.5.0",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

@@ -20,7 +20,7 @@ $ npm install bars
 
 [Bars Language and Docs](docs/js-interface.md).
 * [Demo App](https://mike96angelo.github.io/Bars/demo/)
-* [JSFiddle](https://jsfiddle.net/ufcdxm4q/3/)
+* [JSFiddle](https://jsfiddle.net/ufcdxm4q/5/)
 
 ### index.bars:
 ```handlebars
@@ -29,17 +29,17 @@ $ npm install bars
 <ul>
 {{#with todos=todos}}
 {{#each todos}}
-    <li>
+    <li class="{{(del && 'del')||''}}">
         <div>
-            <span class="list-complete {{complete && 'done'}}" todo:{{this}}></span>
+            <span class="list-complete {{(complete && 'done') || ''}}" todo:{{this}}></span>
             <span class="list">{{text}}</span>
             <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
         </div>
     </li>
 {{else}}
-    <li>
-        <span>You have nothing left to do.</span>
-    </li>
+<li>
+    <span>You have nothing left to do.</span>
+</li>
 {{/each}}
 {{/with}}
 </ul>
@@ -66,33 +66,42 @@ var app = new App(
     }
 );
 
-app.on('click', '.list-complete', function (evt, $el){
-    var todo = $el.data('todo');
-
+app.view.on('click', '.list-complete', function (evt, target){
+    var todo = target.data('todo');
     todo.complete = !todo.complete;
-
     app.render();
 });
 
-app.on('click', '.list-del', function (evt, $el){
-    var todo = $el.data('todo');
-    var todos = $el.data('todos');
+app.view.on('click', '.list-del', function (evt, target){
+    var todo = target.data('todo');
+    var todos = target.data('todos');
 
-    todos.splice(todos.indexOf(todo), 1);
-
+    todo.del = true;
     app.render();
+
+    setTimeout(function () {
+        todos.splice(todos.indexOf(todo), 1);
+
+        app.render();
+    }, 200);
 });
 
-app.on('change', '#new-list', function (evt, $el){
-    var todos = $el.data('todos');
+app.view.on('change', '#new-list', function (evt, target){
+    var todos = target.data('todos');
 
-    todos.unshift({
-        text: $el.val()
-    });
+    var todo = {
+        del: true,
+        text: target.value
+    };
 
-    $el.val('');
-
+    todos.unshift(todo);
     app.render();
+    target.value = '';
+
+    setTimeout(function () {
+        delete todo.del;
+        app.render();
+    }, 0);
 });
 
 app.appendTo(document.body);

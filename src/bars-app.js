@@ -9,69 +9,75 @@ module.exports = App;
 
 },{"./lib/app":3,"./lib/bars":7}],2:[function(require,module,exports){
 var Generator = require('generate-js');
+
+var EventEmitter = require('events')
+    .EventEmitter;
 var utils = require('compileit/lib/utils');
 
-var Ineractions = require('./interactions');
+var Interactions = require('./interactions');
 
 var registerBarsOptions = require('./register-bars-options');
 
-var App = Generator.generate(function App(options, state) {
-    var _ = this;
+var App = Generator.generateFrom(
+    EventEmitter,
+    function App(options, state) {
+        var _ = this;
 
-    _.state = state;
-    _.bars = new App.Bars();
-    registerBarsOptions(_.bars, options);
+        console.warn(
+            'app.on has been repurposed for app events to access view/DOM events use app.view.on instead.\nhttps://github.com/Mike96Angelo/Bars/blob/master/docs/js-interface.md#appview'
+        );
 
-    var indexTemplate;
+        EventEmitter.call(_);
 
-    if (typeof options.index === 'string') {
-        if (!_.bars.preCompile) {
-            throw 'partials must be pre-compiled using bars.preCompile(template)';
+        _.state = state;
+        _.bars = new App.Bars();
+        registerBarsOptions(_.bars, options);
+
+        var indexTemplate;
+
+        if (typeof options.index === 'string') {
+            if (!_.bars.preCompile) {
+                throw 'partials must be pre-compiled using bars.preCompile(template)';
+            }
+            indexTemplate = _.bars.preCompile(options.index, 'index', null, {
+                minify: true
+            });
+        } else {
+            indexTemplate = options.index;
         }
-        indexTemplate = _.bars.preCompile(options.index, 'index', null, {
-            minify: true
-        });
-    } else {
-        indexTemplate = options.index;
+
+        _.dom = _.bars.build(indexTemplate, _.state);
+
+        _.view = new Interactions(_.dom.rootNode);
+        _.document = new Interactions(document);
+        _.window = new Interactions(window);
     }
-
-    _.dom = _.bars.build(indexTemplate, _.state);
-
-    _.interactions = new Ineractions(_.dom.rootNode);
-});
+);
 
 App.definePrototype({
-    on: function on(events, target, lintener) {
-        var _ = this;
-
-        _.interactions.on(events, target, lintener);
-    },
-    off: function off(events, target, lintener) {
-        var _ = this;
-
-        _.interactions.off(events, target, lintener);
-    },
     render: function render() {
         var _ = this;
 
         _.dom.update(_.state);
+        _.emit('render');
     },
     appendTo: function appendTo(element) {
         var _ = this;
 
         utils.assertError(
             element &&
-            Ineractions.$(element)[0] instanceof Element,
+            Interactions.$(element)[0] instanceof Element,
             'Option element must be of type Element or a valid css selector.'
         );
 
-        _.dom.appendTo(Ineractions.$(element)[0]);
+        _.dom.appendTo(Interactions.$(element)[0]);
+        _.emit('append');
     }
 });
 
 module.exports = App;
 
-},{"./interactions":4,"./register-bars-options":5,"compileit/lib/utils":64,"generate-js":66}],3:[function(require,module,exports){
+},{"./interactions":4,"./register-bars-options":5,"compileit/lib/utils":64,"events":66,"generate-js":67}],3:[function(require,module,exports){
 module.exports = require('./app');
 
 },{"./app":2}],4:[function(require,module,exports){
@@ -91,9 +97,7 @@ Ineractions.definePrototype({
         var _ = this;
 
         return function (event) {
-            $target = $(this);
-            $target.data = $target.prop('data');
-            return listener.call(_, event, $target);
+            return listener(event, this);
         };
     },
     on: function on(events, target, listener) {
@@ -114,7 +118,7 @@ Ineractions.definePrototype({
 
 module.exports = Ineractions;
 
-},{"generate-js":66,"jquery":71}],5:[function(require,module,exports){
+},{"generate-js":67,"jquery":72}],5:[function(require,module,exports){
 function registerConfig(bars, options) {
     var key;
 
@@ -216,7 +220,7 @@ Bars.definePrototype({
 
 module.exports = Bars;
 
-},{"../package":99,"./blocks":8,"./compiler/tokens":35,"./renderer":52,"./transforms":56,"generate-js":66}],7:[function(require,module,exports){
+},{"../package":100,"./blocks":8,"./compiler/tokens":35,"./renderer":52,"./transforms":56,"generate-js":67}],7:[function(require,module,exports){
 var Bars = require('./bars-runtime'),
     compile = require('./compiler');
 
@@ -291,7 +295,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":66}],9:[function(require,module,exports){
+},{"generate-js":67}],9:[function(require,module,exports){
 var compileit = require('compileit');
 var parsers = require('./parsers');
 
@@ -2886,7 +2890,7 @@ ProgramToken.definePrototype({
 
 Token.tokens.program = ProgramToken;
 
-},{"../../../package":99,"./token":44}],41:[function(require,module,exports){
+},{"../../../package":100,"./token":44}],41:[function(require,module,exports){
 var Token = require('./token');
 
 var PropToken = Token.generate(
@@ -4097,7 +4101,7 @@ function render(bars, struct, context) {
 
 module.exports = render;
 
-},{"../runtime/execute":54,"virtual-dom/h":74}],51:[function(require,module,exports){
+},{"../runtime/execute":54,"virtual-dom/h":75}],51:[function(require,module,exports){
 var execute = require('../runtime/execute');
 
 function makeVars(context, map, bars) {
@@ -4331,8 +4335,11 @@ var Renderer = Generator.generate(function Renderer(bars, struct, state) {
 
     _.bars = bars;
     _.struct = struct;
-    _.tree = renderV(_.bars, _.struct, new ContextN(state));
-    _.rootNode = createElement(_.tree);
+
+    if (state) {
+        _.tree = renderV(_.bars, _.struct, new ContextN(state));
+        _.rootNode = createElement(_.tree);
+    }
 });
 
 Renderer.definePrototype({
@@ -4362,11 +4369,14 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./render/render":50,"./render/text-renderer":51,"./runtime/context-n":53,"generate-js":66,"virtual-dom/create-element":72,"virtual-dom/diff":73,"virtual-dom/patch":75}],53:[function(require,module,exports){
+},{"./render/render":50,"./render/text-renderer":51,"./runtime/context-n":53,"generate-js":67,"virtual-dom/create-element":73,"virtual-dom/diff":74,"virtual-dom/patch":76}],53:[function(require,module,exports){
 var Generator = require('generate-js');
+var utils = require('compileit/lib/utils');
 
 var Context = Generator.generate(function Context(data, props, context, cleanVars) {
     var _ = this;
+
+    utils.assertTypeError(data, 'object');
 
     _.data = data;
     _.props = props;
@@ -4386,8 +4396,11 @@ Context.definePrototype({
             i = 0;
 
         if (path[0] === '@') {
-            // console.log(_.props[path[1]]);
-            return _.props[path[1]];
+            if (_.props) {
+                return _.props[path[1]];
+            } else {
+                return void(0);
+            }
         }
 
         if (
@@ -4396,7 +4409,7 @@ Context.definePrototype({
             return _.data;
         }
 
-        if (path[0] in _.vars) {
+        if (_.vars && path[0] in _.vars) {
             return _.vars[path[0]];
         }
 
@@ -4427,7 +4440,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":66}],54:[function(require,module,exports){
+},{"compileit/lib/utils":64,"generate-js":67}],54:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
@@ -4483,7 +4496,7 @@ function execute(syntaxTree, transforms, context) {
     if (syntaxTree) {
         return run(syntaxTree);
     } else {
-        return context.lookup('.');
+        return context.lookup('this');
     }
 }
 
@@ -4663,7 +4676,7 @@ Transform.definePrototype({
 
 module.exports = Transform;
 
-},{"generate-js":66}],57:[function(require,module,exports){
+},{"generate-js":67}],57:[function(require,module,exports){
 
 },{}],58:[function(require,module,exports){
 /*!
@@ -4959,7 +4972,7 @@ CodeBuffer.definePrototype({
 
 module.exports = CodeBuffer;
 
-},{"./utils":64,"generate-js":66}],61:[function(require,module,exports){
+},{"./utils":64,"generate-js":67}],61:[function(require,module,exports){
 var Generator = require('generate-js'),
     Scope = require('./scope'),
     Token = require('./token'),
@@ -5114,7 +5127,7 @@ Compiler.definePrototype({
 
 module.exports = Compiler;
 
-},{"./code-buffer":60,"./scope":62,"./token":63,"./utils":64,"generate-js":66}],62:[function(require,module,exports){
+},{"./code-buffer":60,"./scope":62,"./token":63,"./utils":64,"generate-js":67}],62:[function(require,module,exports){
 var Generator = require('generate-js'),
     Token = require('./token'),
     utils = require('./utils');
@@ -5199,7 +5212,7 @@ Scope.definePrototype({
 
 module.exports = Scope;
 
-},{"./token":63,"./utils":64,"generate-js":66}],63:[function(require,module,exports){
+},{"./token":63,"./utils":64,"generate-js":67}],63:[function(require,module,exports){
 var Generator = require('generate-js'),
     utils = require('./utils');
 
@@ -5264,7 +5277,7 @@ Token.definePrototype({
 
 module.exports = Token;
 
-},{"./utils":64,"generate-js":66}],64:[function(require,module,exports){
+},{"./utils":64,"generate-js":67}],64:[function(require,module,exports){
 /**
  * Assert Error function.
  * @param  {Boolean} condition Whether or not to throw error.
@@ -5363,7 +5376,311 @@ function EvStore(elem) {
     return hash;
 }
 
-},{"individual/one-version":69}],66:[function(require,module,exports){
+},{"individual/one-version":70}],66:[function(require,module,exports){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+function EventEmitter() {
+  this._events = this._events || {};
+  this._maxListeners = this._maxListeners || undefined;
+}
+module.exports = EventEmitter;
+
+// Backwards-compat with node 0.10.x
+EventEmitter.EventEmitter = EventEmitter;
+
+EventEmitter.prototype._events = undefined;
+EventEmitter.prototype._maxListeners = undefined;
+
+// By default EventEmitters will print a warning if more than 10 listeners are
+// added to it. This is a useful default which helps finding memory leaks.
+EventEmitter.defaultMaxListeners = 10;
+
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!isNumber(n) || n < 0 || isNaN(n))
+    throw TypeError('n must be a positive number');
+  this._maxListeners = n;
+  return this;
+};
+
+EventEmitter.prototype.emit = function(type) {
+  var er, handler, len, args, i, listeners;
+
+  if (!this._events)
+    this._events = {};
+
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events.error ||
+        (isObject(this._events.error) && !this._events.error.length)) {
+      er = arguments[1];
+      if (er instanceof Error) {
+        throw er; // Unhandled 'error' event
+      } else {
+        // At least give some kind of context to the user
+        var err = new Error('Uncaught, unspecified "error" event. (' + er + ')');
+        err.context = er;
+        throw err;
+      }
+    }
+  }
+
+  handler = this._events[type];
+
+  if (isUndefined(handler))
+    return false;
+
+  if (isFunction(handler)) {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+  } else if (isObject(handler)) {
+    args = Array.prototype.slice.call(arguments, 1);
+    listeners = handler.slice();
+    len = listeners.length;
+    for (i = 0; i < len; i++)
+      listeners[i].apply(this, args);
+  }
+
+  return true;
+};
+
+EventEmitter.prototype.addListener = function(type, listener) {
+  var m;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events)
+    this._events = {};
+
+  // To avoid recursion in the case that type === "newListener"! Before
+  // adding it to the listeners, first emit "newListener".
+  if (this._events.newListener)
+    this.emit('newListener', type,
+              isFunction(listener.listener) ?
+              listener.listener : listener);
+
+  if (!this._events[type])
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  else if (isObject(this._events[type]))
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  else
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+
+  // Check for listener leak
+  if (isObject(this._events[type]) && !this._events[type].warned) {
+    if (!isUndefined(this._maxListeners)) {
+      m = this._maxListeners;
+    } else {
+      m = EventEmitter.defaultMaxListeners;
+    }
+
+    if (m && m > 0 && this._events[type].length > m) {
+      this._events[type].warned = true;
+      console.error('(node) warning: possible EventEmitter memory ' +
+                    'leak detected. %d listeners added. ' +
+                    'Use emitter.setMaxListeners() to increase limit.',
+                    this._events[type].length);
+      if (typeof console.trace === 'function') {
+        // not supported in IE 10
+        console.trace();
+      }
+    }
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  var fired = false;
+
+  function g() {
+    this.removeListener(type, g);
+
+    if (!fired) {
+      fired = true;
+      listener.apply(this, arguments);
+    }
+  }
+
+  g.listener = listener;
+  this.on(type, g);
+
+  return this;
+};
+
+// emits a 'removeListener' event iff the listener was removed
+EventEmitter.prototype.removeListener = function(type, listener) {
+  var list, position, length, i;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events || !this._events[type])
+    return this;
+
+  list = this._events[type];
+  length = list.length;
+  position = -1;
+
+  if (list === listener ||
+      (isFunction(list.listener) && list.listener === listener)) {
+    delete this._events[type];
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+
+  } else if (isObject(list)) {
+    for (i = length; i-- > 0;) {
+      if (list[i] === listener ||
+          (list[i].listener && list[i].listener === listener)) {
+        position = i;
+        break;
+      }
+    }
+
+    if (position < 0)
+      return this;
+
+    if (list.length === 1) {
+      list.length = 0;
+      delete this._events[type];
+    } else {
+      list.splice(position, 1);
+    }
+
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  var key, listeners;
+
+  if (!this._events)
+    return this;
+
+  // not listening for removeListener, no need to emit
+  if (!this._events.removeListener) {
+    if (arguments.length === 0)
+      this._events = {};
+    else if (this._events[type])
+      delete this._events[type];
+    return this;
+  }
+
+  // emit removeListener for all listeners on all events
+  if (arguments.length === 0) {
+    for (key in this._events) {
+      if (key === 'removeListener') continue;
+      this.removeAllListeners(key);
+    }
+    this.removeAllListeners('removeListener');
+    this._events = {};
+    return this;
+  }
+
+  listeners = this._events[type];
+
+  if (isFunction(listeners)) {
+    this.removeListener(type, listeners);
+  } else if (listeners) {
+    // LIFO order
+    while (listeners.length)
+      this.removeListener(type, listeners[listeners.length - 1]);
+  }
+  delete this._events[type];
+
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  var ret;
+  if (!this._events || !this._events[type])
+    ret = [];
+  else if (isFunction(this._events[type]))
+    ret = [this._events[type]];
+  else
+    ret = this._events[type].slice();
+  return ret;
+};
+
+EventEmitter.prototype.listenerCount = function(type) {
+  if (this._events) {
+    var evlistener = this._events[type];
+
+    if (isFunction(evlistener))
+      return 1;
+    else if (evlistener)
+      return evlistener.length;
+  }
+  return 0;
+};
+
+EventEmitter.listenerCount = function(emitter, type) {
+  return emitter.listenerCount(type);
+};
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+
+},{}],67:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -5725,7 +6042,7 @@ function EvStore(elem) {
 
 }());
 
-},{}],67:[function(require,module,exports){
+},{}],68:[function(require,module,exports){
 (function (global){
 var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
@@ -5744,7 +6061,7 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":57}],68:[function(require,module,exports){
+},{"min-document":57}],69:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5767,7 +6084,7 @@ function Individual(key, value) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],69:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 'use strict';
 
 var Individual = require('./index.js');
@@ -5791,14 +6108,14 @@ function OneVersion(moduleName, version, defaultValue) {
     return Individual(key, defaultValue);
 }
 
-},{"./index.js":68}],70:[function(require,module,exports){
+},{"./index.js":69}],71:[function(require,module,exports){
 "use strict";
 
 module.exports = function isObject(x) {
 	return typeof x === "object" && x !== null;
 };
 
-},{}],71:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.1.1
  * https://jquery.com/
@@ -16020,27 +16337,27 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],72:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":77}],73:[function(require,module,exports){
+},{"./vdom/create-element.js":78}],74:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":97}],74:[function(require,module,exports){
+},{"./vtree/diff.js":98}],75:[function(require,module,exports){
 var h = require("./virtual-hyperscript/index.js")
 
 module.exports = h
 
-},{"./virtual-hyperscript/index.js":84}],75:[function(require,module,exports){
+},{"./virtual-hyperscript/index.js":85}],76:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":80}],76:[function(require,module,exports){
+},{"./vdom/patch.js":81}],77:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -16139,7 +16456,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":88,"is-object":70}],77:[function(require,module,exports){
+},{"../vnode/is-vhook.js":89,"is-object":71}],78:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -16187,7 +16504,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":86,"../vnode/is-vnode.js":89,"../vnode/is-vtext.js":90,"../vnode/is-widget.js":91,"./apply-properties":76,"global/document":67}],78:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":87,"../vnode/is-vnode.js":90,"../vnode/is-vtext.js":91,"../vnode/is-widget.js":92,"./apply-properties":77,"global/document":68}],79:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -16274,7 +16591,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],79:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -16427,7 +16744,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":91,"../vnode/vpatch.js":94,"./apply-properties":76,"./update-widget":81}],80:[function(require,module,exports){
+},{"../vnode/is-widget.js":92,"../vnode/vpatch.js":95,"./apply-properties":77,"./update-widget":82}],81:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -16509,7 +16826,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":77,"./dom-index":78,"./patch-op":79,"global/document":67,"x-is-array":98}],81:[function(require,module,exports){
+},{"./create-element":78,"./dom-index":79,"./patch-op":80,"global/document":68,"x-is-array":99}],82:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -16526,7 +16843,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":91}],82:[function(require,module,exports){
+},{"../vnode/is-widget.js":92}],83:[function(require,module,exports){
 'use strict';
 
 var EvStore = require('ev-store');
@@ -16555,7 +16872,7 @@ EvHook.prototype.unhook = function(node, propertyName) {
     es[propName] = undefined;
 };
 
-},{"ev-store":65}],83:[function(require,module,exports){
+},{"ev-store":65}],84:[function(require,module,exports){
 'use strict';
 
 module.exports = SoftSetHook;
@@ -16574,7 +16891,7 @@ SoftSetHook.prototype.hook = function (node, propertyName) {
     }
 };
 
-},{}],84:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 'use strict';
 
 var isArray = require('x-is-array');
@@ -16713,7 +17030,7 @@ function errorString(obj) {
     }
 }
 
-},{"../vnode/is-thunk":87,"../vnode/is-vhook":88,"../vnode/is-vnode":89,"../vnode/is-vtext":90,"../vnode/is-widget":91,"../vnode/vnode.js":93,"../vnode/vtext.js":95,"./hooks/ev-hook.js":82,"./hooks/soft-set-hook.js":83,"./parse-tag.js":85,"x-is-array":98}],85:[function(require,module,exports){
+},{"../vnode/is-thunk":88,"../vnode/is-vhook":89,"../vnode/is-vnode":90,"../vnode/is-vtext":91,"../vnode/is-widget":92,"../vnode/vnode.js":94,"../vnode/vtext.js":96,"./hooks/ev-hook.js":83,"./hooks/soft-set-hook.js":84,"./parse-tag.js":86,"x-is-array":99}],86:[function(require,module,exports){
 'use strict';
 
 var split = require('browser-split');
@@ -16769,7 +17086,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":58}],86:[function(require,module,exports){
+},{"browser-split":58}],87:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -16811,14 +17128,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":87,"./is-vnode":89,"./is-vtext":90,"./is-widget":91}],87:[function(require,module,exports){
+},{"./is-thunk":88,"./is-vnode":90,"./is-vtext":91,"./is-widget":92}],88:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],88:[function(require,module,exports){
+},{}],89:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -16827,7 +17144,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],89:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -16836,7 +17153,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":92}],90:[function(require,module,exports){
+},{"./version":93}],91:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -16845,17 +17162,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":92}],91:[function(require,module,exports){
+},{"./version":93}],92:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],92:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 module.exports = "2"
 
-},{}],93:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 var version = require("./version")
 var isVNode = require("./is-vnode")
 var isWidget = require("./is-widget")
@@ -16929,7 +17246,7 @@ function VirtualNode(tagName, properties, children, key, namespace) {
 VirtualNode.prototype.version = version
 VirtualNode.prototype.type = "VirtualNode"
 
-},{"./is-thunk":87,"./is-vhook":88,"./is-vnode":89,"./is-widget":91,"./version":92}],94:[function(require,module,exports){
+},{"./is-thunk":88,"./is-vhook":89,"./is-vnode":90,"./is-widget":92,"./version":93}],95:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -16953,7 +17270,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":92}],95:[function(require,module,exports){
+},{"./version":93}],96:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = VirtualText
@@ -16965,7 +17282,7 @@ function VirtualText(text) {
 VirtualText.prototype.version = version
 VirtualText.prototype.type = "VirtualText"
 
-},{"./version":92}],96:[function(require,module,exports){
+},{"./version":93}],97:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -17025,7 +17342,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":88,"is-object":70}],97:[function(require,module,exports){
+},{"../vnode/is-vhook":89,"is-object":71}],98:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -17454,7 +17771,7 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":86,"../vnode/is-thunk":87,"../vnode/is-vnode":89,"../vnode/is-vtext":90,"../vnode/is-widget":91,"../vnode/vpatch":94,"./diff-props":96,"x-is-array":98}],98:[function(require,module,exports){
+},{"../vnode/handle-thunk":87,"../vnode/is-thunk":88,"../vnode/is-vnode":90,"../vnode/is-vtext":91,"../vnode/is-widget":92,"../vnode/vpatch":95,"./diff-props":97,"x-is-array":99}],99:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
@@ -17464,10 +17781,10 @@ function isArray(obj) {
     return toString.call(obj) === "[object Array]"
 }
 
-},{}],99:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.0.6",
+  "version": "1.5.0",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
