@@ -11,69 +11,75 @@ module.exports = App;
 
 },{"./lib/app":3,"./lib/bars":7,"./lib/utils/map":65}],2:[function(require,module,exports){
 var Generator = require('generate-js');
+
+var EventEmitter = require('events')
+    .EventEmitter;
 var utils = require('compileit/lib/utils');
 
-var Ineractions = require('./interactions');
+var Interactions = require('./interactions');
 
 var registerBarsOptions = require('./register-bars-options');
 
-var App = Generator.generate(function App(options, state) {
-    var _ = this;
+var App = Generator.generateFrom(
+    EventEmitter,
+    function App(options, state) {
+        var _ = this;
 
-    _.state = state;
-    _.bars = new App.Bars();
-    registerBarsOptions(_.bars, options);
+        console.warn(
+            'app.on has been repurposed for app events to access view/DOM events use app.view.on instead.\nhttps://github.com/Mike96Angelo/Bars/blob/master/docs/js-interface.md#appview'
+        );
 
-    var indexTemplate;
+        EventEmitter.call(_);
 
-    if (typeof options.index === 'string') {
-        if (!_.bars.preCompile) {
-            throw 'partials must be pre-compiled using bars.preCompile(template)';
+        _.state = state;
+        _.bars = new App.Bars();
+        registerBarsOptions(_.bars, options);
+
+        var indexTemplate;
+
+        if (typeof options.index === 'string') {
+            if (!_.bars.preCompile) {
+                throw 'partials must be pre-compiled using bars.preCompile(template)';
+            }
+            indexTemplate = _.bars.preCompile(options.index, 'index', null, {
+                minify: true
+            });
+        } else {
+            indexTemplate = options.index;
         }
-        indexTemplate = _.bars.preCompile(options.index, 'index', null, {
-            minify: true
-        });
-    } else {
-        indexTemplate = options.index;
+
+        _.dom = _.bars.build(indexTemplate, _.state);
+
+        _.view = new Interactions(_.dom.rootNode);
+        _.document = new Interactions(document);
+        _.window = new Interactions(window);
     }
-
-    _.dom = _.bars.build(indexTemplate, _.state);
-
-    _.interactions = new Ineractions(_.dom.rootNode);
-});
+);
 
 App.definePrototype({
-    on: function on(events, target, lintener) {
-        var _ = this;
-
-        _.interactions.on(events, target, lintener);
-    },
-    off: function off(events, target, lintener) {
-        var _ = this;
-
-        _.interactions.off(events, target, lintener);
-    },
     render: function render() {
         var _ = this;
 
         _.dom.update(_.state);
+        _.emit('render');
     },
     appendTo: function appendTo(element) {
         var _ = this;
 
         utils.assertError(
             element &&
-            Ineractions.$(element)[0] instanceof Element,
+            Interactions.$(element)[0] instanceof Element,
             'Option element must be of type Element or a valid css selector.'
         );
 
-        _.dom.appendTo(Ineractions.$(element)[0]);
+        _.dom.appendTo(Interactions.$(element)[0]);
+        _.emit('append');
     }
 });
 
 module.exports = App;
 
-},{"./interactions":4,"./register-bars-options":5,"compileit/lib/utils":71,"generate-js":72}],3:[function(require,module,exports){
+},{"./interactions":4,"./register-bars-options":5,"compileit/lib/utils":71,"events":72,"generate-js":73}],3:[function(require,module,exports){
 module.exports = require('./app');
 
 },{"./app":2}],4:[function(require,module,exports){
@@ -93,9 +99,7 @@ Ineractions.definePrototype({
         var _ = this;
 
         return function (event) {
-            $target = $(this);
-            $target.data = $target.prop('data');
-            return listener.call(_, event, $target);
+            return listener(event, this);
         };
     },
     on: function on(events, target, listener) {
@@ -116,7 +120,7 @@ Ineractions.definePrototype({
 
 module.exports = Ineractions;
 
-},{"generate-js":72,"jquery":73}],5:[function(require,module,exports){
+},{"generate-js":73,"jquery":74}],5:[function(require,module,exports){
 function registerConfig(bars, options) {
     var key;
 
@@ -218,7 +222,7 @@ Bars.definePrototype({
 
 module.exports = Bars;
 
-},{"../package":74,"./blocks":8,"./compiler/tokens":35,"./renderer":60,"./transforms":64,"generate-js":72}],7:[function(require,module,exports){
+},{"../package":75,"./blocks":8,"./compiler/tokens":35,"./renderer":60,"./transforms":64,"generate-js":73}],7:[function(require,module,exports){
 var Bars = require('./bars-runtime'),
     compile = require('./compiler');
 
@@ -293,7 +297,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":72}],9:[function(require,module,exports){
+},{"generate-js":73}],9:[function(require,module,exports){
 var compileit = require('compileit');
 var parsers = require('./parsers');
 
@@ -2888,7 +2892,7 @@ ProgramToken.definePrototype({
 
 Token.tokens.program = ProgramToken;
 
-},{"../../../package":74,"./token":44}],41:[function(require,module,exports){
+},{"../../../package":75,"./token":44}],41:[function(require,module,exports){
 var Token = require('./token');
 
 var PropToken = Token.generate(
@@ -4016,7 +4020,7 @@ BarsNode.definePrototype({
 
 module.exports = BarsNode;
 
-},{"generate-js":72}],52:[function(require,module,exports){
+},{"generate-js":73}],52:[function(require,module,exports){
 var BarsNode = require('./bars-node');
 var NODES = require('./nodes');
 var execute = require('../../runtime/execute');
@@ -4748,11 +4752,14 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./render/dom-renderer":54,"./render/text-renderer":59,"./runtime/context-n":61,"generate-js":72}],61:[function(require,module,exports){
+},{"./render/dom-renderer":54,"./render/text-renderer":59,"./runtime/context-n":61,"generate-js":73}],61:[function(require,module,exports){
 var Generator = require('generate-js');
+var utils = require('compileit/lib/utils');
 
 var Context = Generator.generate(function Context(data, props, context, cleanVars) {
     var _ = this;
+
+    utils.assertTypeError(data, 'object');
 
     _.data = data;
     _.props = props;
@@ -4772,8 +4779,11 @@ Context.definePrototype({
             i = 0;
 
         if (path[0] === '@') {
-            // console.log(_.props[path[1]]);
-            return _.props[path[1]];
+            if (_.props) {
+                return _.props[path[1]];
+            } else {
+                return void(0);
+            }
         }
 
         if (
@@ -4782,7 +4792,7 @@ Context.definePrototype({
             return _.data;
         }
 
-        if (path[0] in _.vars) {
+        if (_.vars && path[0] in _.vars) {
             return _.vars[path[0]];
         }
 
@@ -4813,7 +4823,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":72}],62:[function(require,module,exports){
+},{"compileit/lib/utils":71,"generate-js":73}],62:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
@@ -4869,7 +4879,7 @@ function execute(syntaxTree, transforms, context) {
     if (syntaxTree) {
         return run(syntaxTree);
     } else {
-        return context.lookup('.');
+        return context.lookup('this');
     }
 }
 
@@ -5049,7 +5059,7 @@ Transform.definePrototype({
 
 module.exports = Transform;
 
-},{"generate-js":72}],65:[function(require,module,exports){
+},{"generate-js":73}],65:[function(require,module,exports){
 var Generator = require('generate-js');
 
 var MapIterator = Generator.generate(function MapIterator(map, keys, values) {
@@ -5190,7 +5200,7 @@ if (typeof window === 'object') {
     }
 }
 
-},{"generate-js":72}],66:[function(require,module,exports){
+},{"generate-js":73}],66:[function(require,module,exports){
 exports.Compiler = require('./lib/compiler');
 exports.Token = require('./lib/token');
 
@@ -5376,7 +5386,7 @@ CodeBuffer.definePrototype({
 
 module.exports = CodeBuffer;
 
-},{"./utils":71,"generate-js":72}],68:[function(require,module,exports){
+},{"./utils":71,"generate-js":73}],68:[function(require,module,exports){
 var Generator = require('generate-js'),
     Scope = require('./scope'),
     Token = require('./token'),
@@ -5531,7 +5541,7 @@ Compiler.definePrototype({
 
 module.exports = Compiler;
 
-},{"./code-buffer":67,"./scope":69,"./token":70,"./utils":71,"generate-js":72}],69:[function(require,module,exports){
+},{"./code-buffer":67,"./scope":69,"./token":70,"./utils":71,"generate-js":73}],69:[function(require,module,exports){
 var Generator = require('generate-js'),
     Token = require('./token'),
     utils = require('./utils');
@@ -5616,7 +5626,7 @@ Scope.definePrototype({
 
 module.exports = Scope;
 
-},{"./token":70,"./utils":71,"generate-js":72}],70:[function(require,module,exports){
+},{"./token":70,"./utils":71,"generate-js":73}],70:[function(require,module,exports){
 var Generator = require('generate-js'),
     utils = require('./utils');
 
@@ -5681,7 +5691,7 @@ Token.definePrototype({
 
 module.exports = Token;
 
-},{"./utils":71,"generate-js":72}],71:[function(require,module,exports){
+},{"./utils":71,"generate-js":73}],71:[function(require,module,exports){
 /**
  * Assert Error function.
  * @param  {Boolean} condition Whether or not to throw error.
@@ -5759,6 +5769,310 @@ function bufferSlice(code, range, format) {
 exports.bufferSlice = bufferSlice;
 
 },{}],72:[function(require,module,exports){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+function EventEmitter() {
+  this._events = this._events || {};
+  this._maxListeners = this._maxListeners || undefined;
+}
+module.exports = EventEmitter;
+
+// Backwards-compat with node 0.10.x
+EventEmitter.EventEmitter = EventEmitter;
+
+EventEmitter.prototype._events = undefined;
+EventEmitter.prototype._maxListeners = undefined;
+
+// By default EventEmitters will print a warning if more than 10 listeners are
+// added to it. This is a useful default which helps finding memory leaks.
+EventEmitter.defaultMaxListeners = 10;
+
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!isNumber(n) || n < 0 || isNaN(n))
+    throw TypeError('n must be a positive number');
+  this._maxListeners = n;
+  return this;
+};
+
+EventEmitter.prototype.emit = function(type) {
+  var er, handler, len, args, i, listeners;
+
+  if (!this._events)
+    this._events = {};
+
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events.error ||
+        (isObject(this._events.error) && !this._events.error.length)) {
+      er = arguments[1];
+      if (er instanceof Error) {
+        throw er; // Unhandled 'error' event
+      } else {
+        // At least give some kind of context to the user
+        var err = new Error('Uncaught, unspecified "error" event. (' + er + ')');
+        err.context = er;
+        throw err;
+      }
+    }
+  }
+
+  handler = this._events[type];
+
+  if (isUndefined(handler))
+    return false;
+
+  if (isFunction(handler)) {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+  } else if (isObject(handler)) {
+    args = Array.prototype.slice.call(arguments, 1);
+    listeners = handler.slice();
+    len = listeners.length;
+    for (i = 0; i < len; i++)
+      listeners[i].apply(this, args);
+  }
+
+  return true;
+};
+
+EventEmitter.prototype.addListener = function(type, listener) {
+  var m;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events)
+    this._events = {};
+
+  // To avoid recursion in the case that type === "newListener"! Before
+  // adding it to the listeners, first emit "newListener".
+  if (this._events.newListener)
+    this.emit('newListener', type,
+              isFunction(listener.listener) ?
+              listener.listener : listener);
+
+  if (!this._events[type])
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  else if (isObject(this._events[type]))
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  else
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+
+  // Check for listener leak
+  if (isObject(this._events[type]) && !this._events[type].warned) {
+    if (!isUndefined(this._maxListeners)) {
+      m = this._maxListeners;
+    } else {
+      m = EventEmitter.defaultMaxListeners;
+    }
+
+    if (m && m > 0 && this._events[type].length > m) {
+      this._events[type].warned = true;
+      console.error('(node) warning: possible EventEmitter memory ' +
+                    'leak detected. %d listeners added. ' +
+                    'Use emitter.setMaxListeners() to increase limit.',
+                    this._events[type].length);
+      if (typeof console.trace === 'function') {
+        // not supported in IE 10
+        console.trace();
+      }
+    }
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  var fired = false;
+
+  function g() {
+    this.removeListener(type, g);
+
+    if (!fired) {
+      fired = true;
+      listener.apply(this, arguments);
+    }
+  }
+
+  g.listener = listener;
+  this.on(type, g);
+
+  return this;
+};
+
+// emits a 'removeListener' event iff the listener was removed
+EventEmitter.prototype.removeListener = function(type, listener) {
+  var list, position, length, i;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events || !this._events[type])
+    return this;
+
+  list = this._events[type];
+  length = list.length;
+  position = -1;
+
+  if (list === listener ||
+      (isFunction(list.listener) && list.listener === listener)) {
+    delete this._events[type];
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+
+  } else if (isObject(list)) {
+    for (i = length; i-- > 0;) {
+      if (list[i] === listener ||
+          (list[i].listener && list[i].listener === listener)) {
+        position = i;
+        break;
+      }
+    }
+
+    if (position < 0)
+      return this;
+
+    if (list.length === 1) {
+      list.length = 0;
+      delete this._events[type];
+    } else {
+      list.splice(position, 1);
+    }
+
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  var key, listeners;
+
+  if (!this._events)
+    return this;
+
+  // not listening for removeListener, no need to emit
+  if (!this._events.removeListener) {
+    if (arguments.length === 0)
+      this._events = {};
+    else if (this._events[type])
+      delete this._events[type];
+    return this;
+  }
+
+  // emit removeListener for all listeners on all events
+  if (arguments.length === 0) {
+    for (key in this._events) {
+      if (key === 'removeListener') continue;
+      this.removeAllListeners(key);
+    }
+    this.removeAllListeners('removeListener');
+    this._events = {};
+    return this;
+  }
+
+  listeners = this._events[type];
+
+  if (isFunction(listeners)) {
+    this.removeListener(type, listeners);
+  } else if (listeners) {
+    // LIFO order
+    while (listeners.length)
+      this.removeListener(type, listeners[listeners.length - 1]);
+  }
+  delete this._events[type];
+
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  var ret;
+  if (!this._events || !this._events[type])
+    ret = [];
+  else if (isFunction(this._events[type]))
+    ret = [this._events[type]];
+  else
+    ret = this._events[type].slice();
+  return ret;
+};
+
+EventEmitter.prototype.listenerCount = function(type) {
+  if (this._events) {
+    var evlistener = this._events[type];
+
+    if (isFunction(evlistener))
+      return 1;
+    else if (evlistener)
+      return evlistener.length;
+  }
+  return 0;
+};
+
+EventEmitter.listenerCount = function(emitter, type) {
+  return emitter.listenerCount(type);
+};
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+
+},{}],73:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -6120,7 +6434,7 @@ exports.bufferSlice = bufferSlice;
 
 }());
 
-},{}],73:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.1.1
  * https://jquery.com/
@@ -16342,7 +16656,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],74:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 module.exports={
   "name": "bars",
   "version": "1.0.4",

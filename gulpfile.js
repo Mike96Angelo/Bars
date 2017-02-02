@@ -1,7 +1,8 @@
 var browserify = require('browserify'),
     gulp = require('gulp'),
     source = require('vinyl-source-stream'),
-    buffer = require('vinyl-buffer');
+    buffer = require('vinyl-buffer'),
+    packageJSON = require('./package.json');
 
 var minify = require('gulp-minify');
 
@@ -23,7 +24,8 @@ gulp.task('bars', function () {
                 min: '.min.js'
             }
         }))
-        .pipe(gulp.dest('./src'));
+        .pipe(gulp.dest('./src'))
+        .pipe(gulp.dest('./src/v' + packageJSON.version));
 });
 
 gulp.task('bars-compiled', function () {
@@ -41,7 +43,8 @@ gulp.task('bars-compiled', function () {
                 min: '.min.js'
             }
         }))
-        .pipe(gulp.dest('./src'));
+        .pipe(gulp.dest('./src'))
+        .pipe(gulp.dest('./src/v' + packageJSON.version));
 });
 
 gulp.task('app', function () {
@@ -60,7 +63,8 @@ gulp.task('app', function () {
                 min: '.min.js'
             }
         }))
-        .pipe(gulp.dest('./src'));
+        .pipe(gulp.dest('./src'))
+        .pipe(gulp.dest('./src/v' + packageJSON.version));
 });
 
 gulp.task('app-compiled', function () {
@@ -78,7 +82,8 @@ gulp.task('app-compiled', function () {
                 min: '.min.js'
             }
         }))
-        .pipe(gulp.dest('./src'));
+        .pipe(gulp.dest('./src'))
+        .pipe(gulp.dest('./src/v' + packageJSON.version));
 });
 
 gulp.task('watch', ['default'], function () {

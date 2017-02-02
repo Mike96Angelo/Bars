@@ -4607,9 +4607,12 @@ module.exports = Renderer;
 
 },{"./render/dom-renderer":51,"./render/text-renderer":56,"./runtime/context-n":58,"generate-js":68}],58:[function(require,module,exports){
 var Generator = require('generate-js');
+var utils = require('compileit/lib/utils');
 
 var Context = Generator.generate(function Context(data, props, context, cleanVars) {
     var _ = this;
+
+    utils.assertTypeError(data, 'object');
 
     _.data = data;
     _.props = props;
@@ -4629,8 +4632,11 @@ Context.definePrototype({
             i = 0;
 
         if (path[0] === '@') {
-            // console.log(_.props[path[1]]);
-            return _.props[path[1]];
+            if (_.props) {
+                return _.props[path[1]];
+            } else {
+                return void(0);
+            }
         }
 
         if (
@@ -4639,7 +4645,7 @@ Context.definePrototype({
             return _.data;
         }
 
-        if (path[0] in _.vars) {
+        if (_.vars && path[0] in _.vars) {
             return _.vars[path[0]];
         }
 
@@ -4670,7 +4676,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"generate-js":68}],59:[function(require,module,exports){
+},{"compileit/lib/utils":67,"generate-js":68}],59:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
@@ -4726,7 +4732,7 @@ function execute(syntaxTree, transforms, context) {
     if (syntaxTree) {
         return run(syntaxTree);
     } else {
-        return context.lookup('.');
+        return context.lookup('this');
     }
 }
 

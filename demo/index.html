@@ -1,189 +1,196 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>To Do App</title>
+  <title>To Do App</title>
 
-<style>
-*, *:before, *:after {
-    margin: 0;
-    padding: 0;
-}
+  <style>
+    *,
+    *:before,
+    *:after {
+      margin: 0;
+      padding: 0;
+    }
 
-ul {
-    min-height: 25px;
-}
+    ul {
+      min-height: 25px;
+    }
 
-ul, li {
-    list-style: none;
-}
+    ul,
+    li {
+      list-style: none;
+    }
 
-input {
-    width: 250px;
-    outline: none;
-    padding: 5px;
+    input {
+      width: 250px;
+      outline: none;
+      padding: 5px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
 
-    margin-top: 10px;
-    margin-bottom: 10px;
-    text-align: center;
-}
+    #bars-output {
+      padding: 10px;
+      text-align: center;
+    }
 
-#bars-output {
-    padding: 10px;
-    text-align: center;
-}
+    li>div {
+      display: inline-block;
+      width: 250px;
+    }
 
-li > div {
-    display: inline-block;
-    width: 250px;
-}
-li {
-    height: 25px;
-    opacity: 1;
-    transition: height 0.2s, opacity 0.2s;
-    overflow: hidden;
-}
-li.del {
-    height: 0;
-    opacity: 0;
-}
+    li {
+      height: 25px;
+      opacity: 1;
+      transition: height 0.2s, opacity 0.2s;
+      overflow: hidden;
+    }
 
-.list,
-.list-complete,
-.list-del {
-    display: inline-block;
-    height: 20px;
-    float: left;
-}
+    li.del {
+      height: 0;
+      opacity: 0;
+    }
 
-.list {
-    text-align: left;
-    padding-left: 10px;
-}
+    .list,
+    .list-complete,
+    .list-del {
+      display: inline-block;
+      height: 20px;
+      float: left;
+    }
 
-.list-complete,
-.list-del {
-    cursor: pointer;
-    width: 20px;
-    color: rgba(0, 0, 0, 0.5);
-}
+    .list {
+      text-align: left;
+      padding-left: 10px;
+    }
 
-.list-complete.done {
-    border-width: 10px;
-    border-color: rgb(50, 200, 75);
-}
+    .list-complete,
+    .list-del {
+      cursor: pointer;
+      width: 20px;
+      color: rgba(0, 0, 0, 0.5);
+    }
 
-.list-complete {
-    box-sizing: border-box;
-    border-radius: 10px;
-    border-width: 2px;
-    border-color: #cccccc;
-    border-style: solid;
-    transition: border-width 0.2s;
-}
+    .list-complete.done {
+      border-width: 10px;
+      border-color: rgb(50, 200, 75);
+    }
 
-.list-del {
-    float: right;
-}
-</style>
-<script id="bars-template" type="text/x-handlebars-template">
+    .list-complete {
+      box-sizing: border-box;
+      border-radius: 10px;
+      border-width: 2px;
+      border-color: #cccccc;
+      border-style: solid;
+      transition: border-width 0.2s;
+    }
+
+    .list-del {
+      float: right;
+    }
+
+  </style>
+  <script id="bars-template" type="text/x-handlebars-template">
     <h2>To Do App</h2>
     <input id="new-list" todos:{{todos}} placeholder="Add something to your list..." />
     <ul>
-    {{#with todos=todos}}
-    {{#each todos}}
-        <li class="{{(del && 'del')||''}}">
-            <div>
-                <span class="list-complete {{(complete && 'done') || ''}}" todo:{{this}}></span>
-                <span class="list">{{text}}</span>
-                <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
-            </div>
-        </li>
-    {{else}}
-    <li>
+      {{#with todos=todos}} {{#each todos}}
+      <li class="{{(del && 'del')||''}}">
+        <div>
+          <span class="list-complete {{(complete && 'done') || ''}}" todo:{{this}}></span>
+          <span class="list">{{text}}</span>
+          <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
+        </div>
+      </li>
+      {{else}}
+      <li>
         <span>You have nothing left to do.</span>
-    </li>
-    {{/each}}
-    {{/with}}
+      </li>
+      {{/each}} {{/with}}
     </ul>
-</script>
-<script src='bars-app.js'></script>
+  </script>
+  <script src='bars-app.js'></script>
 </head>
+
 <body>
 
-<div id="bars-output"></div>
+  <div id="bars-output"></div>
 
-<script type="text/javascript">
+  <script type="text/javascript">
     function loadData() {
-        var todos = localStorage.getItem('todos');
-        todos = todos && JSON.parse(todos);
+      var todos = localStorage.getItem('todos');
+      todos = todos && JSON.parse(todos);
 
-        return todos || {
-            todos: [
-                {
-                    text: 'Buy eggs'
-                }
-            ]
-        };
+      return todos || {
+        todos: [{
+          text: 'Buy eggs'
+        }]
+      };
     }
 
     function storeData(todos) {
-        localStorage.setItem('todos', JSON.stringify(todos));
+      localStorage.setItem('todos', JSON.stringify(todos));
 
-        return todos;
+      return todos;
     }
 
-    var app = new App(
-        {
-            index: document.getElementById('bars-template').innerHTML,
-            // partials: {},
-            // transforms: {}
-        },
-        loadData()
+    var app = new App({
+        index: document.getElementById('bars-template').innerHTML,
+        // partials: {},
+        // transforms: {}
+      },
+      loadData()
     );
 
-    app.on('click', '.list-complete', function (evt, $el){
-        var todo = $el.prop('data')('todo');
-        todo.complete = !todo.complete;
-        app.render();
-        storeData(app.state);
+    app.view.on('click', '.list-complete', function(evt, target) {
+      var todo = target.data('todo');
+      todo.complete = !todo.complete;
+      app.render();
+
+      storeData(app.state);
     });
 
-    app.on('click', '.list-del', function (evt, $el){
-        var todo = $el.data('todo');
-        var todos = $el.data('todos');
+    app.view.on('click', '.list-del', function(evt, target) {
+      var todo = target.data('todo');
+      var todos = target.data('todos');
 
-        todo.del = true;
+      todo.del = true;
+      app.render();
+
+      setTimeout(function() {
+        todos.splice(todos.indexOf(todo), 1);
+
         app.render();
+      }, 200);
 
-        setTimeout(function () {
-            todos.splice(todos.indexOf(todo), 1);
-
-            app.render();
-            storeData(app.state);
-        }, 200);
+      storeData(app.state);
     });
 
-    app.on('change', '#new-list', function (evt, $el){
-        var todos = $el.data('todos');
+    app.view.on('change', '#new-list', function(evt, target) {
+      var todos = target.data('todos');
 
-        var todo = {
-            del: true,
-            text: $el.val()
-        };
+      var todo = {
+        del: true,
+        text: target.value
+      };
 
-        todos.unshift(todo);
+      todos.unshift(todo);
+      app.render();
+      target.value = '';
+
+      setTimeout(function() {
+        delete todo.del;
         app.render();
-        $el.val('');
+      }, 0);
 
-        setTimeout(function () {
-            delete todo.del;
-            storeData(app.state);
-            app.state=loadData();
-            app.render();
-        },0);
+      storeData(app.state);
     });
+
 
     app.appendTo('#bars-output');
-</script>
+
+  </script>
 </body>
+
 </html>
