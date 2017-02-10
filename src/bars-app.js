@@ -45,23 +45,17 @@ var App = Generator.generateFrom(
         } else {
             _.indexTemplate = options.index;
         }
+
+        _.dom = _.bars.build(_.indexTemplate, _.state);
+
+        _.view = new Interactions(_.dom.rootNode);
+        _.document = new Interactions(document);
+        _.window = new Interactions(window);
     }
 );
 
 App.definePrototype({
     version: PACKAGE_JSON.version,
-    init: function init() {
-        var _ = this;
-
-        if (!_._init) {
-            _.dom = _.bars.build(_.indexTemplate, _.state);
-
-            _.view = new Interactions(_.dom.rootNode);
-            _.document = new Interactions(document);
-            _.window = new Interactions(window);
-        }
-        _._init = true;
-    },
     render: function render() {
         var _ = this;
 
@@ -77,7 +71,7 @@ App.definePrototype({
             'Option element must be of type Element or a valid css selector.'
         );
 
-        _.init();
+        _.render();
 
         _.dom.appendTo(Interactions.$(element)[0]);
         _.emit('append');
@@ -4099,12 +4093,10 @@ function renderTypeAsTexts(bars, struct, context) {
     throw 'unknown type: ' + struct.type;
 }
 
-function render(bars, struct, context) {
+function render(bars, struct, context, noRender) {
     return h(
-        'div', {
-            key: struct.fragment.key
-        },
-        renderChildrenNodes(bars, struct.fragment, context)
+        'div',
+        noRender ? [] : renderChildrenNodes(bars, struct.fragment, context)
     );
 }
 
@@ -4345,10 +4337,9 @@ var Renderer = Generator.generate(function Renderer(bars, struct, state) {
     _.bars = bars;
     _.struct = struct;
 
-    if (state) {
-        _.tree = renderV(_.bars, _.struct, new ContextN(state));
-        _.rootNode = createElement(_.tree);
-    }
+    _.tree = renderV(_.bars, _.struct, new ContextN(state || {}), true);
+    _.rootNode = createElement(_.tree);
+
 });
 
 Renderer.definePrototype({
@@ -17793,7 +17784,7 @@ function isArray(obj) {
 },{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
