@@ -10,6 +10,8 @@ module.exports = App;
 },{"./lib/app":3,"./lib/bars":7}],2:[function(require,module,exports){
 var Generator = require('generate-js');
 
+var PACKAGE_JSON = require('../../package.json');
+
 var EventEmitter = require('events')
     .EventEmitter;
 var utils = require('compileit/lib/utils');
@@ -33,28 +35,33 @@ var App = Generator.generateFrom(
         _.bars = new App.Bars();
         registerBarsOptions(_.bars, options);
 
-        var indexTemplate;
-
         if (typeof options.index === 'string') {
             if (!_.bars.preCompile) {
                 throw 'partials must be pre-compiled using bars.preCompile(template)';
             }
-            indexTemplate = _.bars.preCompile(options.index, 'index', null, {
+            _.indexTemplate = _.bars.preCompile(options.index, 'index', null, {
                 minify: true
             });
         } else {
-            indexTemplate = options.index;
+            _.indexTemplate = options.index;
         }
-
-        _.dom = _.bars.build(indexTemplate, _.state);
-
-        _.view = new Interactions(_.dom.rootNode);
-        _.document = new Interactions(document);
-        _.window = new Interactions(window);
     }
 );
 
 App.definePrototype({
+    version: PACKAGE_JSON.version,
+    init: function init() {
+        var _ = this;
+
+        if (!_._init) {
+            _.dom = _.bars.build(_.indexTemplate, _.state);
+
+            _.view = new Interactions(_.dom.rootNode);
+            _.document = new Interactions(document);
+            _.window = new Interactions(window);
+        }
+        _._init = true;
+    },
     render: function render() {
         var _ = this;
 
@@ -70,6 +77,8 @@ App.definePrototype({
             'Option element must be of type Element or a valid css selector.'
         );
 
+        _.init();
+
         _.dom.appendTo(Interactions.$(element)[0]);
         _.emit('append');
     }
@@ -77,7 +86,7 @@ App.definePrototype({
 
 module.exports = App;
 
-},{"./interactions":4,"./register-bars-options":5,"compileit/lib/utils":64,"events":66,"generate-js":67}],3:[function(require,module,exports){
+},{"../../package.json":100,"./interactions":4,"./register-bars-options":5,"compileit/lib/utils":64,"events":66,"generate-js":67}],3:[function(require,module,exports){
 module.exports = require('./app');
 
 },{"./app":2}],4:[function(require,module,exports){
@@ -17784,7 +17793,7 @@ function isArray(obj) {
 },{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

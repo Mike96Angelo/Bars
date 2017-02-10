@@ -7113,7 +7113,7 @@ function isArray(obj) {
 },{}],95:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
