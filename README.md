@@ -29,9 +29,9 @@ $ npm install bars
 <ul>
 {{#with todos=todos}}
 {{#each todos}}
-    <li class="{{(del && 'del')||''}}">
+    <li class="{{del ? 'del' : ''}}">
         <div>
-            <span class="list-complete {{(complete && 'done') || ''}}" todo:{{this}}></span>
+            <span class="list-complete {{complete ? 'done' : ''}}" todo:{{this}}></span>
             <span class="list">{{text}}</span>
             <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
         </div>
