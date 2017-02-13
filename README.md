@@ -24,10 +24,10 @@ $ npm install bars
 
 ### index.bars:
 ```handlebars
+{{#with todos=todos}}
 <h2>To Do App</h2>
 <input id="new-list" todos:{{todos}} placeholder="Add something to your list..." />
 <ul>
-{{#with todos=todos}}
 {{#each todos}}
     <li class="{{del ? 'del' : ''}}">
         <div>
@@ -41,8 +41,8 @@ $ npm install bars
     <span>You have nothing left to do.</span>
 </li>
 {{/each}}
-{{/with}}
 </ul>
+{{/with}}
 ```
 ### app.js:
 ```javascript
