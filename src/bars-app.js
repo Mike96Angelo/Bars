@@ -1197,6 +1197,56 @@ function isAND(ch) {
     return ch === 0x0026;
 }
 
+function parseConditional(mode, code, tokens, flags, scope, parseMode) {
+    var index = code.index,
+        length = code.length,
+        operator,
+        args;
+
+    if (
+        code.codePointAt(index) === 0x003f // ^[?]$
+    ) {
+        operator = new OperatorToken(code);
+        code.index++;
+
+        operator.operator = '?:';
+
+        args = [];
+        scope.push(operator);
+
+        parseMode('LOGIC-EXP', args, flags);
+        // do more here
+
+        args = utils.makeExpressionTree(args, code);
+
+        if (args.length > 1) throw 'OPERATOR OPERAND MISMATCH';
+
+        operator.operands.push(args[0]);
+
+        return operator;
+    } else if (
+        code.codePointAt(index) === 0x003a // ^[:]$
+    ) {
+        if (
+            OperatorToken.isCreation(scope.token) &&
+            scope.token.operator === '?:'
+        ) {
+            code.index++;
+            scope.close();
+            parseMode.close();
+            return true;
+        } else {
+            throw code.makeError(
+                index,
+                index + 1,
+                'Unexpected token: ' + code.charAt(index)
+            );
+        }
+    }
+
+    return null;
+}
+
 function parseParentheses(mode, code, tokens, flags, scope, parseMode) {
     var index = code.index,
         length = code.length,
@@ -1343,7 +1393,8 @@ function parseOperator(mode, code, tokens, flags, scope, parseMode) {
 function parseExpressionOperator(mode, code, tokens, flags, scope, parseMode) {
     return (
         parseOperator(mode, code, tokens, flags, scope, parseMode) ||
-        parseParentheses(mode, code, tokens, flags, scope, parseMode)
+        parseParentheses(mode, code, tokens, flags, scope, parseMode) ||
+        parseConditional(mode, code, tokens, flags, scope, parseMode)
     );
 }
 
@@ -3593,7 +3644,8 @@ var OpPresidence = {
     dm: ['/', '%', '*'],
     as: ['+', '-'],
     c: ['===', '==', '!==', '!=', '<=', '>=', '>', '<'],
-    ao: ['||', '&&']
+    ao: ['||', '&&'],
+    co: ['?:']
 };
 
 function lookupExpression(tokens, code) {
@@ -3702,7 +3754,7 @@ function binaryExpression(tokens, key, code) {
             if (!OperatorToken.isCreation(prevToken) ||
                 prevToken.saturated
             ) {
-                token.operands.push(prevToken);
+                token.operands.unshift(prevToken);
 
                 if (!OperatorToken.isCreation(nextToken) ||
                     nextToken.saturated
@@ -3743,7 +3795,7 @@ function makeExpressionTree(tokens, code) {
         }
     }
 
-    // console.log(expressionTree(tokens[0]));
+    // console.log(tokens[0], expressionTree(tokens[0]));
 
     return tokens;
 }
@@ -3842,6 +3894,11 @@ function expressionTree(op, d) {
         if (op.operands[1]) {
             s += sp;
             s += expressionTree(op.operands[1], d);
+        }
+
+        if (op.operands[2]) {
+            s += sp;
+            s += expressionTree(op.operands[2], d);
         }
     }
 
@@ -3960,7 +4017,7 @@ function renderBlockAsTexts(bars, struct, context) {
     var blockFunc = bars.blocks[struct.name];
 
     if (typeof blockFunc !== 'function') {
-        throw 'Missing Block helper: ' + struct.name;
+        throw 'Bars Error: Missing Block helper: ' + struct.name;
     }
 
     blockFunc(
@@ -3994,7 +4051,7 @@ function renderBlockAsNodes(bars, struct, context) {
     var blockFunc = bars.blocks[struct.name];
 
     if (typeof blockFunc !== 'function') {
-        throw 'Missing Block helper: ' + struct.name;
+        throw 'Bars Error: Missing Block helper: ' + struct.name;
     }
 
     blockFunc(
@@ -4016,6 +4073,10 @@ function renderPartial(bars, struct, context) {
     }
 
     var partial = bars.partials[name];
+
+    if (!partial) {
+        throw 'Bars Error: Missing Partial: ' + name;
+    }
 
     if (struct.expression) {
         context = context.newContext(
@@ -4076,7 +4137,7 @@ function renderTypeAsNodes(bars, struct, context) {
         return renderPartial(bars, struct, context);
     }
 
-    throw 'unknown type: ' + struct.type;
+    throw 'Bars Error: unknown type: ' + struct.type;
 }
 
 function renderTypeAsTexts(bars, struct, context) {
@@ -4090,7 +4151,7 @@ function renderTypeAsTexts(bars, struct, context) {
     } else if (struct.type === 'fragment') {
         return renderChildrenTexts(bars, struct, context);
     }
-    throw 'unknown type: ' + struct.type;
+    throw 'Bars Error: unknown type: ' + struct.type;
 }
 
 function render(bars, struct, context, noRender) {
@@ -4142,7 +4203,7 @@ function abb(token, indentWith, bars, context) {
     var blockFunc = bars.blocks[token.name];
 
     if (typeof blockFunc !== 'function') {
-        throw 'Missing Block helper: ' + token.name;
+        throw 'Bars Error: Missing Block helper: ' + token.name;
     }
 
     blockFunc(
@@ -4208,7 +4269,7 @@ function hbb(token, indentWith, indent, bars, context) {
     var blockFunc = bars.blocks[token.name];
 
     if (typeof blockFunc !== 'function') {
-        throw 'Missing Block helper: ' + token.name;
+        throw 'Bars Error: Missing Block helper: ' + token.name;
     }
 
     blockFunc(
@@ -4230,6 +4291,10 @@ function hbp(token, indentWith, indent, bars, context) {
     }
 
     var partial = bars.partials[name];
+
+    if (!partial) {
+        throw 'Bars Error: Missing Partial: ' + name;
+    }
 
     if (token.expression) {
         context = context.newContext(
@@ -4376,7 +4441,7 @@ var utils = require('compileit/lib/utils');
 var Context = Generator.generate(function Context(data, props, context, cleanVars) {
     var _ = this;
 
-    utils.assertTypeError(data, 'object');
+    // utils.assertTypeError(data, 'object');
 
     _.data = data;
     _.props = props;
@@ -4413,7 +4478,11 @@ Context.definePrototype({
             return _.vars[path[0]];
         }
 
-        return _.data[path[0]];
+        if (_.data === null || _.data === void(0)) {
+            console.warn('Bars Error: Cannot read property ' + path[0] + ' of ' + _.data);
+        }
+
+        return _.data ? _.data[path[0]] : void(0);
     },
     newContext: function newContext(data, props, cleanVars) {
         return new Context(data, props, this, cleanVars);
@@ -4447,7 +4516,7 @@ function execute(syntaxTree, transforms, context) {
     function run(token) {
         var result,
             args = [];
-        // console.log('>>>>', token)
+        // token.type === 'operator' ? console.log('>>>>', token) : void(0);
         if (
             token.type === 'literal'
         ) {
@@ -4463,6 +4532,13 @@ function execute(syntaxTree, transforms, context) {
             result = logic[token.operator](
                 run(token.operands[0])
             );
+        } else if (
+            token.type === 'operator' &&
+            token.operator === '?:'
+        ) {
+            result = run(token.operands[0]) ?
+                run(token.operands[1]) :
+                run(token.operands[2]);
         } else if (
             token.type === 'operator' &&
             token.operands.length === 2
@@ -4486,7 +4562,7 @@ function execute(syntaxTree, transforms, context) {
             if (transforms[token.name] instanceof Function) {
                 result = transforms[token.name].apply(null, args);
             } else {
-                throw 'Missing Transfrom: "' + token.name + '".';
+                throw 'Bars Error: Missing Transfrom: "' + token.name + '".';
             }
         }
         // console.log('<<<<', result)
@@ -4505,8 +4581,12 @@ module.exports = execute;
 },{"./logic":55}],55:[function(require,module,exports){
 /*Look up*/
 exports.lookup = function add(a, b) {
-    // return a ? a[b] : void(0); // soft
-    return a[b]; // hard
+
+    if (a === null || a === void(0)) {
+        console.warn('Bars Error: Cannot read property ' + b + ' of ' + a);
+    }
+    return a ? a[b] : void(0); // soft
+    // return a[b]; // hard
 };
 exports['.'] = exports.lookup;
 
@@ -17784,7 +17864,7 @@ function isArray(obj) {
 },{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
