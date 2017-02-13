@@ -29,17 +29,17 @@ $ npm install bars
 <input id="new-list" todos:{{todos}} placeholder="Add something to your list..." />
 <ul>
 {{#each todos}}
-    <li class="{{del ? 'del' : ''}}">
-        <div>
-            <span class="list-complete {{complete ? 'done' : ''}}" todo:{{this}}></span>
-            <span class="list">{{text}}</span>
-            <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
-        </div>
-    </li>
+  <li class="{{del ? 'del' : ''}}">
+    <div>
+      <span class="list-complete {{complete ? 'done' : ''}}" todo:{{this}}></span>
+      <span class="list">{{text}}</span>
+      <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
+    </div>
+  </li>
 {{else}}
-<li>
+  <li>
     <span>You have nothing left to do.</span>
-</li>
+  </li>
 {{/each}}
 </ul>
 {{/with}}
