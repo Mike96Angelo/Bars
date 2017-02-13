@@ -72,6 +72,11 @@ Brackets:
 <value>[<expression>]
 ```
 
+Conditional:
+```
+<condition> ? <then-expression> : <else-expression>
+```
+
 Unary:
 ```
 ! <value>

@@ -332,6 +332,8 @@ renderer.update({name: 'Bob'});
 
 Returns *this* [Renderer](#class-renderer).
 
+NOTE: if you do not call `renderer.update(data)`, the view will be empty.  You can call `renderer.update(data)` before or after calling `renderer.appendTo(el)`.
+
 Example:
 ```javascript
 renderer.appendTo(document.body);

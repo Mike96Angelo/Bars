@@ -1629,7 +1629,7 @@ function renderBlockAsTexts(bars, struct, context) {
     var blockFunc = bars.blocks[struct.name];
 
     if (typeof blockFunc !== 'function') {
-        throw 'Bars Error: Missing Block helper: ' + struct.name;
+        throw 'Missing Block helper: ' + struct.name;
     }
 
     blockFunc(
@@ -1663,7 +1663,7 @@ function renderBlockAsNodes(bars, struct, context) {
     var blockFunc = bars.blocks[struct.name];
 
     if (typeof blockFunc !== 'function') {
-        throw 'Bars Error: Missing Block helper: ' + struct.name;
+        throw 'Missing Block helper: ' + struct.name;
     }
 
     blockFunc(
@@ -1685,10 +1685,6 @@ function renderPartial(bars, struct, context) {
     }
 
     var partial = bars.partials[name];
-
-    if (!partial) {
-        throw 'Bars Error: Missing Partial: ' + name;
-    }
 
     if (struct.expression) {
         context = context.newContext(
@@ -1749,7 +1745,7 @@ function renderTypeAsNodes(bars, struct, context) {
         return renderPartial(bars, struct, context);
     }
 
-    throw 'Bars Error: unknown type: ' + struct.type;
+    throw 'unknown type: ' + struct.type;
 }
 
 function renderTypeAsTexts(bars, struct, context) {
@@ -1763,7 +1759,7 @@ function renderTypeAsTexts(bars, struct, context) {
     } else if (struct.type === 'fragment') {
         return renderChildrenTexts(bars, struct, context);
     }
-    throw 'Bars Error: unknown type: ' + struct.type;
+    throw 'unknown type: ' + struct.type;
 }
 
 function render(bars, struct, context, noRender) {
@@ -1815,7 +1811,7 @@ function abb(token, indentWith, bars, context) {
     var blockFunc = bars.blocks[token.name];
 
     if (typeof blockFunc !== 'function') {
-        throw 'Bars Error: Missing Block helper: ' + token.name;
+        throw 'Missing Block helper: ' + token.name;
     }
 
     blockFunc(
@@ -1881,7 +1877,7 @@ function hbb(token, indentWith, indent, bars, context) {
     var blockFunc = bars.blocks[token.name];
 
     if (typeof blockFunc !== 'function') {
-        throw 'Bars Error: Missing Block helper: ' + token.name;
+        throw 'Missing Block helper: ' + token.name;
     }
 
     blockFunc(
@@ -1903,10 +1899,6 @@ function hbp(token, indentWith, indent, bars, context) {
     }
 
     var partial = bars.partials[name];
-
-    if (!partial) {
-        throw 'Bars Error: Missing Partial: ' + name;
-    }
 
     if (token.expression) {
         context = context.newContext(
@@ -2053,7 +2045,7 @@ var utils = require('compileit/lib/utils');
 var Context = Generator.generate(function Context(data, props, context, cleanVars) {
     var _ = this;
 
-    // utils.assertTypeError(data, 'object');
+    utils.assertTypeError(data, 'object');
 
     _.data = data;
     _.props = props;
@@ -2090,11 +2082,7 @@ Context.definePrototype({
             return _.vars[path[0]];
         }
 
-        if (_.data === null || _.data === void(0)) {
-            console.warn('Bars Error: Cannot read property ' + path[0] + ' of ' + _.data);
-        }
-
-        return _.data ? _.data[path[0]] : void(0);
+        return _.data[path[0]];
     },
     newContext: function newContext(data, props, cleanVars) {
         return new Context(data, props, this, cleanVars);
@@ -2128,7 +2116,7 @@ function execute(syntaxTree, transforms, context) {
     function run(token) {
         var result,
             args = [];
-        // token.type === 'operator' ? console.log('>>>>', token) : void(0);
+        // console.log('>>>>', token)
         if (
             token.type === 'literal'
         ) {
@@ -2144,13 +2132,6 @@ function execute(syntaxTree, transforms, context) {
             result = logic[token.operator](
                 run(token.operands[0])
             );
-        } else if (
-            token.type === 'operator' &&
-            token.operator === '?:'
-        ) {
-            result = run(token.operands[0]) ?
-                run(token.operands[1]) :
-                run(token.operands[2]);
         } else if (
             token.type === 'operator' &&
             token.operands.length === 2
@@ -2174,7 +2155,7 @@ function execute(syntaxTree, transforms, context) {
             if (transforms[token.name] instanceof Function) {
                 result = transforms[token.name].apply(null, args);
             } else {
-                throw 'Bars Error: Missing Transfrom: "' + token.name + '".';
+                throw 'Missing Transfrom: "' + token.name + '".';
             }
         }
         // console.log('<<<<', result)
@@ -2193,12 +2174,8 @@ module.exports = execute;
 },{"./logic":30}],30:[function(require,module,exports){
 /*Look up*/
 exports.lookup = function add(a, b) {
-
-    if (a === null || a === void(0)) {
-        console.warn('Bars Error: Cannot read property ' + b + ' of ' + a);
-    }
-    return a ? a[b] : void(0); // soft
-    // return a[b]; // hard
+    // return a ? a[b] : void(0); // soft
+    return a[b]; // hard
 };
 exports['.'] = exports.lookup;
 
@@ -15476,7 +15453,7 @@ function isArray(obj) {
 },{}],75:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.6.0",
+  "version": "1.5.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
