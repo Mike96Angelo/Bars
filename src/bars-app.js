@@ -4078,17 +4078,19 @@ function renderPartial(bars, struct, context) {
         throw 'Bars Error: Missing Partial: ' + name;
     }
 
+    var newContext = context;
+
     if (struct.expression) {
-        context = context.newContext(
+        newContext = newContext.newContext(
             execute(struct.expression, bars.transforms, context),
             null,
             true
         );
     }
 
-    context = context.contextWithVars(makeVars(context, struct.map, bars));
+    newContext = newContext.contextWithVars(makeVars(context, struct.map, bars));
 
-    return renderChildrenNodes(bars, partial.fragment, context);
+    return renderChildrenNodes(bars, partial.fragment, newContext);
 }
 
 function renderChildrenNodes(bars, struct, context) {
@@ -17864,7 +17866,7 @@ function isArray(obj) {
 },{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

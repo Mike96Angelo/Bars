@@ -1536,17 +1536,19 @@ function renderPartial(bars, struct, context) {
         throw 'Bars Error: Missing Partial: ' + name;
     }
 
+    var newContext = context;
+
     if (struct.expression) {
-        context = context.newContext(
+        newContext = newContext.newContext(
             execute(struct.expression, bars.transforms, context),
             null,
             true
         );
     }
 
-    context = context.contextWithVars(makeVars(context, struct.map, bars));
+    newContext = newContext.contextWithVars(makeVars(context, struct.map, bars));
 
-    return renderChildrenNodes(bars, partial.fragment, context);
+    return renderChildrenNodes(bars, partial.fragment, newContext);
 }
 
 function renderChildrenNodes(bars, struct, context) {
