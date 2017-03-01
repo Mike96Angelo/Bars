@@ -20,29 +20,29 @@ $ npm install bars
 
 [Bars Language and Docs](docs/js-interface.md).
 * [Demo App](https://mike96angelo.github.io/Bars/demo/)
-* [JSFiddle](https://jsfiddle.net/ufcdxm4q/5/)
+* [JSFiddle](https://jsfiddle.net/ufcdxm4q/7/)
 
 ### index.bars:
 ```handlebars
+{{#with todos=todos}}
 <h2>To Do App</h2>
 <input id="new-list" todos:{{todos}} placeholder="Add something to your list..." />
 <ul>
-{{#with todos=todos}}
 {{#each todos}}
-    <li class="{{(del && 'del')||''}}">
-        <div>
-            <span class="list-complete {{(complete && 'done') || ''}}" todo:{{this}}></span>
-            <span class="list">{{text}}</span>
-            <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
-        </div>
-    </li>
+  <li class="{{del ? 'del' : ''}}">
+    <div>
+      <span class="list-complete {{complete ? 'done' : ''}}" todo:{{this}}></span>
+      <span class="list">{{text}}</span>
+      <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
+    </div>
+  </li>
 {{else}}
-<li>
+  <li>
     <span>You have nothing left to do.</span>
-</li>
+  </li>
 {{/each}}
-{{/with}}
 </ul>
+{{/with}}
 ```
 ### app.js:
 ```javascript
