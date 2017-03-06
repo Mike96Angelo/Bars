@@ -22,6 +22,8 @@
         * [Implicit](#implicit-example)
         * [Programmatic](#programmatic-example)
 * [HTML Markup](#html-markup)
+    * [HTML Properties](#html-properties)
+    * [HTML Bindings](#html-bindings)
 
 # Bars Expression
 
@@ -364,13 +366,14 @@ The partial whose name is stored in the variable `page` will be rendered.  As th
 
 # HTML Markup
 ```
-<<tag-name> [<attrs>] [<props>]></<tag-name>>
+<<tag-name> [<attrs>] [<props>] [<binds>]></<tag-name>>
 ```
 
 example:
 ```
-<div id="{{id}}" someData:{{someData}}></div>
+<div attr="{{attr}}" prop::{{prop}} bind:{{bind}}></div>
 ```
 
-Attributes are regular HTML Attributes.
-Properties are JavaScript properties accessible on the JavaScript DOM element interface as a getter function `element.data('someData')`.  These properties could be very useful if a DOM element is to preform any form of manipulation to the state when triggered by an event (e.g. click).
+Attributes are regular HTML Attributes. `id="id"`
+Properties are regular HTML Properties. `value::{{value}} => element.value = value`
+Binding are JavaScript properties accessible on the JavaScript DOM element interface as a getter function `element.data('bind')`.  These properties could be very useful if a DOM element is to preform any form of manipulation to the state when triggered by an event (e.g. click).
