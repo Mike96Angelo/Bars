@@ -8,7 +8,9 @@ BarsBlockSyntax
 BlockContextEvaluation
 ```javascript
 context.newContext(
+  // this
   arr[index], 
+  // block-props
   {
     '@index': Number(index),
     '@key':   String(index), 
