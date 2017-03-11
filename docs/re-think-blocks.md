@@ -12,9 +12,9 @@ context.newContext(
   arr[index], 
   // block-props
   {
-    '@index': Number(index),
-    '@key':   String(index), 
-    '@length': arr.length,
+    '@index':  Number(index),
+    '@key':    String(index), 
+    '@length': Number(arr.length),
   },
   // block-return
   [
