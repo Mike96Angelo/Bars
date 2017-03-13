@@ -12,7 +12,7 @@ BlockContextEvaluation
 // eachBlock(Array)
 context.newContext(
   // this
-  arr[index], 
+  arr[index],
   // block-props
   {
     '@index':  Number(index),
@@ -30,7 +30,7 @@ context.newContext(
 // eachBlock(Object)
 context.newContext(
   // this
-  obj[key], 
+  obj[key],
   // block-props
   {
     '@key':  String(key)
@@ -78,3 +78,99 @@ object    -> block-return[2] -> parentContext.obj
 something -> parentContext.something
 ```
 
+RenderTree examples
+```javascript
+BarsBlock(<name>):children_dynamic() ? DYNAMIC : STATIC
+    args:children_dynamic() ? DYNAMIC : STATIC
+        context(<arg>):literal(context(<arg>)) ? STATIC : DYNAMIC
+    maps:children_dynamic() ? DYNAMIC : STATIC
+        context(<key>):literal(context(<arg>)) ? STATIC : DYNAMIC
+    consequent(<node>):children_dynamic() ? DYNAMIC : STATIC
+    alternate(<node>):children_dynamic() ? DYNAMIC : STATIC
+```
+
+```handlebars
+{{#if true}}
+    some text
+{{else}}
+    some other text
+{{/if}}
+```
+
+```javascript
+BarsBlock(if):STATIC
+    args:STATIC
+        true:STATIC
+    maps:STATIC
+    consequent(Fragment):STATIC
+        textNode:STATIC
+            value => 'some text':STATIC
+    alternate(Fragment):STATIC
+        textNode:STATIC
+            value => 'some other text':STATIC
+```
+
+```handlebars
+{{#if test}}
+    some text
+{{else}}
+    some other text
+{{/if}}
+```
+
+```javascript
+BarsBlock(if):DYNAMIC
+    args:DYNAMIC
+        conext(test):DYNAMIC
+    maps:STATIC
+    consequent(Fragment):STATIC
+        textNode:STATIC
+            value => 'some text':STATIC
+    alternate(Fragment):STATIC
+        textNode:STATIC
+            value => 'some other text':STATIC
+```
+
+```handlebars
+{{#if test something='something'}}
+    some text
+{{else}}
+    some other text
+{{/if}}
+```
+
+```javascript
+BarsBlock(if):DYNAMIC
+    args:DYNAMIC
+        conext(test):DYNAMIC
+    maps:STATIC
+        context(something):STATIC
+    consequent(Fragment):STATIC
+        textNode:STATIC
+            value => 'some text':STATIC
+    alternate(Fragment):STATIC
+        textNode:STATIC
+            value => 'some other text':STATIC
+```
+
+```handlebars
+{{#if test something=something}}
+    some text
+{{else}}
+    some other text
+{{/if}}
+```
+
+```javascript
+BarsBlock(if):DYNAMIC
+    args:DYNAMIC
+        conext(test):DYNAMIC
+    maps:DYNAMIC
+        context(something):DYNAMIC
+    consequent(Fragment):STATIC
+        textNode:STATIC
+            value => 'some text':STATIC
+    alternate(Fragment):STATIC
+        textNode:STATIC
+            value => 'some other text':STATIC
+```

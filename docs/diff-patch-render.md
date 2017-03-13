@@ -59,7 +59,7 @@ root:DYNAMIC
 
 As we can see there is a dynamic path that is created straight form the root to the part of the template that changes.
 
-after the initial render all subsequent renders use just the dynamic sub set of the tree.
+After the initial render all subsequent renders use just the dynamic sub set of the tree.
 
 dynamic sub set:
 ```javascript
@@ -72,7 +72,7 @@ root:DYNAMIC
                         value => text:DYNAMIC
 ```
 
-further optimizations are made by flattening parts of the tree where possible.
+Further optimizations are made by flattening parts of the tree where possible.
 
 flattened:
 ```javascript
