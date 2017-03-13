@@ -4,6 +4,7 @@ module.exports = require('./lib');
 },{"./lib":47}],2:[function(require,module,exports){
 var Generator = require('generate-js'),
     Renderer = require('./renderer'),
+    TextRenderer = require('./text-renderer'),
     Token = require('./compiler/tokens'),
     Blocks = require('./blocks'),
     Transform = require('./transforms'),
@@ -32,6 +33,19 @@ Bars.definePrototype({
         }
 
         return new Renderer(_, program, state);
+    },
+
+    buildText: function buildText(parsedTemplate, state) {
+        var _ = this,
+            program = parsedTemplate;
+
+        if (Array.isArray(parsedTemplate)) {
+            program = new Token.tokens.program();
+
+            program.fromArray(parsedTemplate);
+        }
+
+        return new TextRenderer(_, program, state);
     },
 
     registerBlock: function registerBlock(name, block) {
@@ -72,7 +86,7 @@ Bars.definePrototype({
 
 module.exports = Bars;
 
-},{"../package":96,"./blocks":4,"./compiler/tokens":32,"./renderer":50,"./transforms":54,"generate-js":64}],3:[function(require,module,exports){
+},{"../package":97,"./blocks":4,"./compiler/tokens":32,"./renderer":50,"./text-renderer":54,"./transforms":55,"generate-js":65}],3:[function(require,module,exports){
 var Bars = require('./bars-runtime'),
     compile = require('./compiler');
 
@@ -147,7 +161,7 @@ Blocks.definePrototype({
 
 module.exports = Blocks;
 
-},{"generate-js":64}],5:[function(require,module,exports){
+},{"generate-js":65}],5:[function(require,module,exports){
 var compileit = require('compileit');
 var parsers = require('./parsers');
 
@@ -248,7 +262,7 @@ function compile(str, file, mode, flags) {
 
 module.exports = compile;
 
-},{"./parsers":24,"./tokens":32,"compileit":57}],6:[function(require,module,exports){
+},{"./parsers":24,"./tokens":32,"compileit":58}],6:[function(require,module,exports){
 module.exports = require('./compiler');
 
 },{"./compiler":5}],7:[function(require,module,exports){
@@ -1250,7 +1264,7 @@ function parseExpressionOperator(mode, code, tokens, flags, scope, parseMode) {
 
 module.exports = parseExpressionOperator;
 
-},{"../tokens":32,"../utils":45,"compileit":57}],16:[function(require,module,exports){
+},{"../tokens":32,"../utils":45,"compileit":58}],16:[function(require,module,exports){
 // parseExpressionTransformEnd
 var Token = require('../tokens');
 
@@ -2872,7 +2886,7 @@ ProgramToken.definePrototype({
 
 Token.tokens.program = ProgramToken;
 
-},{"../../../package":96,"./token":41}],38:[function(require,module,exports){
+},{"../../../package":97,"./token":41}],38:[function(require,module,exports){
 var Token = require('./token');
 
 var PropToken = Token.generate(
@@ -3205,7 +3219,7 @@ BarsToken.definePrototype({
 
 module.exports = BarsToken;
 
-},{"compileit":57}],42:[function(require,module,exports){
+},{"compileit":58}],42:[function(require,module,exports){
 var Token = require('./token');
 
 var TransformToken = Token.generate(
@@ -4107,7 +4121,7 @@ function render(bars, struct, context, noRender) {
 
 module.exports = render;
 
-},{"../runtime/execute":52,"virtual-dom/h":71}],49:[function(require,module,exports){
+},{"../runtime/execute":52,"virtual-dom/h":72}],49:[function(require,module,exports){
 var execute = require('../runtime/execute');
 
 function makeVars(context, map, bars) {
@@ -4129,15 +4143,19 @@ function repeat(a, n) {
 }
 
 function abb(token, indentWith, bars, context) {
+    if (!token) return '';
+
     var r = '';
 
     function consequent(new_context) {
+        if (!token.consequent) return;
         new_context = new_context || context;
         new_context = new_context.contextWithVars(makeVars(new_context, token.map, bars));
         r += ac(token.consequent.nodes, indentWith, bars, new_context);
     }
 
     function alternate(new_context) {
+        if (!token.alternate) return;
         if (new_context) {
             new_context = new_context.contextWithVars(makeVars(new_context, token.map, bars));
         }
@@ -4163,7 +4181,7 @@ function abb(token, indentWith, bars, context) {
 }
 
 function ac(tokens, indentWith, bars, context) {
-    if (tokens.length === 0) {
+    if (!tokens || tokens.length === 0) {
         return '';
     }
 
@@ -4187,6 +4205,8 @@ function ac(tokens, indentWith, bars, context) {
 }
 
 function a(token, indentWith, bars, context) {
+    if (!token) return '';
+
     var r = ' ';
     r += token.name;
     r += ac(token.nodes, indentWith, bars, context);
@@ -4195,15 +4215,19 @@ function a(token, indentWith, bars, context) {
 }
 
 function hbb(token, indentWith, indent, bars, context) {
+    if (!token) return '';
+
     var r = '';
 
     function consequent(new_context) {
+        if (!token.consequent) return;
         new_context = new_context || context;
         new_context = new_context.contextWithVars(makeVars(new_context, token.map, bars));
         r += hc(token.consequent.nodes, indentWith, indent, bars, new_context);
     }
 
     function alternate(new_context) {
+        if (!token.alternate) return;
         if (new_context) {
             new_context = new_context.contextWithVars(makeVars(new_context, token.map, bars));
         }
@@ -4229,6 +4253,8 @@ function hbb(token, indentWith, indent, bars, context) {
 }
 
 function hbp(token, indentWith, indent, bars, context) {
+    if (!token) return '';
+
     var name = token.name;
     if (typeof token.name === 'object') {
         name = execute(token.name, bars.transforms, context);
@@ -4254,7 +4280,7 @@ function hbp(token, indentWith, indent, bars, context) {
 }
 
 function hc(tokens, indentWith, indent, bars, context) {
-    if (tokens.length === 0) {
+    if (!tokens || tokens.length === 0) {
         return '';
     }
     var val;
@@ -4292,12 +4318,16 @@ function hc(tokens, indentWith, indent, bars, context) {
 }
 
 function h(token, indentWith, indent, bars, context) {
+    if (!token) return '';
+
     var r = '';
 
     r += '<' + token.name;
 
-    for (var i = 0; i < token.attrs.length; i++) {
-        r += a(token.attrs[i], indentWith, bars, context);
+    if (token.attrs) {
+        for (var i = 0; i < token.attrs.length; i++) {
+            r += a(token.attrs[i], indentWith, bars, context);
+        }
     }
 
     if (token.isSelfClosing || token.selfClosed) {
@@ -4325,7 +4355,6 @@ module.exports = render;
 var Generator = require('generate-js');
 var ContextN = require('./runtime/context-n');
 var renderV = require('./render/render');
-var renderT = require('./render/text-renderer');
 
 var diff = require('virtual-dom/diff');
 var patch = require('virtual-dom/patch');
@@ -4348,7 +4377,6 @@ var Renderer = Generator.generate(function Renderer(bars, struct, state) {
 
     _.tree = renderV(_.bars, _.struct, new ContextN(state || {}), true);
     _.rootNode = createElement(_.tree);
-
 });
 
 Renderer.definePrototype({
@@ -4360,15 +4388,6 @@ Renderer.definePrototype({
         patch(_.rootNode, patches);
         _.tree = newTree;
     },
-    text: function text(state, options) {
-        var _ = this;
-
-        options = options || {};
-
-        var indent = repeat(options.tabs ? '\t' : ' ', options.tabs ? 1 : options.indent);
-
-        return renderT(_.struct.fragment, indent, _.bars, new ContextN(state));
-    },
     appendTo: function appendTo(el) {
         var _ = this;
 
@@ -4378,7 +4397,7 @@ Renderer.definePrototype({
 
 module.exports = Renderer;
 
-},{"./render/render":48,"./render/text-renderer":49,"./runtime/context-n":51,"generate-js":64,"virtual-dom/create-element":69,"virtual-dom/diff":70,"virtual-dom/patch":72}],51:[function(require,module,exports){
+},{"./render/render":48,"./runtime/context-n":51,"generate-js":65,"virtual-dom/create-element":70,"virtual-dom/diff":71,"virtual-dom/patch":73}],51:[function(require,module,exports){
 var Generator = require('generate-js');
 var utils = require('compileit/lib/utils');
 
@@ -4452,7 +4471,7 @@ Context.definePrototype({
 
 module.exports = Context;
 
-},{"compileit/lib/utils":62,"generate-js":64}],52:[function(require,module,exports){
+},{"compileit/lib/utils":63,"generate-js":65}],52:[function(require,module,exports){
 var logic = require('./logic');
 
 function execute(syntaxTree, transforms, context) {
@@ -4616,6 +4635,41 @@ exports['>'] = exports.gt;
 
 },{}],54:[function(require,module,exports){
 var Generator = require('generate-js');
+var ContextN = require('./runtime/context-n');
+var renderT = require('./render/text-renderer');
+
+function repeat(a, n) {
+    n = n || 0;
+    var r = '';
+    for (var i = 0; i < n; i++) {
+        r += a;
+    }
+    return r;
+}
+
+var TextRenderer = Generator.generate(function TextRenderer(bars, struct, state) {
+    var _ = this;
+
+    _.bars = bars;
+    _.struct = struct;
+});
+
+TextRenderer.definePrototype({
+    render: function render(state, options) {
+        var _ = this;
+
+        options = options || {};
+
+        var indent = repeat(options.tabs ? '\t' : ' ', options.tabs ? 1 : options.indent);
+
+        return renderT(_.struct.fragment, indent, _.bars, new ContextN(state));
+    }
+});
+
+module.exports = TextRenderer;
+
+},{"./render/text-renderer":49,"./runtime/context-n":51,"generate-js":65}],55:[function(require,module,exports){
+var Generator = require('generate-js');
 
 var Transform = Generator.generate(function Transform() {});
 
@@ -4699,9 +4753,9 @@ Transform.definePrototype({
 
 module.exports = Transform;
 
-},{"generate-js":64}],55:[function(require,module,exports){
+},{"generate-js":65}],56:[function(require,module,exports){
 
-},{}],56:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 /*!
  * Cross-Browser Split 1.1.1
  * Copyright 2007-2012 Steven Levithan <stevenlevithan.com>
@@ -4809,11 +4863,11 @@ module.exports = (function split(undef) {
   return self;
 })();
 
-},{}],57:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 exports.Compiler = require('./lib/compiler');
 exports.Token = require('./lib/token');
 
-},{"./lib/compiler":59,"./lib/token":61}],58:[function(require,module,exports){
+},{"./lib/compiler":60,"./lib/token":62}],59:[function(require,module,exports){
 var Generator = require('generate-js'),
     utils = require('./utils');
 
@@ -4995,7 +5049,7 @@ CodeBuffer.definePrototype({
 
 module.exports = CodeBuffer;
 
-},{"./utils":62,"generate-js":64}],59:[function(require,module,exports){
+},{"./utils":63,"generate-js":65}],60:[function(require,module,exports){
 var Generator = require('generate-js'),
     Scope = require('./scope'),
     Token = require('./token'),
@@ -5150,7 +5204,7 @@ Compiler.definePrototype({
 
 module.exports = Compiler;
 
-},{"./code-buffer":58,"./scope":60,"./token":61,"./utils":62,"generate-js":64}],60:[function(require,module,exports){
+},{"./code-buffer":59,"./scope":61,"./token":62,"./utils":63,"generate-js":65}],61:[function(require,module,exports){
 var Generator = require('generate-js'),
     Token = require('./token'),
     utils = require('./utils');
@@ -5235,7 +5289,7 @@ Scope.definePrototype({
 
 module.exports = Scope;
 
-},{"./token":61,"./utils":62,"generate-js":64}],61:[function(require,module,exports){
+},{"./token":62,"./utils":63,"generate-js":65}],62:[function(require,module,exports){
 var Generator = require('generate-js'),
     utils = require('./utils');
 
@@ -5300,7 +5354,7 @@ Token.definePrototype({
 
 module.exports = Token;
 
-},{"./utils":62,"generate-js":64}],62:[function(require,module,exports){
+},{"./utils":63,"generate-js":65}],63:[function(require,module,exports){
 /**
  * Assert Error function.
  * @param  {Boolean} condition Whether or not to throw error.
@@ -5377,7 +5431,7 @@ function bufferSlice(code, range, format) {
 }
 exports.bufferSlice = bufferSlice;
 
-},{}],63:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 'use strict';
 
 var OneVersionConstraint = require('individual/one-version');
@@ -5399,7 +5453,7 @@ function EvStore(elem) {
     return hash;
 }
 
-},{"individual/one-version":67}],64:[function(require,module,exports){
+},{"individual/one-version":68}],65:[function(require,module,exports){
 /**
  * @name generate.js
  * @author Michaelangelo Jong
@@ -5761,7 +5815,7 @@ function EvStore(elem) {
 
 }());
 
-},{}],65:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 (function (global){
 var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
@@ -5780,7 +5834,7 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":55}],66:[function(require,module,exports){
+},{"min-document":56}],67:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5803,7 +5857,7 @@ function Individual(key, value) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],67:[function(require,module,exports){
+},{}],68:[function(require,module,exports){
 'use strict';
 
 var Individual = require('./index.js');
@@ -5827,34 +5881,34 @@ function OneVersion(moduleName, version, defaultValue) {
     return Individual(key, defaultValue);
 }
 
-},{"./index.js":66}],68:[function(require,module,exports){
+},{"./index.js":67}],69:[function(require,module,exports){
 "use strict";
 
 module.exports = function isObject(x) {
 	return typeof x === "object" && x !== null;
 };
 
-},{}],69:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":74}],70:[function(require,module,exports){
+},{"./vdom/create-element.js":75}],71:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":94}],71:[function(require,module,exports){
+},{"./vtree/diff.js":95}],72:[function(require,module,exports){
 var h = require("./virtual-hyperscript/index.js")
 
 module.exports = h
 
-},{"./virtual-hyperscript/index.js":81}],72:[function(require,module,exports){
+},{"./virtual-hyperscript/index.js":82}],73:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":77}],73:[function(require,module,exports){
+},{"./vdom/patch.js":78}],74:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -5953,7 +6007,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":85,"is-object":68}],74:[function(require,module,exports){
+},{"../vnode/is-vhook.js":86,"is-object":69}],75:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -6001,7 +6055,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":83,"../vnode/is-vnode.js":86,"../vnode/is-vtext.js":87,"../vnode/is-widget.js":88,"./apply-properties":73,"global/document":65}],75:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":84,"../vnode/is-vnode.js":87,"../vnode/is-vtext.js":88,"../vnode/is-widget.js":89,"./apply-properties":74,"global/document":66}],76:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -6088,7 +6142,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],76:[function(require,module,exports){
+},{}],77:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -6241,7 +6295,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":88,"../vnode/vpatch.js":91,"./apply-properties":73,"./update-widget":78}],77:[function(require,module,exports){
+},{"../vnode/is-widget.js":89,"../vnode/vpatch.js":92,"./apply-properties":74,"./update-widget":79}],78:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -6323,7 +6377,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":74,"./dom-index":75,"./patch-op":76,"global/document":65,"x-is-array":95}],78:[function(require,module,exports){
+},{"./create-element":75,"./dom-index":76,"./patch-op":77,"global/document":66,"x-is-array":96}],79:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -6340,7 +6394,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":88}],79:[function(require,module,exports){
+},{"../vnode/is-widget.js":89}],80:[function(require,module,exports){
 'use strict';
 
 var EvStore = require('ev-store');
@@ -6369,7 +6423,7 @@ EvHook.prototype.unhook = function(node, propertyName) {
     es[propName] = undefined;
 };
 
-},{"ev-store":63}],80:[function(require,module,exports){
+},{"ev-store":64}],81:[function(require,module,exports){
 'use strict';
 
 module.exports = SoftSetHook;
@@ -6388,7 +6442,7 @@ SoftSetHook.prototype.hook = function (node, propertyName) {
     }
 };
 
-},{}],81:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 'use strict';
 
 var isArray = require('x-is-array');
@@ -6527,7 +6581,7 @@ function errorString(obj) {
     }
 }
 
-},{"../vnode/is-thunk":84,"../vnode/is-vhook":85,"../vnode/is-vnode":86,"../vnode/is-vtext":87,"../vnode/is-widget":88,"../vnode/vnode.js":90,"../vnode/vtext.js":92,"./hooks/ev-hook.js":79,"./hooks/soft-set-hook.js":80,"./parse-tag.js":82,"x-is-array":95}],82:[function(require,module,exports){
+},{"../vnode/is-thunk":85,"../vnode/is-vhook":86,"../vnode/is-vnode":87,"../vnode/is-vtext":88,"../vnode/is-widget":89,"../vnode/vnode.js":91,"../vnode/vtext.js":93,"./hooks/ev-hook.js":80,"./hooks/soft-set-hook.js":81,"./parse-tag.js":83,"x-is-array":96}],83:[function(require,module,exports){
 'use strict';
 
 var split = require('browser-split');
@@ -6583,7 +6637,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":56}],83:[function(require,module,exports){
+},{"browser-split":57}],84:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -6625,14 +6679,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":84,"./is-vnode":86,"./is-vtext":87,"./is-widget":88}],84:[function(require,module,exports){
+},{"./is-thunk":85,"./is-vnode":87,"./is-vtext":88,"./is-widget":89}],85:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],85:[function(require,module,exports){
+},{}],86:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -6641,7 +6695,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],86:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -6650,7 +6704,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":89}],87:[function(require,module,exports){
+},{"./version":90}],88:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -6659,17 +6713,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":89}],88:[function(require,module,exports){
+},{"./version":90}],89:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],89:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 module.exports = "2"
 
-},{}],90:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 var version = require("./version")
 var isVNode = require("./is-vnode")
 var isWidget = require("./is-widget")
@@ -6743,7 +6797,7 @@ function VirtualNode(tagName, properties, children, key, namespace) {
 VirtualNode.prototype.version = version
 VirtualNode.prototype.type = "VirtualNode"
 
-},{"./is-thunk":84,"./is-vhook":85,"./is-vnode":86,"./is-widget":88,"./version":89}],91:[function(require,module,exports){
+},{"./is-thunk":85,"./is-vhook":86,"./is-vnode":87,"./is-widget":89,"./version":90}],92:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -6767,7 +6821,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":89}],92:[function(require,module,exports){
+},{"./version":90}],93:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = VirtualText
@@ -6779,7 +6833,7 @@ function VirtualText(text) {
 VirtualText.prototype.version = version
 VirtualText.prototype.type = "VirtualText"
 
-},{"./version":89}],93:[function(require,module,exports){
+},{"./version":90}],94:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -6839,7 +6893,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":85,"is-object":68}],94:[function(require,module,exports){
+},{"../vnode/is-vhook":86,"is-object":69}],95:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -7268,7 +7322,7 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":83,"../vnode/is-thunk":84,"../vnode/is-vnode":86,"../vnode/is-vtext":87,"../vnode/is-widget":88,"../vnode/vpatch":91,"./diff-props":93,"x-is-array":95}],95:[function(require,module,exports){
+},{"../vnode/handle-thunk":84,"../vnode/is-thunk":85,"../vnode/is-vnode":87,"../vnode/is-vtext":88,"../vnode/is-widget":89,"../vnode/vpatch":92,"./diff-props":94,"x-is-array":96}],96:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
@@ -7278,10 +7332,10 @@ function isArray(obj) {
     return toString.call(obj) === "[object Array]"
 }
 
-},{}],96:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
