@@ -35,7 +35,7 @@ context.newContext(
 context.newContext(
   // this
   parentContext
-).vars({
+).map({
   something: parentContext.something
 })
 
@@ -43,7 +43,7 @@ context.newContext(
 context.newContext(
   // this
   parentContext.data
-).vars({
+).map({
   something: parentContext.something
 })
 ```
