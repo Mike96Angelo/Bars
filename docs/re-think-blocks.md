@@ -37,9 +37,9 @@ context.newContext(
   },
   // block-return
   [
-    obj[key], // item
-    key,      // index
-    obj         // array
+    obj[key], // entry
+    key,      // key
+    obj       // object
   ]
 )
 ```
