@@ -7,13 +7,13 @@ Finally we apply the Patches to the DOM.
 The Bars template compiler is smart enough to build a DOM-like tree while differentiating static and dynamic portions of the tree.  This allow us to calculate diffs much faster as we only need to check thing we know might change.
 
 fully static:
-```
+```handlebars
 <div class="main">
     <span> some text here </span>
 </div>
 ```
 tree:
-```
+```javascript
 root:STATIC
     divNode:STATIC
         attrs:STATIC
@@ -34,13 +34,13 @@ since the whole tree is static it well only be rendered once and the diff calcul
 
 partly dynamic (most things are never fully dynamic):
 
-```
+```handlebars
 <div class="main">
     <span>{{text}}</span>
 </div>
 ```
 tree:
-```
+```javascript
 root:DYNAMIC
     divNode:DYNAMIC
         attrs:STATIC
@@ -62,7 +62,7 @@ As we can see there is a dynamic path that is created straight form the root to 
 after the initial render all subsequent renders use just the dynamic sub set of the tree.
 
 dynamic sub set:
-```
+```javascript
 root:DYNAMIC
     divNode:DYNAMIC
         children:DYNAMIC
@@ -75,7 +75,7 @@ root:DYNAMIC
 further optimizations are made by flattening parts of the tree where possible.
 
 flattened:
-```
+```javascript
 root->divNode->children->spanNode->children->textNode->value => text:DYNAMIC
 ```
 
