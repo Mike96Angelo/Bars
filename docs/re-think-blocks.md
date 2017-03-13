@@ -72,8 +72,8 @@ something -> parentContext.something
 
 // eachBlock(Object)
 this      -> parenetContext.obj[block-func-vars['key']]
-item      -> block-return[0] -> parenetContext.obj[block-func-vars['key']]
-index     -> block-return[1] -> block-func-vars['key']
+entry     -> block-return[0] -> parenetContext.obj[block-func-vars['key']]
+key       -> block-return[1] -> block-func-vars['key']
 object    -> block-return[2] -> parentContext.obj
 something -> parentContext.something
 ```
