@@ -84,7 +84,7 @@ BarsBlock(<name>):children_dynamic() ? DYNAMIC : STATIC
     args:children_dynamic() ? DYNAMIC : STATIC
         context(<arg>):literal(context(<arg>)) ? STATIC : DYNAMIC
     maps:children_dynamic() ? DYNAMIC : STATIC
-        context(<key>):literal(context(<arg>)) ? STATIC : DYNAMIC
+        context(<key>):literal(context(<key>)) ? STATIC : DYNAMIC
     consequent(<node>):children_dynamic() ? DYNAMIC : STATIC
     alternate(<node>):children_dynamic() ? DYNAMIC : STATIC
 ```
@@ -100,7 +100,7 @@ BarsBlock(<name>):children_dynamic() ? DYNAMIC : STATIC
 ```javascript
 BarsBlock(if):STATIC
     args:STATIC
-        true:STATIC
+        context(true):STATIC
     maps:STATIC
     consequent(Fragment):STATIC
         textNode:STATIC
