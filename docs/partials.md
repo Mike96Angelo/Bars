@@ -72,3 +72,17 @@ something -> parentContext.something
 this      -> parentContext.data
 something -> parentContext.something
 ```
+
+RenderTree examples
+```javascript
+BarsPartial:children_dynamic() ? DYNAMIC : STATIC
+    name:literal(context(<name-expression>)) ? STATIC : DYNAMIC
+    context:literal(context(<context>)) ? STATIC : DYNAMIC
+    maps:children_dynamic() ? DYNAMIC : STATIC
+        context(<key>):literal(context(<key>)) ? STATIC : DYNAMIC
+    fragment:children_dynamic() ? DYNAMIC : STATIC
+```
+partial.bars
+```handlebars
+This is a static partial
+```

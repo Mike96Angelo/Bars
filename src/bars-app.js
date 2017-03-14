@@ -44,7 +44,7 @@ var App = Generator.generateFrom(
 
         _.dom = _.bars.build(_.indexTemplate, _.state);
 
-        _.view = new Interactions(_.element);
+        _.view = new Interactions(_.dom.rootNode);
         _.document = new Interactions(document);
         _.window = new Interactions(window);
     }
@@ -18013,7 +18013,7 @@ function isArray(obj) {
 },{}],102:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {

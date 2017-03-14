@@ -121,7 +121,7 @@ BarsBlock(if):STATIC
 ```javascript
 BarsBlock(if):DYNAMIC
     args:DYNAMIC
-        conext(test):DYNAMIC
+        context(test):DYNAMIC
     maps:STATIC
     consequent(Fragment):STATIC
         textNode:STATIC
@@ -142,7 +142,7 @@ BarsBlock(if):DYNAMIC
 ```javascript
 BarsBlock(if):DYNAMIC
     args:DYNAMIC
-        conext(test):DYNAMIC
+        context(test):DYNAMIC
     maps:STATIC
         context(something):STATIC
     consequent(Fragment):STATIC
@@ -164,7 +164,7 @@ BarsBlock(if):DYNAMIC
 ```javascript
 BarsBlock(if):DYNAMIC
     args:DYNAMIC
-        conext(test):DYNAMIC
+        context(test):DYNAMIC
     maps:DYNAMIC
         context(something):DYNAMIC
     consequent(Fragment):STATIC
