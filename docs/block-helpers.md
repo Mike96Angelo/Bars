@@ -144,7 +144,7 @@ BarsBlock(if):DYNAMIC
     args:DYNAMIC
         context(test):DYNAMIC
     maps:STATIC
-        context(something):STATIC
+        context('something'):STATIC
     consequent(Fragment):STATIC
         textNode:STATIC
             value => 'some text':STATIC
