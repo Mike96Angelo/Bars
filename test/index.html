@@ -171,6 +171,20 @@
       });
     }, 'name1name2');
 
+    test('Bars Block - each object as | entry key obj |', function() {
+      var template = '{{#each test as | entry key obj |}}{{key}} {{entry}}{{else}}no{{/each}}';
+
+      renderer = bars.compile(template);
+      renderer.appendTo(barsOut);
+
+      renderer.update({
+        test: {
+          name1: 'dallas',
+          name2: 'mike'
+        }
+      });
+    }, 'name1 dallasname2 mike');
+
 
     test('Bars Block - if in if', function() {
       var template = '{{#if name == \'dallas\'}}{{name}} {{#if name}}{{name}}{{else}}no{{/if}}{{else}}no{{/if}}';

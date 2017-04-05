@@ -195,9 +195,9 @@ The result of transform `lowerCase` applied to the variable `name` will be rende
 ## Blocks
 
 ```
-{{#<name> <args> <context-map>}}
+{{#<name> [<args>] [as | <vars> |] [<context-map>]}}
     <content>
-{{else <name> <args> <context-map>}}
+{{else <name> [<args>] [as | <vars> |] [<context-map>]}}
     <content>
 {{else}}
     <content>
@@ -253,11 +253,12 @@ example: (creating variables)
 {{/with}}
 ```
 
-example: (creating variables from new context)
+example: (changing context, passing variables from parent context)
 ```
-{{#with person n=name a=age}}
-    name: {{n}}
-    age: {{a}}
+{{#with person house=house}}
+    name: {{name}}
+    age: {{age}}
+    house: {{house}}
 {{else}}
     no person data.
 {{/with}}
@@ -266,7 +267,7 @@ example: (creating variables from new context)
 
 ### each
 ```
-{{#each <object|array> [<context-map>]}}
+{{#each <object|array> [as | <vars> |] [<context-map>]}}
     <content>
 {{else}}
     <content>
@@ -298,8 +299,9 @@ example: (@index/@key)
 
 example: (creating indexing variables)
 ```
-{{#each songs i=@index}}
-    track: {{i}}
+{{#each songs as | song index songs | }}
+    {{! this <- song }}
+    track: {{index}}
     name: {{name}}
     artist: {{artist}}
     album: {{album}}
@@ -310,9 +312,9 @@ example: (creating indexing variables)
 
 example: (loops in loops)
 ```
-{{#each arrayOfArrays i=@index}}
-    {{#each this ii=@index}}
-        {{i}}:{{ii}}
+{{#each arrayOfArrays as | item index array | }}
+    {{#each this as | childItem childIndex childArray |}}
+        {{index}}:{{childIndex}}
     {{/each}}
 {{/each}}
 ```
