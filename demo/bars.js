@@ -4379,7 +4379,9 @@ function abb(token, indentWith, bars, context) {
     function consequent(new_context) {
         if (!token.consequent) return;
         new_context = new_context || context;
-        new_context.applyAsExpression(struct.as.vars);
+        if (token.as) {
+            new_context.applyAsExpression(token.as.vars);
+        }
         new_context = new_context.contextWithVars(makeVars(context, token.map, bars));
         r += ac(token.consequent.nodes, indentWith, bars, new_context);
     }
@@ -4387,7 +4389,9 @@ function abb(token, indentWith, bars, context) {
     function alternate(new_context) {
         if (!token.alternate) return;
         if (new_context) {
-            new_context.applyAsExpression(struct.as.vars);
+            if (token.as) {
+                new_context.applyAsExpression(token.as.vars);
+            }
             new_context = new_context.contextWithVars(makeVars(context, token.map, bars));
         }
         r += ac(token.alternate.nodes, indentWith, bars, new_context || context);
@@ -4453,7 +4457,9 @@ function hbb(token, indentWith, indent, bars, context) {
     function consequent(new_context) {
         if (!token.consequent) return;
         new_context = new_context || context;
-        new_context.applyAsExpression(struct.as.vars);
+        if (token.as) {
+            new_context.applyAsExpression(token.as.vars);
+        }
         new_context = new_context.contextWithVars(makeVars(context, token.map, bars));
         r += hc(token.consequent.nodes, indentWith, indent, bars, new_context);
     }
@@ -4461,7 +4467,9 @@ function hbb(token, indentWith, indent, bars, context) {
     function alternate(new_context) {
         if (!token.alternate) return;
         if (new_context) {
-            new_context.applyAsExpression(struct.as.vars);
+            if (token.as) {
+                new_context.applyAsExpression(token.as.vars);
+            }
             new_context = new_context.contextWithVars(makeVars(context, token.map, bars));
         }
         r += hc(token.alternate.nodes, indentWith, indent, bars, new_context || context);
@@ -7582,7 +7590,7 @@ function isArray(obj) {
 },{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
