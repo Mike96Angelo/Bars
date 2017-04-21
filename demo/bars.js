@@ -2519,7 +2519,7 @@ BlockToken.definePrototype({
 
         _.name = arr[1];
 
-        _.arguments = arr[2].map(function (item) {
+        _.arguments = arr[2] && arr[2].map(function (item) {
             var arg = new Token.tokens[item[0]]();
 
             arg.fromArray(item);
@@ -2527,7 +2527,7 @@ BlockToken.definePrototype({
             return arg;
         });
 
-        _.as = arr[3].map(function (item) {
+        _.as = arr[3] && arr[3].map(function (item) {
             var arg = new Token.tokens[item[0]]();
 
             arg.fromArray(item);
@@ -2535,7 +2535,7 @@ BlockToken.definePrototype({
             return arg;
         });
 
-        _.map = arr[4].map(function (item) {
+        _.map = arr[4] && arr[4].map(function (item) {
             var arg = new Token.tokens[item[0]]();
 
             arg.fromArray(item);
@@ -7582,7 +7582,7 @@ function isArray(obj) {
 },{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
