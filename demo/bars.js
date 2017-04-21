@@ -2985,7 +2985,15 @@ PartialToken.definePrototype({
     _fromArray: function _fromArray(arr) {
         var _ = this;
 
-        _.name = arr[1];
+        if (typeof arr[1] === 'object') {
+            var name = new Token.tokens[arr[1][0]]();
+
+            name.fromArray(arr[1]);
+
+            _.name = name;
+        } else {
+            _.name = arr[1];
+        }
 
         if (arr[2]) {
             var expression = new Token.tokens[arr[2][0]]();
@@ -4251,6 +4259,7 @@ function renderBlockAsNodes(bars, struct, context) {
 }
 
 function renderPartial(bars, struct, context) {
+    console.log('>>>', arguments);
     var name = struct.name;
     if (typeof struct.name === 'object') {
         name = execute(struct.name, bars.transforms, context);
@@ -7590,7 +7599,7 @@ function isArray(obj) {
 },{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
