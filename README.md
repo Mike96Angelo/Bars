@@ -24,16 +24,15 @@ $ npm install bars
 
 ### index.bars:
 ```handlebars
-{{#with todos=todos}}
 <h2>To Do App</h2>
 <input id="new-list" todos:{{todos}} placeholder="Add something to your list..." />
 <ul>
-{{#each todos}}
-  <li class="{{del ? 'del' : ''}}">
+{{#each todos as |todo index todos|}}
+  <li class="{{todo.del ? 'del' : ''}}">
     <div>
-      <span class="list-complete {{complete ? 'done' : ''}}" todo:{{this}}></span>
-      <span class="list">{{text}}</span>
-      <span class="list-del" todo:{{this}} todos:{{todos}}>x</span>
+      <span class="list-complete {{todo.complete ? 'done' : ''}}" todo:{{todo}}></span>
+      <span class="list">{{todo.text}}</span>
+      <span class="list-del" todo:{{todo}} todos:{{todos}}>x</span>
     </div>
   </li>
 {{else}}
@@ -42,7 +41,6 @@ $ npm install bars
   </li>
 {{/each}}
 </ul>
-{{/with}}
 ```
 ### app.js:
 ```javascript
