@@ -21,6 +21,9 @@
     * [Partials](#partials)
         * [Implicit](#implicit-example)
         * [Programmatic](#programmatic-example)
+    * [Components](#components)
+        * [Implicit](#implicit-example)
+        * [Programmatic](#programmatic-example)
 * [HTML Markup](#html-markup)
     * [HTML Properties](#html-properties)
     * [HTML Bindings](#html-bindings)
@@ -365,6 +368,24 @@ this is the app.
 ```
 
 The partial whose name is stored in the variable `page` will be rendered.  As the `page` variable is changed the respective partial will be rendered.
+
+## Components
+
+Components are a way to hand over a DOM element's content to something outside of Bars.
+
+```
+{{$<name> [<context>] [<context-map>]}}
+```
+
+example:
+```
+{{$my-component name=name age=37}}
+```
+
+generates:
+```
+<my-component>[COMPONENT ELEMENT]</my-component>
+```
 
 # HTML Markup
 ```

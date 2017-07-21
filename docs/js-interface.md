@@ -276,6 +276,34 @@ bars.registerPartial('person', 'I am a partial');
  */
 ```
 
+## bars.registerComponent(name, component)
+* *name* `String` The name of the component.
+* *component* `Component` The component's constructor function.
+
+Returns *this* [Bars](#bars).
+
+Example:
+```javascript
+function MyComponent(data) {
+    // `MyComponent` is a constructor function
+    // `data` is the initial render data
+
+    var _ = this,
+        element = document.createTextNode('');
+
+    _.init   = function init()       { return element; }; // Must return component's element
+    _.update = function update(data) { element.textContent = data.name; }; // Called when data changes
+    _.update(data);
+}
+
+bars.registerComponent('my-component', MyComponent);
+
+/**
+ * To use the `my-component` component in another
+ * template use this {{?my-component [<expression>] [<context-map>]}}.
+ */
+```
+
 ## bars.registerTransform(name, func)
 * *name* `String` The name of the transform helper.
 * *func* `Function` The transform helper function.

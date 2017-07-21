@@ -25,7 +25,7 @@
         testOut.innerHTML += '<span>PASSED: ' + testName + '</span><br>';
       } else {
         console.debug(
-          'TEST: FAILED' + testName,
+          'TEST: FAILED ' + testName,
           ' - Actual: "' + barsOut.childNodes[0].innerHTML + '"',
           'Expected: "' + expects + '"'
         );
@@ -37,7 +37,6 @@
   <script type="text/javascript">
     var bars = new Bars(),
       barsOut = document.getElementById('bars-output');
-
 
     console.log(bars.version)
 
@@ -337,7 +336,6 @@
           name: 'bob'
         }
       });
-
     }, 'dallas');
 
     test('Bars Partial - Partial in Partial', function() {
@@ -382,15 +380,24 @@
 
     }, '7');
 
+    test('Bars Component', function() {
+      var template = '{{$component name=name}}';
 
+      function MyComponent(data) {
+        var _ = this,
+            element = document.createTextNode('');
 
+        _.init   = function init()       { return element; };
+        _.update = function update(data) { element.textContent = data.name; };
+        _.update(data);
+      };
 
-
-    /*
-     * now open you Inspector
-     * and try changing barsData
-     * and updating the renderer
-     */
+      bars.registerComponent('component', MyComponent);
+      renderer = bars.compile(template);
+      renderer.update({ name: 'yo' });
+      renderer.appendTo(barsOut);
+      renderer.update({ name: 'Dallas' });
+    }, 'Dallas');
 
   </script>
 </body>

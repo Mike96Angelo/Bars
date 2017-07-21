@@ -29,6 +29,7 @@
     "compileit": "^1.0.1",
     "generate-js": "^3.1.2",
     "jquery": "^3.1.1",
+    "json-loader": "^0.5.4",
     "source-map": "^0.5.6",
     "virtual-dom": "^2.1.1"
   },
