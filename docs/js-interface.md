@@ -281,7 +281,7 @@ bars.registerPartial('person', 'I am a partial');
 * *name* `String` The name of the component.
 * *component* `Component` The component's constructor function.
 
-Returns *this* [Bars](#bars).
+Registers a component.
 
 Example:
 ```javascript
