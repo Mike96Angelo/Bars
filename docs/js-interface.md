@@ -26,6 +26,7 @@
         * [bars.build(compiledTemplate)](#barsbuildcompiledtemplate)
         * [bars.registerBlock(name, func)](#barsregisterblockname-func)
         * [bars.registerPartial(name, builtTemplate)](#barsregisterpartialname-builttemplate)
+        * [bars.registerComponent(name, component)](#barsregistercomponentname-component)
         * [bars.registerTransform(name, func)](#barsregistertransformname-func)
 * [Renderer](#renderer)
     * [Class: Renderer](#class-renderer)
