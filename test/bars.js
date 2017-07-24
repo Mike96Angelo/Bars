@@ -4513,7 +4513,7 @@ function renderComponent(bars, struct, context) {
     newContext = newContext.contextWithVars(makeVars(context, struct.map, bars));
     struct.componentId = struct.componentId || Date.now() + Math.random();
 
-    var component = COMPONENT_CACHE[struct.componentId];
+    var component = COMPONENT_CACHE[name + '-' + struct.componentId];
 
     if (component) {
         component.update(newContext.vars);
