@@ -1485,61 +1485,63 @@ module.exports = parseExpressionTransform;
 
 },{"../tokens":35,"../utils":48}],20:[function(require,module,exports){
 var Token = require('../tokens'),
-    ValueToken = Token.tokens.value,
-    OperatorToken = Token.tokens.operator,
-    utils = require('../utils');
+  ValueToken = Token.tokens.value,
+  OperatorToken = Token.tokens.operator,
+  utils = require('../utils');
 
 function parseExpressionValue(mode, code, tokens, flags, scope, parseMode) {
-    var index = code.index,
-        length = code.length,
-        ch = code.codePointAt(index),
-        prop = ch === 0x0040;
+  var index = code.index,
+    length = code.length,
+    ch = code.codePointAt(index),
+    prop = ch === 0x0040,
+    start = ch === 0x0024 || ch === 0x005f;
 
-    if (prop && flags.asExpression) {
-        return null;
+  if (prop && flags.asExpression) {
+    return null;
+  }
+
+  if (!utils.isHTMLIdentifierStart(ch) &&
+    !start &&
+    !prop
+  ) {
+    return null;
+  }
+
+  value = new ValueToken(code);
+
+  value.path = [];
+
+  if (prop) {
+    value.path.push('@');
+    index++;
+  }
+
+  var name = '';
+
+  for (; index < length; index++) {
+    ch = code.codePointAt(index);
+
+    if (utils.isHTMLIdentifier(ch)) {
+      name += code.charAt(index);
+    } else {
+      break;
     }
+  }
 
-    if (!utils.isHTMLIdentifierStart(ch) &&
-        !prop
-    ) {
-        return null;
-    }
+  if (!name) {
+    throw code.makeError(
+      value.range[0], value.range[1],
+      'Unexpected Token: ' +
+      JSON.stringify(value.source())
+      .slice(1, -1)
+    );
+  }
 
-    value = new ValueToken(code);
+  value.path.push(name);
+  code.index = index;
+  value.close();
 
-    value.path = [];
-
-    if (prop) {
-        value.path.push('@');
-        index++;
-    }
-
-    var name = '';
-
-    for (; index < length; index++) {
-        ch = code.codePointAt(index);
-
-        if (utils.isHTMLIdentifier(ch)) {
-            name += code.charAt(index);
-        } else {
-            break;
-        }
-    }
-
-    if (!name) {
-        throw code.makeError(
-            value.range[0], value.range[1],
-            'Unexpected Token: ' +
-            JSON.stringify(value.source())
-            .slice(1, -1)
-        );
-    }
-
-    value.path.push(name);
-    code.index = index;
-    value.close();
-
-    return value;
+  return value;
 }
 
 module.exports = parseExpressionValue;
@@ -4528,7 +4530,7 @@ function hbp(token, indentWith, indent, bars, context) {
 
     newContext = newContext.contextWithVars(makeVars(context, token.map, bars));
 
-    return hc(partial.fragment.nodes, indentWith, indent, bars, context);
+    return hc(partial.fragment.nodes, indentWith, indent, bars, newContext);
 }
 
 function hc(tokens, indentWith, indent, bars, context) {
@@ -7598,7 +7600,7 @@ function isArray(obj) {
 },{}],100:[function(require,module,exports){
 module.exports={
   "name": "bars",
-  "version": "1.9.4",
+  "version": "1.9.6",
   "description": "Bars is a lightweight high performance HTML aware templating engine.",
   "main": "index.js",
   "scripts": {
